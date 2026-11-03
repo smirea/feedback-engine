@@ -289,6 +289,105 @@ private final class Store {
     session.draft = "Typo"
     session.add()
     #expect(session.unshared.map(\.text) == ["Typo"])
+
+private struct ChartValues: DynamicProperty {
+    @Environment(\.locale) private var locale
+    @Environment(\.colorScheme) var scheme
+}
+
+private struct ChartContext: DynamicProperty {
+    @Environment(\.calendar) private var calendar
+    let range: String
+}
+
+private struct DashboardCard<Chart: View>: View {
+    let title: String
+    let value: String?
+    let weight: Double
+    let goal: Double?
+    var values = ChartValues()
+    var context = ChartContext(range: "30d")
+    @ViewBuilder let chart: Chart
+
+    var body: some View { chart }
+}
+
+@MainActor private func card() -> DashboardCard<some View> {
+    DashboardCard(title: "Weight", value: "181.6", weight: 72.57477920000001, goal: nil) {
+        ProgressView().progressViewStyle(.linear)
+    }
+}
+
+@Test @MainActor func genericComponentsAreNamedWithoutTheirTypeArguments() {
+    #expect(Describer.typeName(card()) == "DashboardCard")
+    #expect(Describer.typeName([1]) == "Array")
+}
+
+@Test @MainActor func swiftUIWrappersInsideHelperStructsAreSkippedAndValuesReadPlainly() {
+    #expect(Describer.describeProperties(of: card()) == "title: Weight\nvalue: 181.6\nweight: 72.575\ngoal: nil\ncontext: ChartContext(range: \"30d\")")
+}
+
+@propertyWrapper
+private struct Observe<Value> {
+    let query: String
+    var wrappedValue: Value
+
+    init(wrappedValue: Value, _ query: String) {
+        self.query = query
+        self.wrappedValue = wrappedValue
+    }
+}
+
+extension Observe: FeedbackRepresentable {
+    var feedbackValue: Any { wrappedValue }
+}
+
+@propertyWrapper
+private struct Unreported<Value> {
+    var wrappedValue: Value
+}
+
+private struct WeightRow: View {
+    @Observe("latest") var weight: Double? = 81.60000000000001
+    @Observe("goal") var goal: Double? = nil
+    @Observe("entries") var entries = [Entry(kg: 0.12345, note: nil)]
+    @Unreported var token = "secret"
+
+    var body: some View { Text("Weight") }
+}
+
+private struct Entry {
+    let kg: Double
+    let note: String?
+}
+
+@Test @MainActor func appPropertyWrappersReportTheirValueThroughFeedbackRepresentable() {
+    #expect(Describer.describeProperties(of: WeightRow()) == "weight: 81.6\ngoal: nil\nentries: [Entry(kg: 0.123, note: nil)]")
+}
+
+private final class Link {
+    var name = "a"
+    var next: Link?
+}
+
+private enum Phase {
+    case idle
+    case lifting(set: Int, weight: Double)
+    case resting(Double)
+}
+
+@Test func nestedValuesStayReadableAndBounded() {
+    let link = Link()
+    link.next = link
+    #expect(Describer.describe(link) == "Link(name: \"a\", next: Link(name: \"a\", next: Link(name: \"a\", next: Link(…))))")
+    #expect(Describer.describe(Array(1...12)) == "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, … 2 more]")
+    #expect(Describer.describe(Optional("181.6") as Any) == "181.6")
+    #expect(Describer.describe(String?.none as Any) == "nil")
+    #expect(Describer.describe([Phase.idle, .lifting(set: 2, weight: 60.00000000001), .resting(90)]) == "[idle, lifting(set: 2, weight: 60), resting(90)]")
+    #expect(Describer.describe((number: 1, logged: true, 0.5)) == "(number: 1, logged: true, 0.5)")
+    #expect(Describer.describe([Float(0.1), -0.0000004, 3]) == "[0.1, -0.0000004, 3]")
+    #expect(Describer.describe(["kg": 72.57477920000001]) == "[\"kg\": 72.575]")
+    #expect(Describer.describe(3) == "3")
 }
 
 @Test func elementsNestUnderTheInnermostOfComponentsWithTheSameFrame() {
