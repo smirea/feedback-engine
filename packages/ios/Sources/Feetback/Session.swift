@@ -17,6 +17,7 @@ final class Session {
 
     var path: [Node] { capture.path(from: picked) }
     var target: Node { path[min(level, path.count - 1)] }
+    var similar: [Node.ID] { target.kind == .screen ? [] : capture.similar(to: target.id) }
 
     func pick(at point: CGPoint) {
         select(capture.hitTest(point))

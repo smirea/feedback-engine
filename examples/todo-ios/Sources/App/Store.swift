@@ -85,7 +85,9 @@ final class TodoStore {
                 TodoItem(id: UUID(), title: "Bananas", notes: "Not too ripe", due: now + day),
                 TodoItem(id: UUID(), title: "Coffee beans", due: now + 2 * day, priority: .medium),
                 TodoItem(id: UUID(), title: "Olive oil", isDone: true),
-            ]),
+            ] + ["Eggs", "Spinach", "Greek yogurt", "Lemons", "Rice", "Black beans", "Tortillas", "Avocados", "Cheddar", "Tomatoes", "Garlic", "Pasta", "Parmesan", "Apples"].map {
+                TodoItem(id: UUID(), title: $0)
+            }),
             TodoList(id: UUID(), name: "Work", symbol: "briefcase", color: .blue, items: [
                 TodoItem(id: UUID(), title: "Review Q4 roadmap", due: now, priority: .high),
                 TodoItem(id: UUID(), title: "Reply to design feedback", notes: "Mention the spacing issue"),

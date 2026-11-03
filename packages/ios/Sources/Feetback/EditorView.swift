@@ -7,22 +7,25 @@ struct EditorView: View {
     let dismiss: () -> Void
     let share: () -> Void
     @State private var showsList = false
+    /// The panel's first height. The screenshot's scale stays fixed to it, so the picture does not
+    /// jump as the panel grows with a selection or a longer draft.
     @State private var panelHeight: CGFloat = 0
+    @State private var panelTop: CGFloat = 0
     @FocusState private var composing: Bool
 
     var body: some View {
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
                 header
-                ScreenshotCanvas(session: session)
-                    .padding(.horizontal, 12)
-                    .padding(.top, 8)
-                    .padding(.bottom, panelHeight + 8)
+                ScreenshotCanvas(session: session, panelHeight: panelHeight, panelTop: panelTop)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .ignoresSafeArea(.keyboard)
             TargetPanel(session: session, composing: $composing)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { panelHeight = $0 }
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
+                    if panelHeight == 0 { panelHeight = $0.height }
+                    panelTop = $0.minY
+                }
         }
         .background(Color(white: 0.08).ignoresSafeArea())
         .preferredColorScheme(.dark)
@@ -70,36 +73,73 @@ struct EditorView: View {
     }
 }
 
+/// The screenshot scrolls behind the panel, so a full-length capture can be read end to end and
+/// the bottom stays reachable while the keyboard is up. The scale fits the part that was on
+/// screen, keeping a normal capture fully in view.
 private struct ScreenshotCanvas: View {
     let session: Session
+    let panelHeight: CGFloat
+    let panelTop: CGFloat
 
     var body: some View {
         GeometryReader { proxy in
-            let screen = session.capture.screen
-            let scale = min(proxy.size.width / screen.width, proxy.size.height / screen.height)
-            let size = CGSize(width: screen.width * scale, height: screen.height * scale)
-            ZStack(alignment: .topLeading) {
-                Image(decorative: session.capture.image, scale: session.capture.scale)
-                    .resizable()
-                    .frame(width: size.width, height: size.height)
-                ForEach(Array(session.items.enumerated()), id: \.element.id) { index, item in
-                    Box(frame: session.capture.nodes[item.target].frame, scale: scale, color: Palette.color(index), number: index + 1, emphasized: false)
-                }
-                if session.target.kind != .screen {
-                    Box(frame: session.target.frame, scale: scale, color: .yellow, number: nil, emphasized: true)
-                }
+            let capture = session.capture
+            let scale = max(min((proxy.size.width - 24) / capture.screen.width, (proxy.size.height - panelHeight - 16) / capture.visible.height), 0.05)
+            let size = CGSize(width: capture.screen.width * scale, height: capture.screen.height * scale)
+            let bottom = max(proxy.frame(in: .global).maxY - panelTop, panelHeight) + 8
+            let hidden = capture.screen.height - capture.visible.height
+            ScrollView {
+                canvas(size: size, scale: scale)
+                    .frame(maxWidth: .infinity, minHeight: max(proxy.size.height - bottom - 8, 0))
             }
-            .frame(width: size.width, height: size.height)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .contentShape(Rectangle())
-            .onTapGesture { location in
-                session.pick(at: CGPoint(x: location.x / scale, y: location.y / scale))
+            .contentMargins(.top, 8, for: .scrollContent)
+            .contentMargins(.bottom, bottom, for: .scrollContent)
+            .scrollDismissesKeyboard(.never)
+            .scrollBounceBehavior(.basedOnSize)
+            .modifier(InitialAnchor(anchor: UnitPoint(x: 0.5, y: hidden > 0 ? capture.visible.minY / hidden : 0)))
+        }
+    }
+
+    private func canvas(size: CGSize, scale: CGFloat) -> some View {
+        let capture = session.capture
+        let target = session.target
+        return ZStack(alignment: .topLeading) {
+            Image(decorative: capture.image, scale: capture.scale)
+                .resizable()
+                .frame(width: size.width, height: size.height)
+            ForEach(session.similar, id: \.self) { id in
+                Box(frame: capture.nodes[id].frame, scale: scale, color: .yellow.opacity(0.5), lineWidth: 1, fill: .yellow.opacity(0.08))
             }
-            .accessibilityElement()
-            .accessibilityLabel("Screenshot")
-            .accessibilityHint("Tap a component to give it feedback")
-            .accessibilityAddTraits(.allowsDirectInteraction)
-            .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+            ForEach(Array(session.items.enumerated()), id: \.element.id) { index, item in
+                Box(frame: capture.nodes[item.target].frame, scale: scale, color: Palette.color(index), number: index + 1)
+            }
+            if target.kind != .screen {
+                Box(frame: target.frame, scale: scale, color: .yellow, lineWidth: 2)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .contentShape(Rectangle())
+        .onTapGesture { location in
+            session.pick(at: CGPoint(x: location.x / scale, y: location.y / scale))
+        }
+        .accessibilityElement()
+        .accessibilityLabel("Screenshot")
+        .accessibilityHint("Tap a component to give it feedback")
+        .accessibilityAddTraits(.allowsDirectInteraction)
+    }
+}
+
+/// Opens at the part that was on screen. From iOS 18 the anchor stops there, so the view does not
+/// jump when the keyboard changes the bottom margin.
+private struct InitialAnchor: ViewModifier {
+    let anchor: UnitPoint
+
+    func body(content: Content) -> some View {
+        if #available(iOS 18, *) {
+            content.defaultScrollAnchor(anchor, for: .initialOffset)
+        } else {
+            content.defaultScrollAnchor(anchor)
         }
     }
 }
@@ -108,13 +148,14 @@ private struct Box: View {
     let frame: CGRect
     let scale: CGFloat
     let color: Color
-    let number: Int?
-    let emphasized: Bool
+    var number: Int?
+    var lineWidth: CGFloat = 1.5
+    var fill: Color = .clear
 
     var body: some View {
         RoundedRectangle(cornerRadius: 3)
-            .fill(color.opacity(emphasized ? 0.18 : 0.1))
-            .stroke(color, lineWidth: emphasized ? 2.5 : 1.5)
+            .fill(fill)
+            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, dash: [4, 3]))
             .frame(width: max(frame.width * scale, 4), height: max(frame.height * scale, 4))
             .overlay(alignment: .topLeading) {
                 if let number {
@@ -137,35 +178,25 @@ private struct TargetPanel: View {
 
     var body: some View {
         let target = session.target
-        let path = session.path
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(target.title).font(.headline).lineLimit(1)
-                Spacer()
+            if session.path.count > 1 {
+                Chain(session: session)
+            } else {
+                Text("Tap the screenshot to pick a component.").font(.subheadline).foregroundStyle(.secondary)
+            }
+            HStack(spacing: 8) {
                 if let source = session.capture.nearestComponent(from: target.id)?.source {
                     Text(source.description)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .truncationMode(.head)
                 }
+                Spacer()
+                if !session.similar.isEmpty {
+                    Text("\(session.similar.count) similar").foregroundStyle(.yellow.opacity(0.7))
+                }
             }
-            HStack(spacing: 8) {
-                Image(systemName: "scope").foregroundStyle(.secondary).accessibilityHidden(true)
-                Slider(
-                    value: Binding(get: { Double(session.level) }, set: { session.level = Int($0.rounded()) }),
-                    in: 0...Double(max(path.count - 1, 1)), step: 1
-                )
-                .disabled(path.count < 2)
-                .accessibilityLabel("Hierarchy level")
-                .accessibilityValue(target.title)
-                Image(systemName: "rectangle.dashed").foregroundStyle(.secondary).accessibilityHidden(true)
-            }
-            if path.count > 1 {
-                Breadcrumbs(path: path, level: $session.level)
-            } else {
-                Text("Tap the screenshot to pick a component.").font(.caption).foregroundStyle(.secondary)
-            }
+            .font(.caption.monospaced())
+            .foregroundStyle(.secondary)
             Text(target.data ?? session.capture.nearestComponent(from: target.id)?.data ?? " ")
                 .font(.caption2.monospaced())
                 .foregroundStyle(.secondary)
@@ -193,24 +224,46 @@ private struct TargetPanel: View {
     }
 }
 
-private struct Breadcrumbs: View {
-    let path: [Node]
-    @Binding var level: Int
+/// The target between its parent and its child on the picked path. Stepping to either moves the
+/// target, and the neighbors follow.
+private struct Chain: View {
+    let session: Session
 
     var body: some View {
-        ScrollViewReader { reader in
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(Array(path.enumerated().reversed()), id: \.element.id) { index, node in
-                        Button(node.name) { level = index }
-                            .font(.caption.weight(index == level ? .bold : .regular))
-                            .foregroundStyle(index == level ? Color.yellow : Color.secondary)
-                            .id(node.id)
-                        if index > 0 { Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary) }
-                    }
+        let path = session.path
+        let level = min(session.level, path.count - 1)
+        HStack(spacing: 8) {
+            neighbor(level + 1 < path.count ? path[level + 1] : nil, isParent: true) { session.level = level + 1 }
+                .frame(minWidth: 90, maxWidth: .infinity, alignment: .leading)
+            Text(session.target.title)
+                .font(.headline)
+                .foregroundStyle(.yellow)
+                .lineLimit(1)
+                .layoutPriority(1)
+            neighbor(level > 0 ? path[level - 1] : nil, isParent: false) { session.level = level - 1 }
+                .frame(minWidth: 90, maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+
+    @ViewBuilder
+    private func neighbor(_ node: Node?, isParent: Bool, action: @escaping () -> Void) -> some View {
+        if let node {
+            Button(action: action) {
+                HStack(spacing: 3) {
+                    if isParent { Image(systemName: "chevron.left").font(.caption2.bold()) }
+                    Text(node.name).lineLimit(1)
+                    if !isParent { Image(systemName: "chevron.right").font(.caption2.bold()) }
                 }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(Color(white: 0.2), in: Capsule())
             }
-            .onChange(of: [level, path[0].id], initial: true) { reader.scrollTo(path[min(level, path.count - 1)].id, anchor: .center) }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Select \(isParent ? "parent" : "child"), \(node.title)")
+        } else {
+            Color.clear.frame(height: 1)
         }
     }
 }

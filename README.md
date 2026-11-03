@@ -13,7 +13,7 @@ Requires iOS 17 or later and Swift 6.
 In Xcode, add the package from this repository (or a local checkout with **Add Local…**) and link the `Feetback` library to your app target. In a `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/smirea/feetback-engine", branch: "master"),
+.package(url: "https://github.com/smirea/feedback-engine", branch: "master"),
 ```
 
 ### Turn it on
@@ -62,8 +62,8 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 ### Give feedback
 
 1. Shake the device. In the simulator, use **Device › Shake**.
-2. Tap the screenshot. The most specific component or element under your finger is selected.
-3. Drag the slider, or tap a breadcrumb, to widen the selection to a parent component.
+2. Tap the screenshot. The most specific component or element under your finger is selected, and the same part in sibling components, such as the same button in every row, is outlined faintly. Scroll the screenshot to reach content that was off screen. Scrolling also works while you type.
+3. Under the screenshot, the selection sits between its parent on the left and its child on the right. Tap either one to move the selection up or down the hierarchy.
 4. Type the feedback and press the arrow. Repeat for as many items as you need.
 5. Open the list to review or remove items, and to see the context that will be attached.
 6. Tap **Share**. **Copy Feedback** puts the annotated image and the report on the clipboard, ready to paste into a chat with an agent. Other share targets, such as Messages, Notes, or Files, receive both too.
@@ -72,15 +72,18 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 
 - The screenshot and the tagged components are read at the moment you shake. Each `.feedback` modifier places a plain `UIView` behind its view, and a capture walks the view hierarchy to find them. Tagging costs nothing per frame.
 - Component nesting follows the SwiftUI hierarchy, so parents in the report are the real logical parents.
+- When the screen has a scrolling list or scroll view that covers at least half of it, the capture covers that content at full length. Feetback covers the app with the frozen screenshot, scrolls through the content one screen at a time, reads each step, and then restores the scroll position. The editor opens at the part that was on screen.
 - SwiftUI only exposes accessibility elements while an assistive client is running. During a capture Feetback turns on accessibility automation, which is the same private switch XCTest and Cash App's AccessibilitySnapshot use, and then restores it. The first capture in a process pauses for about a second while UIKit loads its accessibility support. Later captures take a few milliseconds.
 - Presented sheets are separate layers. Taps on a sheet only select what is inside the sheet.
 
 ### Limits
 
-- Only the visible screen is captured. Content scrolled off screen is not in the image or the tree.
+- Only the largest vertical scroll view is captured at full length, and only when nothing is shown over the screen, such as a sheet or an extra window for a toast. Other scroll views, such as horizontal carousels, show what was on screen.
+- A full-length capture stops at 16,000 pixels, about 5,300 points on a 3x screen. A capture with a long list also takes longer, because each screen of content is read in turn.
+- Scrolling during a capture is real scrolling. Code that reacts to it, such as infinite-scroll loading, runs. Pinned section headers appear once per screen of content.
 - The accessibility switch is private API, looked up at runtime. If a future iOS removes it, captures still work with tagged components only. Be careful about shipping it in App Store builds.
 - `.feedback(self)` reads `@Binding` values when you shake. A binding whose getter can trap, such as `Binding(get: { selection! })`, crashes the capture the same way it would crash a redraw. Pass explicit `data:` for those views.
-- Components inside lazy containers, such as `List` and `LazyVStack`, appear only for rows that exist on screen.
+- Components inside lazy containers, such as `List` and `LazyVStack`, appear only for rows that exist on screen, except in the scroll view captured at full length.
 
 ## Example app
 

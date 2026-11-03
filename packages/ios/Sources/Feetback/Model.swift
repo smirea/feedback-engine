@@ -45,7 +45,11 @@ struct ContextEntry: Hashable, Sendable {
 
 struct Capture: @unchecked Sendable {
     let date: Date
+    /// Size of the whole capture. Taller than the device screen when a scroll view was captured
+    /// at full length.
     let screen: CGSize
+    /// The part of the capture that was on screen when it was taken.
+    let visible: CGRect
     let scale: CGFloat
     let image: CGImage
     /// Indexed by `Node.ID`; node 0 is the whole screen.
@@ -80,8 +84,34 @@ struct Capture: @unchecked Sendable {
         return best?.id ?? 0
     }
 
+    /// Nodes that play the same part as `id` in sibling components: the same button in every
+    /// row of a list. Siblings are components with the same tag and the same parent as the
+    /// node's nearest component; inside each, the node is found by walking down the same kinds
+    /// at the same positions.
+    func similar(to id: Node.ID) -> [Node.ID] {
+        let path = path(from: id)
+        guard let anchor = path.firstIndex(where: { $0.source != nil }), let context = path[anchor].parent else { return [] }
+        let children = children
+        let steps = path[..<anchor].map { node in
+            (kind: node.kind, index: children[node.parent!].filter { nodes[$0].kind == node.kind }.firstIndex(of: node.id)!)
+        }
+        return children[context].filter { $0 != path[anchor].id && nodes[$0].kind == path[anchor].kind }.compactMap { sibling in
+            steps.reversed().reduce(Optional(sibling)) { current, step in
+                guard let current else { return nil }
+                let matching = children[current].filter { nodes[$0].kind == step.kind }
+                return step.index < matching.count ? matching[step.index] : nil
+            }
+        }
+    }
+
     func nearestComponent(from id: Node.ID) -> Node? {
         path(from: id).first { $0.source != nil }
+    }
+
+    var children: [[Node.ID]] {
+        var children = Array(repeating: [Node.ID](), count: nodes.count)
+        for node in nodes { if let parent = node.parent { children[parent].append(node.id) } }
+        return children
     }
 
     var depths: [Int] {

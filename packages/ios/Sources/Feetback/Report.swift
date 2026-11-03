@@ -9,7 +9,10 @@ enum Report {
         out.append("# Feedback: \(app)")
         out.append("")
         out.append("The attached image is a screenshot with a numbered box around each item's target.")
-        out.append("Frames are in points from the screen's top-left corner (\(format(capture.screen.width)) × \(format(capture.screen.height)) pt).")
+        if capture.visible.height < capture.screen.height - 0.5 {
+            out.append("It shows the scrolling content at full length. The part on screen when feedback started is y \(format(capture.visible.minY)) to \(format(capture.visible.maxY)).")
+        }
+        out.append("Frames are in points from the screenshot's top-left corner (\(format(capture.screen.width)) × \(format(capture.screen.height)) pt).")
         out.append("Code locations point at the `.feedback(...)` call inside each component.")
         out.append("")
         for entry in capture.environment { out.append("- \(entry.name): \(entry.value)") }
