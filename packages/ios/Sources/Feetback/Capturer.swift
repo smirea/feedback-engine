@@ -32,28 +32,37 @@ enum Capturer {
 
         var sources: [LayerSource] = []
         var navigation: [String] = []
+        func add(_ source: LayerSource) {
+            sources.append(source)
+            let titles = navigationTitles(in: source.view)
+            navigation += sources.count == 1 ? titles : ["(\(source.name))"] + titles
+        }
         for (index, window) in windows.enumerated() {
             var controller = window.rootViewController
             var isRoot = true
             while let current = controller {
                 controller = current.presentedViewController
                 defer { isRoot = false }
-                guard let view = current.viewIfLoaded, view.window != nil else { continue }
-                let name = sources.isEmpty ? "Screen" : layerName(current)
-                sources.append(LayerSource(view: view, name: name, fitsContent: index > 0 && isRoot))
-                let titles = navigationTitles(in: view)
-                navigation += sources.count == 1 ? titles : ["(\(name))"] + titles
+                // A menu presents an empty placeholder controller and draws its items in a container
+                // view added straight to the window, which is collected below.
+                guard !isContextMenu(current), let view = current.viewIfLoaded, view.window != nil else { continue }
+                add(LayerSource(view: view, name: sources.isEmpty ? "Screen" : layerName(current), fitsContent: index > 0 && isRoot))
+            }
+            for view in window.subviews where !view.isHidden && isContextMenu(view) {
+                add(LayerSource(view: view, name: "Menu", fitsContent: true))
             }
         }
+        let keyboard = keyboardFrame(in: scene, space: space)
 
         let format = UIGraphicsImageRendererFormat()
         format.scale = reference.screen.scale
-        let shot = UIGraphicsImageRenderer(bounds: bounds, format: format).image { _ in
+        let shot = UIGraphicsImageRenderer(bounds: bounds, format: format).image { context in
             for window in windows { window.drawHierarchy(in: window.convert(window.bounds, to: space), afterScreenUpdates: false) }
+            if let keyboard { drawKeyboard(in: keyboard, context: context.cgContext, traits: reference.traitCollection) }
         }
         let environment = environment(window: reference, scene: scene, navigation: navigation)
 
-        if sources.count == 1, let scrollView = mainScrollView(in: sources[0].view, space: space) {
+        if sources.count == 1, keyboard == nil, let scrollView = mainScrollView(in: sources[0].view, space: space) {
             let cover = coverWindow(scene: scene, frame: reference.frame, image: shot)
             defer { cover.isHidden = true }
             let full = await AutomationAccessibility.whileEnabled {
@@ -82,6 +91,7 @@ enum Capturer {
             return RawScene.Layer(name: source.name, frame: frames.reduce(CGRect.null) { $0.union($1) })
         }
         if raw.layers.isEmpty { raw.layers.append(RawScene.Layer(name: "Screen", frame: bounds)) }
+        if let keyboard { raw.layers.append(RawScene.Layer(name: "Keyboard", frame: keyboard)) }
 
         return Capture(
             date: .now,
@@ -95,8 +105,41 @@ enum Capturer {
         )
     }
 
+    private static func isContextMenu(_ object: NSObject) -> Bool {
+        String(describing: type(of: object)).contains("ContextMenu")
+    }
+
+    /// The keyboard is drawn by another process, so `drawHierarchy` leaves its area empty and the
+    /// bars that sit on it seem to float. Its frame comes from the in-process placeholder view.
+    private static func keyboardFrame(in scene: UIWindowScene, space: any UICoordinateSpace) -> CGRect? {
+        var best: CGRect?
+        func visit(_ view: UIView) {
+            guard !view.isHidden, view.alpha > 0.01 else { return }
+            let name = String(describing: type(of: view))
+            if name.contains("KeyboardPlaceholderView") {
+                let frame = view.convert(view.bounds, to: space).intersection(space.bounds)
+                if !frame.isNull, frame.height > 40, frame.height > best?.height ?? 0 { best = frame }
+                return
+            }
+            view.subviews.forEach(visit)
+        }
+        scene.windows.filter { !$0.isHidden && isSystemWindow($0) }.forEach(visit)
+        return best
+    }
+
+    private static func drawKeyboard(in frame: CGRect, context: CGContext, traits: UITraitCollection) {
+        let dark = traits.userInterfaceStyle == .dark
+        UIColor(white: dark ? 0.17 : 0.82, alpha: 1).setFill()
+        context.fill(frame)
+        let label = NSAttributedString(string: "Keyboard", attributes: [
+            .font: UIFont.systemFont(ofSize: 15, weight: .medium), .foregroundColor: UIColor(white: dark ? 0.55 : 0.45, alpha: 1),
+        ])
+        let size = label.size()
+        label.draw(at: CGPoint(x: frame.midX - size.width / 2, y: frame.midY - size.height / 2))
+    }
+
     /// The largest scroll view that covers at least half the screen and has more content than
-    /// fits. Screens with a presented sheet are captured as they look instead.
+    /// fits. Screens with a presented sheet or the keyboard up are captured as they look instead.
     private static func mainScrollView(in root: UIView, space: any UICoordinateSpace) -> UIScrollView? {
         let screen = space.bounds
         var best: (view: UIScrollView, area: CGFloat)?
@@ -288,7 +331,7 @@ enum Capturer {
         return order.compactMap { best[$0] }
     }
 
-    private static func isSystemWindow(_ window: UIWindow) -> Bool {
+    static func isSystemWindow(_ window: UIWindow) -> Bool {
         let name = String(describing: type(of: window))
         return name.contains("Keyboard") || name.contains("TextEffects")
     }
@@ -319,7 +362,8 @@ enum Capturer {
         if let view = object as? UIView, view.isHidden || view.alpha < 0.01 { return }
         let inScrollView = inScrollView || (scrollView != nil && object === scrollView)
         if object.isAccessibilityElement {
-            let parts = [object.accessibilityLabel, object.accessibilityValue].compactMap { $0 }.filter { !$0.isEmpty }
+            var parts = [object.accessibilityLabel, object.accessibilityValue].compactMap { $0 }.filter { !$0.isEmpty }
+            if parts.isEmpty, let placeholder = (object as? UITextField)?.placeholder, !placeholder.isEmpty { parts = [placeholder] }
             elements.append(Found(
                 element: RawScene.Element(layer: layer, role: role(object.accessibilityTraits), label: parts.joined(separator: ", "), frame: object.accessibilityFrame),
                 inScrollView: inScrollView
@@ -334,9 +378,14 @@ enum Capturer {
 
     /// Ordered by how specific a role is: when an element has several traits, the first wins.
     private static let roles: [(UIAccessibilityTraits, String)] = [
-        (.button, "Button"), (.link, "Link"), (.searchField, "Search field"), (.adjustable, "Adjustable"),
-        (.header, "Header"), (.image, "Image"), (.tabBar, "Tab bar"), (.staticText, "Text"),
+        (.searchField, "Search field"), (textEntry, "Text field"), (.button, "Button"), (.link, "Link"),
+        (.adjustable, "Adjustable"), (.header, "Header"), (.image, "Image"), (.tabBar, "Tab bar"),
+        (.staticText, "Text"),
     ]
+
+    /// UIKit's private trait for editable text, set on every `UITextField` and `UITextView`,
+    /// including the ones in alerts and behind SwiftUI's `TextField`.
+    private static let textEntry = UIAccessibilityTraits(rawValue: 1 << 18)
 
     private static func role(_ traits: UIAccessibilityTraits) -> String {
         roles.first { traits.contains($0.0) }?.1 ?? "Element"

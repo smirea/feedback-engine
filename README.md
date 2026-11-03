@@ -85,6 +85,9 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 5. Open the list to review or remove items, and to see the context that will be attached.
 6. Pick the export format in the list. **Image** shares one `feedback.png` with the boxes, each item's text and code location, and the environment. **JSON** shares one `feedback.json` with every item, the whole component tree, the component data, and the attached context, without the screenshot. The choice is remembered.
 7. Tap **Share**. **Copy Feedback** puts the export on the clipboard, ready to paste into a chat with an agent. Other share targets, such as Messages, Notes, or Files, receive it too.
+8. Tap **Close** to return to the app. If some items were never shared, Feetback asks before it discards them. The text field that had focus before the shake gets it back.
+
+While the editor is open, VoiceOver and UI automation see only the editor. Its text stops growing at the largest standard Dynamic Type size, so the screenshot keeps room at accessibility sizes.
 
 ### How capture works
 
@@ -92,11 +95,12 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 - Component nesting follows the SwiftUI hierarchy, so parents in the export are the real logical parents.
 - When the screen has a scrolling list or scroll view that covers at least half of it, the capture covers that content at full length. Feetback covers the app with the frozen screenshot, scrolls through the content one screen at a time, reads each step, and then restores the scroll position. The editor opens at the part that was on screen.
 - SwiftUI only exposes accessibility elements while an assistive client is running. During a capture Feetback turns on accessibility automation, which is the same private switch XCTest and Cash App's AccessibilitySnapshot use, and then restores it. The first capture in a process pauses for about a second while UIKit loads its accessibility support. Later captures take a few milliseconds.
-- Presented sheets are separate layers. Taps on a sheet only select what is inside the sheet.
+- Presented sheets, alerts, and open menus are separate layers. Taps on a sheet only select what is inside the sheet, and the items of an open menu can be picked one by one.
+- The keyboard is drawn by a system process, so a capture can't contain it. Feetback draws a gray "Keyboard" block in its place, so the bars above it stay where they were, and taps there select the keyboard instead of the content under it.
 
 ### Limits
 
-- Only the largest vertical scroll view is captured at full length, and only when nothing is shown over the screen, such as a sheet or an extra window for a toast. Other scroll views, such as horizontal carousels, show what was on screen.
+- Only the largest vertical scroll view is captured at full length, and only when nothing is shown over the screen, such as a sheet, a menu, the keyboard, or an extra window for a toast. Other scroll views, such as horizontal carousels, show what was on screen.
 - A full-length capture stops at 16,000 pixels, about 5,300 points on a 3x screen. A capture with a long list also takes longer, because each screen of content is read in turn.
 - Scrolling during a capture is real scrolling. Code that reacts to it, such as infinite-scroll loading, runs. Pinned section headers appear once per screen of content.
 - The accessibility switch is private API, looked up at runtime. If a future iOS removes it, captures still work with tagged components only. Be careful about shipping it in App Store builds.
