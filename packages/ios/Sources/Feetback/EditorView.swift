@@ -38,7 +38,8 @@ struct EditorView: View {
             Button("Discard", role: .destructive, action: dismiss)
             Button("Keep Editing", role: .cancel) {}
         } message: {
-            Text("Closing discards \(itemCount) you haven't shared.")
+            let count = session.unshared.count
+            Text(count == 0 ? "Closing discards the feedback you're typing." : "Closing discards \(Self.items(count)) you haven't shared.")
         }
         .sheet(isPresented: $showsList) {
             ItemsSheet(session: session, share: share)
@@ -49,7 +50,8 @@ struct EditorView: View {
     private var header: some View {
         HStack(spacing: 12) {
             Button("Close", systemImage: "xmark") {
-                if session.hasUnsharedItems { confirmsClose = true } else { dismiss() }
+                let typing = !session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                if typing || !session.unshared.isEmpty { confirmsClose = true } else { dismiss() }
             }
                 .labelStyle(.iconOnly)
             Spacer()
@@ -61,7 +63,7 @@ struct EditorView: View {
             } label: {
                 Image(systemName: "list.bullet")
             }
-            .accessibilityLabel("Feedback list, \(itemCount)")
+            .accessibilityLabel("Feedback list, \(Self.items(session.items.count))")
             .overlay(alignment: .topTrailing) {
                 if !session.items.isEmpty {
                     Text("\(session.items.count)")
@@ -85,8 +87,8 @@ struct EditorView: View {
         .padding(.vertical, 8)
     }
 
-    private var itemCount: String {
-        session.items.count == 1 ? "1 item" : "\(session.items.count) items"
+    private static func items(_ count: Int) -> String {
+        count == 1 ? "1 item" : "\(count) items"
     }
 }
 

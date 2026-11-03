@@ -116,7 +116,7 @@ enum Capturer {
         func visit(_ view: UIView) {
             guard !view.isHidden, view.alpha > 0.01 else { return }
             let name = String(describing: type(of: view))
-            if name.contains("KeyboardPlaceholderView") || name.contains("InputSetHostView") {
+            if name.contains("KeyboardPlaceholderView") {
                 let frame = view.convert(view.bounds, to: space).intersection(space.bounds)
                 if !frame.isNull, frame.height > 40, frame.height > best?.height ?? 0 { best = frame }
                 return
@@ -379,7 +379,7 @@ enum Capturer {
     /// Ordered by how specific a role is: when an element has several traits, the first wins.
     private static let roles: [(UIAccessibilityTraits, String)] = [
         (.searchField, "Search field"), (textEntry, "Text field"), (.toggleButton, "Switch"), (.button, "Button"), (.link, "Link"),
-        (.adjustable, "Adjustable"), (.keyboardKey, "Key"), (.header, "Header"), (.image, "Image"), (.tabBar, "Tab bar"),
+        (.adjustable, "Adjustable"), (.header, "Header"), (.image, "Image"), (.tabBar, "Tab bar"),
         (.staticText, "Text"),
     ]
 

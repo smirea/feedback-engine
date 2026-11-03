@@ -277,15 +277,16 @@ private final class Store {
     #expect(layout.environment == CGPoint(x: 776, y: 24))
 }
 
-@MainActor @Test func closingAsksOnlyWhileItemsAreUnshared() {
+@MainActor @Test func unsharedItemsAreTheOnesNoCompletedShareIncluded() {
     let session = Session(capture: capture(RawScene(screen: screen, layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))], components: [], elements: [])))
-    #expect(session.hasUnsharedItems == false)
-    session.draft = "Bigger title"
+    for text in ["Bigger title", "Wrong color"] {
+        session.draft = text
+        session.add()
+    }
+    #expect(session.unshared.map(\.text) == ["Bigger title", "Wrong color"])
+    session.shared.formUnion(session.items)
+    session.remove(session.items[1].id)
+    session.draft = "Typo"
     session.add()
-    #expect(session.hasUnsharedItems == true)
-    session.shared = session.items
-    #expect(session.hasUnsharedItems == false)
-    session.draft = "Wrong color"
-    session.add()
-    #expect(session.hasUnsharedItems == true)
+    #expect(session.unshared.map(\.text) == ["Typo"])
 }

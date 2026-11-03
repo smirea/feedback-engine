@@ -93,7 +93,7 @@ public enum Feetback {
         sheet.excludedActivityTypes = [.copyToPasteboard]
         let items = session.items
         sheet.completionWithItemsHandler = { _, completed, _, _ in
-            if completed { session.shared = items }
+            if completed { session.shared.formUnion(items) }
         }
         sheet.popoverPresentationController?.sourceView = presenter.view
         presenter.present(sheet, animated: true)

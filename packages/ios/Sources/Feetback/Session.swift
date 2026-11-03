@@ -13,10 +13,10 @@ final class Session {
         didSet { UserDefaults.standard.set(format.rawValue, forKey: Session.formatKey) }
     }
     private(set) var items: [FeedbackItem] = []
-    /// The items as they were when a share last completed.
-    var shared: [FeedbackItem] = []
-    /// Closing asks first only when it would lose items that were never shared.
-    var hasUnsharedItems: Bool { !items.isEmpty && items != shared }
+    /// Every item that was in a completed share.
+    var shared: Set<FeedbackItem> = []
+    /// Closing asks first when it would lose these, or a draft.
+    var unshared: [FeedbackItem] { items.filter { !shared.contains($0) } }
 
     init(capture: Capture) {
         self.capture = capture
