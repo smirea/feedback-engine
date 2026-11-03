@@ -250,3 +250,25 @@ private final class Store {
     ])
     #expect(document["context"] as? NSArray == [["name": "Store", "value": "Store(count: 2)"]])
 }
+
+@Test func aButtonWrappingAComponentBecomesItsParent() {
+    let screenID = UUID()
+    let scene = RawScene(
+        screen: screen,
+        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
+        components: [
+            component("ListsScreen", CGRect(origin: .zero, size: screen), id: screenID),
+            component("ListRow", CGRect(x: 32, y: 329, width: 316, height: 32), parent: screenID),
+            RawScene.Component(id: UUID(), parent: screenID, layer: 0, name: "ListRow", source: source(329), frame: CGRect(x: 32, y: 379, width: 316, height: 32), data: nil),
+        ],
+        elements: [
+            .init(layer: 0, role: "Button", label: "Work, 3", frame: CGRect(x: 16, y: 320, width: 368, height: 50)),
+            .init(layer: 0, role: "Button", label: "Home, 1", frame: CGRect(x: 16, y: 370, width: 368, height: 50)),
+            .init(layer: 0, role: "Header", label: "My Lists", frame: CGRect(x: 32, y: 290, width: 100, height: 20)),
+        ]
+    )
+    let capture = capture(scene)
+    #expect(titles(capture.path(from: capture.hitTest(CGPoint(x: 100, y: 340)))) == ["ListRow", "Button \"Work, 3\"", "ListsScreen", "Screen"])
+    #expect(titles(capture.path(from: capture.hitTest(CGPoint(x: 370, y: 340)))) == ["Button \"Work, 3\"", "ListsScreen", "Screen"])
+    #expect(capture.similar(to: capture.hitTest(CGPoint(x: 100, y: 340))).map { capture.nodes[$0].frame.minY } == [379])
+}

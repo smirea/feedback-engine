@@ -57,7 +57,7 @@ struct TodoRow: View {
 
 `.feedback(self)` names the component after its type and reports its stored properties, `@State`, `@Binding`, and `@Bindable` values. `@Environment` values and closures are skipped. To choose the name or the data yourself, use `.feedback("TodoRow", data: item)`.
 
-Untagged views still appear: buttons, text, images, and headers come from the accessibility tree and attach to the nearest tagged component around them.
+Untagged views still appear: buttons, text, images, and headers come from the accessibility tree and attach to the nearest tagged component around them. A button or `NavigationLink` merges everything inside it into one element, such as `Button "Work, 3"`, so the text and counts inside it can't be picked one by one. A tagged component inside the button still can, and its parent is the button. Tag an inner view when it needs feedback of its own.
 
 ### Give feedback
 

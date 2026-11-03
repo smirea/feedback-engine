@@ -99,7 +99,29 @@ enum TreeBuilder {
             ))
         }
 
+        wrapInElements(&entries, components: Array(componentEntry.values))
         return ordered(entries)
+    }
+
+    /// A button or link merges its content into one accessibility element, so a component inside a
+    /// `NavigationLink` shows up next to the link's element instead of under it. Moving the
+    /// component under the smallest sibling element that encloses it restores the real nesting.
+    private static func wrapInElements(_ entries: inout [Entry], components: [Int]) {
+        func area(_ frame: CGRect) -> CGFloat { frame.width * frame.height }
+        let elements = entries.indices.filter {
+            if case .element(let role) = entries[$0].kind { ["Button", "Link"].contains(role) } else { false }
+        }
+        for index in components {
+            let component = entries[index]
+            let wrapper = elements
+                .filter { element in
+                    let candidate = entries[element]
+                    return candidate.parent == component.parent && candidate.layer == component.layer
+                        && candidate.frame.insetBy(dx: -1, dy: -1).contains(component.frame) && area(candidate.frame) > area(component.frame)
+                }
+                .min { area(entries[$0].frame) < area(entries[$1].frame) }
+            if let wrapper { entries[index].parent = wrapper }
+        }
     }
 
     /// Accessibility frames can be empty, infinite, or `.null` for elements that aren't laid out.

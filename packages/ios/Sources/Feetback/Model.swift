@@ -85,23 +85,30 @@ struct Capture: @unchecked Sendable {
     }
 
     /// Nodes that play the same part as `id` in sibling components: the same button in every
-    /// row of a list. Siblings are components with the same tag and the same parent as the
-    /// node's nearest component; inside each, the node is found by walking down the same kinds
-    /// at the same positions.
+    /// row of a list. Siblings are components with the same tag as the node's nearest component
+    /// and the same enclosing component, so rows wrapped one by one in a `NavigationLink` still
+    /// match. Inside each, the node is found by walking down the same kinds at the same positions.
     func similar(to id: Node.ID) -> [Node.ID] {
         let path = path(from: id)
-        guard let anchor = path.firstIndex(where: { $0.source != nil }), let context = path[anchor].parent else { return [] }
+        guard let anchor = path.firstIndex(where: { $0.source != nil }) else { return [] }
+        let component = path[anchor]
+        let context = enclosing(component.id)
         let children = children
         let steps = path[..<anchor].map { node in
             (kind: node.kind, index: children[node.parent!].filter { nodes[$0].kind == node.kind }.firstIndex(of: node.id)!)
         }
-        return children[context].filter { $0 != path[anchor].id && nodes[$0].kind == path[anchor].kind }.compactMap { sibling in
-            steps.reversed().reduce(Optional(sibling)) { current, step in
+        return nodes.filter { $0.id != component.id && $0.kind == component.kind && enclosing($0.id) == context }.compactMap { sibling in
+            steps.reversed().reduce(Optional(sibling.id)) { current, step in
                 guard let current else { return nil }
                 let matching = children[current].filter { nodes[$0].kind == step.kind }
                 return step.index < matching.count ? matching[step.index] : nil
             }
         }
+    }
+
+    /// The nearest component, layer, or screen above a node.
+    private func enclosing(_ id: Node.ID) -> Node.ID? {
+        path(from: id).dropFirst().first { $0.source != nil || $0.kind == .layer || $0.kind == .screen }?.id
     }
 
     func nearestComponent(from id: Node.ID) -> Node? {
