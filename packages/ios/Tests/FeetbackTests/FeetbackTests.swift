@@ -289,6 +289,7 @@ private final class Store {
     session.draft = "Typo"
     session.add()
     #expect(session.unshared.map(\.text) == ["Typo"])
+}
 
 private struct ChartValues: DynamicProperty {
     @Environment(\.locale) private var locale
@@ -581,4 +582,16 @@ private enum Phase {
     #expect(Stitch.cut(atMost: 300, after: 120, frames: rows + texts) == 260)
     #expect(Stitch.cut(atMost: 340, after: 120, frames: rows + texts) == 340)
     #expect(Stitch.cut(atMost: 250, after: 190, frames: rows) == nil)
+}
+
+private indirect enum Chain {
+    case end
+    case next(Chain)
+}
+
+@Test func everyKindOfNestingStopsAtTheDepthLimitAndTinyNumbersKeepTheirDigits() {
+    #expect(Describer.describe([[[[[1]]]], [[[]]]]) == "[[[[…]]], [[[]]]]")
+    #expect(Describer.describe(Chain.next(.next(.next(.next(.end))))) == "next(next(next(next(…))))")
+    #expect(Describer.describe([[["k": (1, 2)]]]) == "[[[\"k\": (…)]]]")
+    #expect(Describer.describe([1.2345e-16, -0.0004, 0]) == "[1.23e-16, -0.0004, 0]")
 }

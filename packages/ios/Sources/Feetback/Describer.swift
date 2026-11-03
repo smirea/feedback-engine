@@ -72,19 +72,23 @@ enum Describer {
         guard let value = unwrapped(value), !isOpaque(value) else { return nil }
         if let number = number(value) { return number }
         let mirror = Mirror(reflecting: value)
+        let deep = depth >= maxDepth && mirror.children.first != nil
         switch mirror.displayStyle {
         case .optional:
             guard let some = mirror.children.first else { return "nil" }
             return render(some.value, depth: depth)
         case .collection, .set:
+            if deep { return "[…]" }
             return "[\(list(mirror.children.map(\.value), depth: depth + 1))]"
         case .dictionary:
+            if deep { return "[…]" }
             let pairs = mirror.children.map { pair -> String in
                 let parts = Mirror(reflecting: pair.value).children.map { render($0.value, depth: depth + 1) ?? "…" }
                 return parts.joined(separator: ": ")
             }
             return pairs.isEmpty ? "[:]" : "[\(limited(pairs))]"
         case .tuple:
+            if deep { return "(…)" }
             let parts = mirror.children.compactMap { child -> String? in
                 guard let text = render(child.value, depth: depth + 1) else { return nil }
                 guard let label = child.label, !label.hasPrefix(".") else { return text }
@@ -93,12 +97,12 @@ enum Describer {
             return "(\(parts.joined(separator: ", ")))"
         case .enum:
             guard !(value is CustomStringConvertible), let payload = mirror.children.first, let label = payload.label else { return String(describing: value) }
-            let text = render(payload.value, depth: depth + 1) ?? "…"
+            let text = deep ? "…" : render(payload.value, depth: depth + 1) ?? "…"
             return text.hasPrefix("(") ? label + text : "\(label)(\(text))"
         case .struct where value is CustomStringConvertible:
             return String(describing: value)
         case .struct, .class:
-            guard depth < maxDepth else { return "\(typeName(value))(…)" }
+            if deep { return "\(typeName(value))(…)" }
             let fields = fields(of: mirror, depth: depth + 1)
             if fields.isEmpty && mirror.children.first != nil { return nil }
             return "\(typeName(value))(\(fields.map { "\($0.label): \($0.text)" }.joined(separator: ", ")))"
@@ -135,7 +139,7 @@ enum Describer {
     }
 
     /// Binary floating point turns 72.575 into 72.57477920000001, so floats keep 3 decimals, or 3 significant
-    /// digits below 1.
+    /// digits below 1, switching to exponent notation where that would take more than 15 decimals.
     private static func number(_ value: Any) -> String? {
         let double: Double
         switch value {
@@ -146,7 +150,8 @@ enum Describer {
         }
         guard double.isFinite else { return String(describing: double) }
         let magnitude = abs(double)
-        let decimals = magnitude >= 1 || magnitude == 0 ? 3 : min(15, 2 - Int(log10(magnitude).rounded(.down)))
+        let decimals = magnitude >= 1 || magnitude == 0 ? 3 : 2 - Int(log10(magnitude).rounded(.down))
+        if decimals > 15 { return String(format: "%.3g", double) }
         var text = String(format: "%.\(decimals)f", double)
         if text.contains(".") {
             text = String(text.reversed().drop { $0 == "0" }.reversed())
