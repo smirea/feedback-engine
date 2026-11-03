@@ -393,7 +393,14 @@ enum Capturer {
             (scrollView.backgroundColor ?? .systemBackground).resolvedColor(with: reference.traitCollection).setFill()
             context.fill(CGRect(origin: .zero, size: size))
             context.cgContext.saveGState()
-            context.cgContext.clip(to: CGRect(x: 0, y: 0, width: size.width, height: firstReveal.upperBound))
+            // A pinned footer is cut from the first step only inside the scroll view's columns; a
+            // sidebar beside it keeps its pixels down to the end of the first screen.
+            let footer = first.upperBound - firstReveal.upperBound
+            context.cgContext.clip(to: [
+                CGRect(x: 0, y: 0, width: size.width, height: firstReveal.upperBound),
+                CGRect(x: 0, y: firstReveal.upperBound, width: columns.minX, height: footer),
+                CGRect(x: columns.maxX, y: firstReveal.upperBound, width: size.width - columns.maxX, height: footer),
+            ])
             firstImage.draw(at: .zero)
             context.cgContext.restoreGState()
             for strip in strips { strip.image.draw(at: CGPoint(x: columns.minX, y: strip.y)) }
