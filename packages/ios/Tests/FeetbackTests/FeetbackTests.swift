@@ -316,11 +316,13 @@ private final class Store {
             component("DashboardHome", CGRect(origin: .zero, size: screen), id: homeID),
             component("CycleFocus", CGRect(x: 16, y: 100, width: 368, height: 200), parent: homeID),
             component("Badge", CGRect(x: 200, y: 150.33, width: 60, height: 20.33), parent: homeID),
+            component("Streak", CGRect(x: 300, y: 400, width: 60, height: 20), parent: homeID),
         ],
         elements: [
             .init(layer: 0, role: "Text", label: "Week 3", frame: CGRect(x: 32, y: 280, width: 120, height: 22.5)),
             .init(layer: 0, role: "Button", label: "Open cycle", frame: CGRect(x: 0, y: 240, width: 400, height: 100)),
             .init(layer: 0, role: "Text", label: "Badge", frame: CGRect(x: 200, y: 150, width: 60, height: 21)),
+            .init(layer: 0, role: "Text", label: "12 days", frame: CGRect(x: 298, y: 400, width: 64, height: 20)),
         ]
     )
     let capture = capture(scene)
@@ -328,6 +330,8 @@ private final class Store {
     #expect(titles(capture.path(from: capture.hitTest(CGPoint(x: 8, y: 320)))) == ["Button \"Open cycle\"", "DashboardHome", "Screen"])
     let badge = try #require(capture.nodes.first { $0.label == "Badge" })
     #expect(titles(capture.path(from: badge.id)) == ["Text \"Badge\"", "Badge", "DashboardHome", "Screen"])
+    let streak = try #require(capture.nodes.first { $0.label == "12 days" })
+    #expect(titles(capture.path(from: streak.id)) == ["Text \"12 days\"", "Streak", "DashboardHome", "Screen"])
 }
 
 @Test func similarFindsTheSamePartWhenTheRepeatedComponentWrapsTheTaggedOne() {

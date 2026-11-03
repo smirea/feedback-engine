@@ -122,14 +122,15 @@ enum TreeBuilder {
     /// The smallest component that contains the element. An element can stick out a little past
     /// the component it belongs to, such as text with a shadow or negative padding, so a smaller
     /// component holding its centre and most of its area wins over a larger one that contains it
-    /// completely. A component the element encloses with room to spare is never its container:
-    /// that element is a button wrapping the component.
+    /// completely. A component that a button or link encloses with room to spare is never its
+    /// container: the button wraps the component.
     private static func container(of element: RawScene.Element, in candidates: [Int], of components: [RawScene.Component], depth: (Int) -> Int) -> Int? {
         let frame = element.frame
         let centre = CGPoint(x: frame.midX, y: frame.midY)
         let around = candidates.filter { index in
             let candidate = components[index].frame
-            let encloses = frame.insetBy(dx: -1, dy: -1).contains(candidate) && (frame.width > candidate.width + 2 || frame.height > candidate.height + 2)
+            let encloses = ["Button", "Link"].contains(element.role) && frame.insetBy(dx: -1, dy: -1).contains(candidate)
+                && (frame.width > candidate.width + 2 || frame.height > candidate.height + 2)
             return candidate.contains(centre) && !encloses
         }
         return smallest(in: around.filter { area(components[$0].frame.intersection(frame)) >= area(frame) * 0.75 }, containing: centre, layer: element.layer, of: components, depth: depth)
