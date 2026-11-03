@@ -378,7 +378,7 @@ enum Capturer {
 
     /// Ordered by how specific a role is: when an element has several traits, the first wins.
     private static let roles: [(UIAccessibilityTraits, String)] = [
-        (.searchField, "Search field"), (textEntry, "Text field"), (.toggleButton, "Switch"), (.button, "Button"), (.link, "Link"),
+        (.searchField, "Search field"), (textEntry, "Text field"), (.button, "Button"), (.link, "Link"),
         (.adjustable, "Adjustable"), (.header, "Header"), (.image, "Image"), (.tabBar, "Tab bar"),
         (.staticText, "Text"),
     ]
