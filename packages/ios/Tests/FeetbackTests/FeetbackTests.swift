@@ -595,3 +595,9 @@ private indirect enum Chain {
     #expect(Describer.describe([[["k": (1, 2)]]]) == "[[[\"k\": (…)]]]")
     #expect(Describer.describe([1.2345e-16, -0.0004, 0]) == "[1.23e-16, -0.0004, 0]")
 }
+
+@Test func contextValuesNestDeeperThanComponentData() {
+    let nested = [[[[[1]]]]]
+    #expect(Describer.describe(nested) == "[[[[…]]]]")
+    #expect(Describer.describe(nested, limit: 8000) == "[[[[[1]]]]]")
+}

@@ -28,6 +28,7 @@ A component's `name` is its type name without generic arguments, such as `Dashbo
 - Floating-point numbers keep 3 decimals, or 3 significant digits below 1, without trailing zeros: `72.575`, `0.123`, `60`. Values that would need more than 15 decimals use exponent notation, such as `1.23e-16`.
 - Structured values are `Type(field: value, …)`, enum cases with values are `case(value)`, lists are `[a, b]`, and maps are `[key: value]`. A value with its own text description uses it.
 - Nesting stops after 3 levels as `Type(…)`, `case(…)`, `[…]`, or `(…)`, and lists after 10 elements as `… N more`. The whole description stops at 1,500 characters, followed by `… (truncated)`.
+- Values in `context` use the same format with 6 levels of nesting and up to 8,000 characters.
 - Closures, framework internals such as environment values, and values made only of those are left out.
 
 ## Image export

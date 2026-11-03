@@ -42,13 +42,12 @@ extension LazyState: FeedbackUnwrappable {
 
 enum Describer {
     static let limit = 1500
-    private static let maxDepth = 3
     private static let maxElements = 10
 
     /// Describes a view's stored properties. Of the property wrappers, only `@State`, `@Binding`, `@Bindable`
     /// and `FeedbackRepresentable` ones are read: `@Environment` and the rest hold app-wide objects, not this view's data.
     static func describeProperties(of view: Any) -> String? {
-        let lines = fields(of: Mirror(reflecting: view), depth: 0).map { "\($0.label): \($0.text)" }
+        let lines = fields(of: Mirror(reflecting: view), depth: Depth(max: 3)).map { "\($0.label): \($0.text)" }
         return lines.isEmpty ? nil : truncate(lines.joined(separator: "\n"))
     }
 
@@ -57,8 +56,9 @@ enum Describer {
         return Mirror(reflecting: location).children.first != nil
     }
 
+    /// A larger `limit` is for app-wide context, which gets the room to nest deeper.
     static func describe(_ value: Any, limit: Int = limit) -> String {
-        truncate(render(value, depth: 0) ?? typeName(value), limit: limit)
+        truncate(render(value, depth: Depth(max: limit > Describer.limit ? 6 : 3)) ?? typeName(value), limit: limit)
     }
 
     static func typeName(_ value: Any) -> String {
@@ -68,51 +68,51 @@ enum Describer {
 
     /// `nil` hides the value: it is a closure, SwiftUI or Combine plumbing, unreadable, or a struct made only of those.
     /// Strings are quoted below the top level so they stand apart from the punctuation around them.
-    private static func render(_ value: Any, depth: Int) -> String? {
+    private static func render(_ value: Any, depth: Depth) -> String? {
         guard let value = unwrapped(value), !isOpaque(value) else { return nil }
         if let number = number(value) { return number }
         let mirror = Mirror(reflecting: value)
-        let deep = depth >= maxDepth && mirror.children.first != nil
+        let deep = depth.level >= depth.max && mirror.children.first != nil
         switch mirror.displayStyle {
         case .optional:
             guard let some = mirror.children.first else { return "nil" }
             return render(some.value, depth: depth)
         case .collection, .set:
             if deep { return "[…]" }
-            return "[\(list(mirror.children.map(\.value), depth: depth + 1))]"
+            return "[\(list(mirror.children.map(\.value), depth: depth.next))]"
         case .dictionary:
             if deep { return "[…]" }
             let pairs = mirror.children.map { pair -> String in
-                let parts = Mirror(reflecting: pair.value).children.map { render($0.value, depth: depth + 1) ?? "…" }
+                let parts = Mirror(reflecting: pair.value).children.map { render($0.value, depth: depth.next) ?? "…" }
                 return parts.joined(separator: ": ")
             }
             return pairs.isEmpty ? "[:]" : "[\(limited(pairs))]"
         case .tuple:
             if deep { return "(…)" }
             let parts = mirror.children.compactMap { child -> String? in
-                guard let text = render(child.value, depth: depth + 1) else { return nil }
+                guard let text = render(child.value, depth: depth.next) else { return nil }
                 guard let label = child.label, !label.hasPrefix(".") else { return text }
                 return "\(label): \(text)"
             }
             return "(\(parts.joined(separator: ", ")))"
         case .enum:
             guard !(value is CustomStringConvertible), let payload = mirror.children.first, let label = payload.label else { return String(describing: value) }
-            let text = deep ? "…" : render(payload.value, depth: depth + 1) ?? "…"
+            let text = deep ? "…" : render(payload.value, depth: depth.next) ?? "…"
             return text.hasPrefix("(") ? label + text : "\(label)(\(text))"
         case .struct where value is CustomStringConvertible:
             return String(describing: value)
         case .struct, .class:
             if deep { return "\(typeName(value))(…)" }
-            let fields = fields(of: mirror, depth: depth + 1)
+            let fields = fields(of: mirror, depth: depth.next)
             if fields.isEmpty && mirror.children.first != nil { return nil }
             return "\(typeName(value))(\(fields.map { "\($0.label): \($0.text)" }.joined(separator: ", ")))"
         default:
-            return depth > 0 && value is any StringProtocol ? String(reflecting: value) : String(describing: value)
+            return depth.level > 0 && value is any StringProtocol ? String(reflecting: value) : String(describing: value)
         }
     }
 
     /// A leading underscore marks a property wrapper's storage in a struct and plain storage in an `@Observable` class.
-    private static func fields(of mirror: Mirror, depth: Int) -> [(label: String, text: String)] {
+    private static func fields(of mirror: Mirror, depth: Depth) -> [(label: String, text: String)] {
         mirror.children.compactMap { child in
             guard var label = child.label, !label.hasPrefix("_$") else { return nil }
             if label.hasPrefix("_") {
@@ -129,7 +129,7 @@ enum Describer {
         return value
     }
 
-    private static func list(_ values: [Any], depth: Int) -> String {
+    private static func list(_ values: [Any], depth: Depth) -> String {
         limited(values.compactMap { render($0, depth: depth) })
     }
 
@@ -163,6 +163,13 @@ enum Describer {
     private static func isOpaque(_ value: Any) -> Bool {
         let type = String(reflecting: Swift.type(of: value))
         return type.contains("->") || ["SwiftUI.", "Combine.", "Swift.Optional<SwiftUI.", "Swift.Optional<Combine."].contains { type.hasPrefix($0) }
+    }
+
+    private struct Depth {
+        var level = 0
+        let max: Int
+
+        var next: Depth { Depth(level: level + 1, max: max) }
     }
 
     private static func truncate(_ text: String, limit: Int = limit) -> String {
