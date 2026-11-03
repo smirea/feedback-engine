@@ -5,9 +5,9 @@ import Foundation
 struct ScrollStep {
     /// How far the content has moved up the window since the first step.
     let shift: CGFloat
-    /// The window's y range where content shows without bars over it. After the first step it
-    /// also starts below a pinned section header, which covers the rows under it.
-    let band: ClosedRange<CGFloat>
+    /// The window's y range where content shows without bars or pinned section footers over it.
+    /// After the first step it also starts below a pinned section header.
+    var band: ClosedRange<CGFloat>
     let components: [RawScene.Component]
     /// Components inside the scroll view, so they scroll with it.
     let scrolling: Set<UUID>
@@ -21,16 +21,15 @@ struct ScrollStep {
 enum Stitch {
     /// Lays every step out on one canvas `height` points tall. Content moves down by its step's
     /// shift. Each step keeps only what is inside the scroll view and inside its band, so nothing
-    /// hidden under the bars or a pinned header shows up, and content past the end of the stitched
-    /// strips is dropped.
+    /// hidden under the bars or a pinned header or footer shows up, and content past the end of the
+    /// stitched strips is dropped. `viewport` is the first step's band without its pinned footer.
     /// Whatever stays put between the first step and another is chrome, such as bars and floating
     /// buttons: it is read from the first step, and chrome below the content band moves to the
     /// bottom of the canvas. A component of the first step outside the scroll view that spans the
     /// band and ends on screen holds the scroll view, even when its frame changed while scrolling,
     /// so it stretches with the band.
-    static func scene(screen: CGSize, height: CGFloat, steps: [ScrollStep]) -> RawScene {
+    static func scene(screen: CGSize, height: CGFloat, viewport: ClosedRange<CGFloat>, steps: [ScrollStep]) -> RawScene {
         let extra = height - screen.height
-        let viewport = steps[0].band
         let end = viewport.upperBound + extra
         func spans(_ frame: CGRect) -> Bool {
             frame.minY <= viewport.lowerBound + 0.5 && frame.maxY >= viewport.upperBound - 0.5 && frame.maxY <= screen.height + 0.5
@@ -61,7 +60,10 @@ enum Stitch {
             let reference = index == 0 ? steps.dropFirst().first : steps[0]
             for component in step.components where !seen.contains(component.id) {
                 let isScrolling = step.scrolling.contains(component.id)
-                let isChrome = stays(component, in: reference) || (index == 0 && !isScrolling && spans(component.frame))
+                // A pinned footer stays put too, but outside the first band it hides content instead of
+                // being a bar, and it shows up again in its own place, which can be where it was pinned.
+                let isHidden = isScrolling && outside(component.frame, steps[0].band)
+                let isChrome = (stays(component, in: reference) && !isHidden) || (index == 0 && !isScrolling && spans(component.frame))
                 if isChrome, index > 0 { continue }
                 if !isChrome, isScrolling, outside(component.frame, step.band) { continue }
                 let frame = isChrome ? chrome(component.frame) : component.frame.offsetBy(dx: 0, dy: step.shift)

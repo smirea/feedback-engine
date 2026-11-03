@@ -16,7 +16,7 @@ A capture is a screenshot plus a tree of nodes. Node 0 is the whole capture. Whe
 | `data` | Text description of the component's data at capture time |
 | `layer` | 0 for the base screen. Higher layers are presented on top. |
 
-Hit-testing picks the smallest node under the point, considering only the topmost layer that covers it. A node that a higher layer covers completely can never be picked, so the tree leaves it out. Content hidden under the bars or a pinned section header of a full-length capture is left out too, and each section header appears once, where its section starts.
+Hit-testing picks the smallest node under the point, considering only the topmost layer that covers it. A node that a higher layer covers completely can never be picked, so the tree leaves it out. Content hidden under the bars or a pinned section header or footer of a full-length capture is left out too. Each section header and footer appears once, in its own place, except the header of a section that starts above the capture, which stays where it was pinned on screen.
 
 An element's parent is the smallest component that holds its centre and at least three quarters of its area, or else the smallest that holds its centre. Of two components with the same frame, the inner one wins.
 
