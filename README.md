@@ -1,6 +1,23 @@
 # Feetback
 
-Precise, in-app feedback for the apps you build. Shake the device, tap a component on the frozen screenshot, and write what should change. Feetback exports one file: an annotated image that names each component and its source location, or JSON with the whole component tree and the data each component was showing, so an agent can act on it without guessing.
+**Point at your app. Say what's wrong. Hand an agent the exact component and line of code.**
+
+Shake the device, tap any component on the frozen screenshot, and write what should change. Feetback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
+
+<p align="center">
+  <img src="docs/editor.png" alt="The Feetback editor: a frozen screenshot with the Groceries row selected, showing ListRow, App/ListsScreen.swift:81 and its data" width="270">
+  &nbsp;&nbsp;&nbsp;
+  <img src="docs/export.png" alt="The exported feedback.png: the screenshot with three numbered boxes, each linked to a card with the component, its file:line, and the note" width="560">
+</p>
+
+<p align="center"><sub>Left: tap a component in the editor. Right: the <code>feedback.png</code> it exports, ready to paste into a chat with an agent.</sub></p>
+
+<p align="center">
+  <img src="docs/demo.gif" alt="Adding three pieces of feedback, then opening the exported image" width="270"><br>
+  <sub>Three notes and the exported image in about 10 seconds. <a href="docs/demo.mp4">Full quality video</a></sub>
+</p>
+
+Prefer structured data? Switch the export to JSON for the whole component tree, each component's data, and the app context you attached.
 
 Platform packages live under `packages/`. iOS is available now; a Svelte package is planned and will produce the same report ([spec/report.md](spec/report.md)).
 
@@ -101,5 +118,3 @@ cd examples/todo-ios
 swift build   # compiles the package for macOS
 swift test    # tree building, hit-testing, stitching, JSON export, and value description tests
 ```
-
-CI runs both, plus a Release simulator build of the example app.
