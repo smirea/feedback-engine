@@ -20,6 +20,17 @@ Hit-testing picks the smallest node under the point, considering only the topmos
 
 An element's parent is the smallest component that holds its centre and at least three quarters of its area, or else the smallest that holds its centre. Of two components with the same frame, the inner one wins.
 
+## Component data
+
+A component's `name` is its type name without generic arguments, such as `DashboardCard`. Its `data` is one `label: value` line per property, or the description of the value the app passed. Values are written as follows:
+
+- Strings are plain at the top level and quoted inside other values. A missing value is `nil`.
+- Floating-point numbers keep 3 decimals, or 3 significant digits below 1, without trailing zeros: `72.575`, `0.123`, `60`. Values that would need more than 15 decimals use exponent notation, such as `1.23e-16`.
+- Structured values are `Type(field: value, …)`, enum cases with values are `case(value)`, lists are `[a, b]`, and maps are `[key: value]`. A value with its own text description uses it.
+- Nesting stops after 3 levels as `Type(…)`, `case(…)`, `[…]`, or `(…)`, and lists after 10 elements as `… N more`. The whole description stops at 1,500 characters, followed by `… (truncated)`.
+- Values in `context` use the same format with 6 levels of nesting and up to 8,000 characters.
+- Closures, framework internals such as environment values, and values made only of those are left out.
+
 ## Image export
 
 The screenshot sits between two columns. Each item's target has a dashed box with no fill and a numbered badge, matching the item numbers in the JSON export. Each item's target title, the nearest component's `file:line`, and the text go in a card in the left column, as level with the target as the cards above it allow, with a line from the card to the nearest side of the box. A card moves to the right column only when that makes its line at least 80 points shorter, as for a target at the right edge. The app name and the environment entries go in the right column, in the first gap from the top that is tall enough for them. A tall capture is drawn at a lower scale, so the image stays under about 40 million pixels.
