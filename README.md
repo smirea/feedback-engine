@@ -89,7 +89,7 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 ### Give feedback
 
 1. Shake the device. In the simulator, use **Device › Shake**.
-2. Tap the screenshot. The most specific component or element under your finger is selected, and the same part in sibling components, such as the same button in every row, is outlined faintly. Scroll the screenshot to reach content that was off screen. Scrolling also works while you type.
+2. Tap the screenshot. The most specific component or element under your finger is selected, and the same part in sibling components, such as the same button in every row, is outlined faintly. Scroll the screenshot to reach content that was off screen, and pinch to zoom in on small targets, up to 4×. Scrolling and zooming also work while you type.
 3. Under the screenshot, the selection sits between its parent on the left and its child on the right. Tap either one to move the selection up or down the hierarchy.
 4. Type the feedback and press the arrow. Repeat for as many items as you need.
 5. Open the list to review or remove items, and to see the context that will be attached.

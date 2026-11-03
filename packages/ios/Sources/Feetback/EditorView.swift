@@ -94,11 +94,13 @@ struct EditorView: View {
 
 /// The screenshot scrolls behind the panel, so a full-length capture can be read end to end and
 /// the bottom stays reachable while the keyboard is up. The scale fits the part that was on
-/// screen, keeping a normal capture fully in view.
+/// screen, keeping a normal capture fully in view, and a pinch zooms in on small targets.
 private struct ScreenshotCanvas: View {
     let session: Session
     let panelHeight: CGFloat
     let panelTop: CGFloat
+    @State private var zoom = ZoomLevel()
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         GeometryReader { proxy in
@@ -109,34 +111,29 @@ private struct ScreenshotCanvas: View {
             let scale = max(min(widthFit, (proxy.size.height - panelHeight - 16) / capture.visible.height), widthFit / 2, 0.05)
             let size = CGSize(width: capture.screen.width * scale, height: capture.screen.height * scale)
             let bottom = max(proxy.frame(in: .global).maxY - panelTop, panelHeight) + 8
-            let hidden = capture.screen.height - capture.visible.height
-            ScrollView {
-                canvas(size: size, scale: scale)
-                    .frame(maxWidth: .infinity, minHeight: max(proxy.size.height - bottom - 8, 0))
-            }
-            .contentMargins(.top, 8, for: .scrollContent)
-            .contentMargins(.bottom, bottom, for: .scrollContent)
-            .scrollDismissesKeyboard(.never)
-            .scrollBounceBehavior(.basedOnSize)
-            .modifier(InitialAnchor(anchor: UnitPoint(x: 0.5, y: hidden > 0 ? capture.visible.minY / hidden : 0)))
+            ZoomableScroll(
+                contentSize: size, top: 8, bottom: bottom, initialOffset: capture.visible.minY * scale, zoom: zoom,
+                content: canvas(size: size, scale: scale).dynamicTypeSize(dynamicTypeSize)
+            )
         }
     }
 
     private func canvas(size: CGSize, scale: CGFloat) -> some View {
         let capture = session.capture
         let target = session.target
+        let zoom = zoom.scale
         return ZStack(alignment: .topLeading) {
             Image(decorative: capture.image, scale: capture.scale)
                 .resizable()
                 .frame(width: size.width, height: size.height)
             ForEach(session.similar, id: \.self) { id in
-                Box(frame: capture.nodes[id].frame, scale: scale, color: .yellow.opacity(0.5), lineWidth: 1, fill: .yellow.opacity(0.08))
+                Box(frame: capture.nodes[id].frame, scale: scale, zoom: zoom, color: .yellow.opacity(0.5), lineWidth: 1, fill: .yellow.opacity(0.08))
             }
             ForEach(Array(session.items.enumerated()), id: \.element.id) { index, item in
-                Box(frame: capture.nodes[item.target].frame, scale: scale, color: Palette.color(index), number: index + 1)
+                Box(frame: capture.nodes[item.target].frame, scale: scale, zoom: zoom, color: Palette.color(index), number: index + 1)
             }
             if target.kind != .screen {
-                Box(frame: target.frame, scale: scale, color: .yellow, lineWidth: 2)
+                Box(frame: target.frame, scale: scale, zoom: zoom, color: .yellow, lineWidth: 2)
             }
         }
         .frame(width: size.width, height: size.height)
@@ -147,21 +144,107 @@ private struct ScreenshotCanvas: View {
         }
         .accessibilityElement()
         .accessibilityLabel("Screenshot")
-        .accessibilityHint("Tap a component to give it feedback")
+        .accessibilityHint("Tap a component to give it feedback. Pinch to zoom.")
         .accessibilityAddTraits(.allowsDirectInteraction)
     }
 }
 
-/// Opens at the part that was on screen. From iOS 18 the anchor stops there, so the view does not
-/// jump when the keyboard changes the bottom margin.
-private struct InitialAnchor: ViewModifier {
-    let anchor: UnitPoint
+/// The zoom the boxes divide their strokes by, so outlines stay thin when zoomed in. It updates
+/// when a pinch ends, not on every frame of it.
+@MainActor @Observable
+private final class ZoomLevel {
+    var scale: CGFloat = 1
+}
 
-    func body(content: Content) -> some View {
-        if #available(iOS 18, *) {
-            content.defaultScrollAnchor(anchor, for: .initialOffset)
-        } else {
-            content.defaultScrollAnchor(anchor)
+/// A `UIScrollView`, because SwiftUI's `ScrollView` can't zoom around the pinch. The SwiftUI
+/// canvas is hosted at its unzoomed size, so tap locations stay in screenshot coordinates.
+private struct ZoomableScroll<Content: View>: UIViewRepresentable {
+    let contentSize: CGSize
+    let top: CGFloat
+    let bottom: CGFloat
+    let initialOffset: CGFloat
+    let zoom: ZoomLevel
+    let content: Content
+
+    func makeCoordinator() -> Coordinator { Coordinator(host: UIHostingController(rootView: content), zoom: zoom) }
+
+    func makeUIView(context: Context) -> CanvasScrollView {
+        let scroll = CanvasScrollView()
+        scroll.delegate = context.coordinator
+        scroll.minimumZoomScale = 1
+        scroll.maximumZoomScale = 4
+        scroll.keyboardDismissMode = .none
+        scroll.contentInsetAdjustmentBehavior = .never
+        scroll.showsHorizontalScrollIndicator = false
+        scroll.backgroundColor = .clear
+        scroll.pendingOffset = initialOffset
+        let host = context.coordinator.host
+        host.view.backgroundColor = .clear
+        host.sizingOptions = []
+        scroll.addSubview(host.view)
+        scroll.canvas = host.view
+        return scroll
+    }
+
+    func updateUIView(_ scroll: CanvasScrollView, context: Context) {
+        let host = context.coordinator.host
+        host.rootView = content
+        if scroll.baseSize != contentSize {
+            let zoom = scroll.zoomScale
+            scroll.zoomScale = 1
+            host.view.frame = CGRect(origin: .zero, size: contentSize)
+            scroll.contentSize = contentSize
+            scroll.baseSize = contentSize
+            scroll.zoomScale = zoom
+        }
+        scroll.margins = (top, bottom)
+        scroll.setNeedsLayout()
+    }
+
+    @MainActor
+    final class Coordinator: NSObject, UIScrollViewDelegate {
+        let host: UIHostingController<Content>
+        let zoom: ZoomLevel
+
+        init(host: UIHostingController<Content>, zoom: ZoomLevel) {
+            self.host = host
+            self.zoom = zoom
+        }
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { host.view }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) { scrollView.setNeedsLayout() }
+
+        func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            zoom.scale = scale
+        }
+    }
+}
+
+/// Centres the canvas when it is smaller than the view, keeps the margins above and below it, and
+/// opens at the part of the capture that was on screen.
+private final class CanvasScrollView: UIScrollView {
+    weak var canvas: UIView?
+    var baseSize = CGSize.zero
+    var margins: (top: CGFloat, bottom: CGFloat) = (0, 0)
+    var pendingOffset: CGFloat?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        guard let canvas, bounds.height > 0 else { return }
+        let size = canvas.frame.size
+        let room = bounds.height - margins.top - margins.bottom
+        let inset = UIEdgeInsets(
+            top: margins.top + max((room - size.height) / 2, 0),
+            left: max((bounds.width - size.width) / 2, 0),
+            bottom: margins.bottom,
+            right: max((bounds.width - size.width) / 2, 0)
+        )
+        if contentInset != inset { contentInset = inset }
+        if let offset = pendingOffset, size.height > 0 {
+            pendingOffset = nil
+            let highest = max(size.height + inset.bottom - bounds.height, -inset.top)
+            contentOffset = CGPoint(x: -inset.left, y: min(max(offset - inset.top, -inset.top), highest))
         }
     }
 }
@@ -169,6 +252,7 @@ private struct InitialAnchor: ViewModifier {
 private struct Box: View {
     let frame: CGRect
     let scale: CGFloat
+    var zoom: CGFloat = 1
     let color: Color
     var number: Int?
     var lineWidth: CGFloat = 1.5
@@ -177,7 +261,7 @@ private struct Box: View {
     var body: some View {
         RoundedRectangle(cornerRadius: 3)
             .fill(fill)
-            .stroke(color, style: StrokeStyle(lineWidth: lineWidth, dash: [4, 3]))
+            .stroke(color, style: StrokeStyle(lineWidth: lineWidth / zoom, dash: [4 / zoom, 3 / zoom]))
             .frame(width: max(frame.width * scale, 4), height: max(frame.height * scale, 4))
             .overlay(alignment: .topLeading) {
                 if let number {
@@ -186,7 +270,8 @@ private struct Box: View {
                         .foregroundStyle(.white)
                         .frame(minWidth: 16, minHeight: 16)
                         .background(color, in: Circle())
-                        .offset(x: -6, y: -6)
+                        .scaleEffect(1 / zoom, anchor: .topLeading)
+                        .offset(x: -6 / zoom, y: -6 / zoom)
                 }
             }
             .offset(x: frame.minX * scale, y: frame.minY * scale)
