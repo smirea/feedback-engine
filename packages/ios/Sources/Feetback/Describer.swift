@@ -21,10 +21,12 @@ extension State: FeedbackUnwrappable {
     var feedbackValue: Any? { Describer.isInstalled(self) ? wrappedValue : nil }
 }
 
-/// What `@State private var` expands to in the Swift 6.2+ SDKs, reflected as `__name`.
+#if compiler(>=6.4)
+/// What `@State private var` expands to from the Xcode 27 SDK on, reflected as `__name`.
 extension LazyState: FeedbackUnwrappable {
     var feedbackValue: Any? { Describer.isInstalled(self) ? wrappedValue : nil }
 }
+#endif
 
 enum Describer {
     static let limit = 1500
