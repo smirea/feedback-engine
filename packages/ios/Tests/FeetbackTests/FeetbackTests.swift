@@ -175,13 +175,13 @@ private final class Store {
     let back = RawScene.Element(layer: 0, role: "Button", label: "Back", frame: CGRect(x: 0, y: 50, width: 60, height: 44))
     let steps = [
         ScrollStep(
-            shift: 0, band: 100...720, components: [screenComponent(), row(rowA, y: 600)],
+            shift: 0, band: 100...720, components: [screenComponent(), row(rowA, y: 600)], scrolling: [rowA],
             content: [text("Milk", y: 630), text("Delete", y: 630, x: 280)],
             elements: [tabBar, back, .init(layer: 0, role: "Header", label: "Groceries", frame: CGRect(x: 16, y: 100, width: 200, height: 40))]
         ),
         // The step scrolls exactly six rows, so this row's Delete sits where the first one did.
         ScrollStep(
-            shift: 600, band: 94...720, components: [screenComponent(), row(rowB, y: 600)],
+            shift: 600, band: 94...720, components: [screenComponent(), row(rowB, y: 600)], scrolling: [rowB],
             content: [text("Milk", y: 30), text("Eggs", y: 630), text("Delete", y: 630, x: 280), text("Past the end", y: 720)],
             elements: [tabBar, back, .init(layer: 0, role: "Header", label: "Groceries", frame: CGRect(x: 100, y: 55, width: 200, height: 30))]
         ),
@@ -289,4 +289,193 @@ private final class Store {
     session.draft = "Typo"
     session.add()
     #expect(session.unshared.map(\.text) == ["Typo"])
+}
+
+@Test func elementsNestUnderTheInnermostOfComponentsWithTheSameFrame() {
+    let homeID = UUID()
+    var components = [component("Home", CGRect(origin: .zero, size: screen), id: homeID)]
+    var elements: [RawScene.Element] = []
+    for index in 0..<12 {
+        let card = UUID()
+        let frame = CGRect(x: 16, y: CGFloat(index) * 60 + 20, width: 368, height: 50)
+        components.append(RawScene.Component(id: card, parent: homeID, layer: 0, name: "Card", source: source(10), frame: frame, data: nil))
+        components.append(RawScene.Component(id: UUID(), parent: card, layer: 0, name: "Insight", source: source(20), frame: frame, data: nil))
+        elements.append(.init(layer: 0, role: "Text", label: "Value \(index)", frame: frame.insetBy(dx: 10, dy: 10)))
+    }
+    let capture = capture(RawScene(screen: screen, layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))], components: components, elements: elements))
+    let paths = (0..<12).map { titles(capture.path(from: capture.hitTest(CGPoint(x: 100, y: CGFloat($0) * 60 + 45)))) }
+    #expect(paths == (0..<12).map { ["Text \"Value \($0)\"", "Insight", "Card", "Home", "Screen"] })
+}
+
+@Test func anElementStickingOutOfItsComponentStaysWithIt() throws {
+    let homeID = UUID()
+    let scene = RawScene(
+        screen: screen,
+        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
+        components: [
+            component("DashboardHome", CGRect(origin: .zero, size: screen), id: homeID),
+            component("CycleFocus", CGRect(x: 16, y: 100, width: 368, height: 200), parent: homeID),
+            component("Badge", CGRect(x: 200, y: 150.33, width: 60, height: 20.33), parent: homeID),
+        ],
+        elements: [
+            .init(layer: 0, role: "Text", label: "Week 3", frame: CGRect(x: 32, y: 280, width: 120, height: 22.5)),
+            .init(layer: 0, role: "Button", label: "Open cycle", frame: CGRect(x: 0, y: 240, width: 400, height: 100)),
+            .init(layer: 0, role: "Text", label: "Badge", frame: CGRect(x: 200, y: 150, width: 60, height: 21)),
+        ]
+    )
+    let capture = capture(scene)
+    #expect(titles(capture.path(from: capture.hitTest(CGPoint(x: 60, y: 290)))) == ["Text \"Week 3\"", "CycleFocus", "DashboardHome", "Screen"])
+    #expect(titles(capture.path(from: capture.hitTest(CGPoint(x: 8, y: 320)))) == ["Button \"Open cycle\"", "DashboardHome", "Screen"])
+    let badge = try #require(capture.nodes.first { $0.label == "Badge" })
+    #expect(titles(capture.path(from: badge.id)) == ["Text \"Badge\"", "Badge", "DashboardHome", "Screen"])
+}
+
+@Test func similarFindsTheSamePartWhenTheRepeatedComponentWrapsTheTaggedOne() {
+    let pageID = UUID()
+    var components = [component("DayPage", CGRect(origin: .zero, size: screen), id: pageID)]
+    var elements: [RawScene.Element] = []
+    for index in 0..<3 {
+        let entry = UUID()
+        let y = 100 + CGFloat(index) * 80
+        components.append(RawScene.Component(id: entry, parent: pageID, layer: 0, name: "EntryRow", source: source(30), frame: CGRect(x: 0, y: y, width: 400, height: 70), data: nil))
+        components.append(RawScene.Component(id: UUID(), parent: entry, layer: 0, name: "FoodRow", source: source(60), frame: CGRect(x: 60, y: y + 5, width: 300, height: 60), data: nil))
+        elements.append(.init(layer: 0, role: "Text", label: "Food \(index)", frame: CGRect(x: 70, y: y + 10, width: 200, height: 20)))
+        elements.append(.init(layer: 0, role: "Text", label: "08:0\(index)", frame: CGRect(x: 8, y: y + 10, width: 40, height: 20)))
+    }
+    let capture = capture(RawScene(screen: screen, layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))], components: components, elements: elements))
+    let food = capture.hitTest(CGPoint(x: 100, y: 120))
+    #expect(titles(capture.path(from: food)) == ["Text \"Food 0\"", "FoodRow", "EntryRow", "DayPage", "Screen"])
+    #expect(capture.similar(to: food).map { capture.nodes[$0].title } == ["Text \"Food 1\"", "Text \"Food 2\""])
+    #expect(capture.similar(to: capture.path(from: food)[1].id).map { capture.nodes[$0].frame.minY } == [185, 265])
+    #expect(capture.similar(to: capture.hitTest(CGPoint(x: 20, y: 120))).map { capture.nodes[$0].title } == ["Text \"08:01\"", "Text \"08:02\""])
+}
+
+@Test func aFullScreenLayerHidesTheLayersUnderIt() throws {
+    let base = UUID()
+    let scene = RawScene(
+        screen: screen,
+        layers: [
+            .init(name: "Screen", frame: CGRect(origin: .zero, size: screen)),
+            .init(name: "Sheet", frame: CGRect(x: 0, y: 400, width: 400, height: 400)),
+            .init(name: "Full-screen cover", frame: CGRect(origin: .zero, size: screen)),
+        ],
+        components: [
+            component("HistoryScreen", CGRect(origin: .zero, size: screen), id: base),
+            component("Row", CGRect(x: 0, y: 100, width: 400, height: 40), parent: base),
+            component("Picker", CGRect(x: 0, y: 400, width: 400, height: 400), layer: 1),
+            component("Summary", CGRect(origin: .zero, size: screen), layer: 2),
+        ],
+        elements: [
+            .init(layer: 0, role: "Text", label: "Upper", frame: CGRect(x: 16, y: 110, width: 100, height: 20)),
+            .init(layer: 2, role: "Button", label: "Done", frame: CGRect(x: 300, y: 60, width: 80, height: 44)),
+        ]
+    )
+    let capture = capture(scene)
+    let document = try #require(JSONSerialization.jsonObject(with: Data(Report.json(capture, items: []).utf8)) as? [String: Any])
+    #expect((document["nodes"] as? [[String: Any]])?.map { "\($0["kind"]!) \($0["name"]!)" } == [
+        "screen Screen", "layer Full-screen cover", "component Summary", "element Button",
+    ])
+}
+
+@Test func aSheetLeavesOutOnlyWhatItCompletelyCovers() {
+    let base = UUID()
+    let scene = RawScene(
+        screen: screen,
+        layers: [
+            .init(name: "Screen", frame: CGRect(origin: .zero, size: screen)),
+            .init(name: "Sheet", frame: CGRect(x: 0, y: 400, width: 400, height: 400)),
+        ],
+        components: [
+            component("ListScreen", CGRect(origin: .zero, size: screen), id: base),
+            component("Row", CGRect(x: 0, y: 100, width: 400, height: 40), parent: base),
+            component("Row", CGRect(x: 0, y: 500, width: 400, height: 40), parent: base),
+            component("DetailSheet", CGRect(x: 0, y: 400, width: 400, height: 400), layer: 1),
+        ],
+        elements: [.init(layer: 0, role: "Text", label: "Behind", frame: CGRect(x: 16, y: 510, width: 100, height: 20))]
+    )
+    #expect(outline(capture(scene)) == """
+    Screen  [x 0, y 0, 400 × 800]
+      ListScreen  [x 0, y 0, 400 × 800]  App/Screen.swift:1
+        Row  [x 0, y 100, 400 × 40]  App/Screen.swift:100
+      Sheet  [x 0, y 400, 400 × 400]
+        DetailSheet  [x 0, y 400, 400 × 400]  App/Screen.swift:400
+    """)
+}
+
+@Test func framesAreClippedToTheCapture() {
+    let scroller = UUID()
+    let scene = RawScene(
+        screen: screen,
+        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
+        components: [
+            component("Scroller", CGRect(x: 0, y: -200, width: 400, height: 1400), id: scroller),
+            component("Row", CGRect(x: 0, y: 780, width: 400, height: 60), parent: scroller),
+        ],
+        elements: [.init(layer: 0, role: "Header", label: "Top", frame: CGRect(x: 16, y: -17, width: 200, height: 40))]
+    )
+    #expect(outline(capture(scene)) == """
+    Screen  [x 0, y 0, 400 × 800]
+      Scroller  [x 0, y 0, 400 × 800]  App/Screen.swift:-200
+        Header "Top"  [x 16, y 0, 200 × 23]
+        Row  [x 0, y 780, 400 × 20]  App/Screen.swift:780
+    """)
+}
+
+/// A plain `List` under a nav bar and a filter bar, captured from partway down. The band starts at
+/// 200 below the bars, and the large title collapses once it scrolls. Step 0 has rows hidden above
+/// the band; the capturer starts later bands below the pinned "Free Weights" header.
+@Test func stitchingKeepsOneHeaderPerSectionAndNothingUnderTheTopBars() {
+    let screenID = UUID(), browserID = UUID()
+    let screenComponent = RawScene.Component(id: screenID, parent: nil, layer: 0, name: "LibraryScreen", source: source(1), frame: CGRect(origin: .zero, size: screen), data: nil)
+    func browser(y: CGFloat) -> RawScene.Component {
+        RawScene.Component(id: browserID, parent: screenID, layer: 0, name: "Browser", source: source(5), frame: CGRect(x: 0, y: y, width: 400, height: 720 - y), data: nil)
+    }
+    func row(_ id: UUID, y: CGFloat) -> RawScene.Component {
+        RawScene.Component(id: id, parent: browserID, layer: 0, name: "Row", source: source(9), frame: CGRect(x: 0, y: y, width: 400, height: 80), data: nil)
+    }
+    func text(_ label: String, y: CGFloat, role: String = "Text") -> RawScene.Element {
+        .init(layer: 0, role: role, label: label, frame: CGRect(x: 16, y: y, width: 100, height: 20))
+    }
+    let tabBar = RawScene.Element(layer: 0, role: "Tab bar", label: "Tabs", frame: CGRect(x: 0, y: 720, width: 400, height: 80))
+    let filter = RawScene.Element(layer: 0, role: "Button", label: "Filter", frame: CGRect(x: 16, y: 150, width: 80, height: 30))
+    let above = UUID(), rowA = UUID(), rowB = UUID(), rowC = UUID()
+    let steps = [
+        ScrollStep(
+            shift: 0, band: 200...720,
+            components: [screenComponent, browser(y: 100), row(above, y: 100), row(rowA, y: 400)], scrolling: [above, rowA],
+            content: [text("Free Weights", y: 210, role: "Header"), text("Squat", y: 130), text("Hidden", y: -17), text("Press", y: 420)],
+            elements: [tabBar, filter, text("Exercises", y: 60, role: "Header")]
+        ),
+        ScrollStep(
+            shift: 400, band: 244...720,
+            components: [screenComponent, browser(y: 60), row(rowA, y: 0), row(rowB, y: 500), row(rowC, y: 640)], scrolling: [rowA, rowB, rowC],
+            content: [text("Free Weights", y: 210, role: "Header"), text("Press", y: 20), text("Machines", y: 450, role: "Header"), text("Row", y: 520), text("Leg Press", y: 660)],
+            elements: [tabBar, filter, text("Exercises", y: 50, role: "Header")]
+        ),
+    ]
+    let capture = capture(Stitch.scene(screen: screen, height: 1200, steps: steps))
+    #expect(outline(capture) == """
+    Screen  [x 0, y 0, 400 × 1200]
+      LibraryScreen  [x 0, y 0, 400 × 1200]  App/Screen.swift:1
+        Header "Exercises"  [x 16, y 60, 100 × 20]
+        Browser  [x 0, y 100, 400 × 1020]  App/Screen.swift:5
+          Button "Filter"  [x 16, y 150, 80 × 30]
+          Header "Free Weights"  [x 16, y 210, 100 × 20]
+          Row  [x 0, y 400, 400 × 80]  App/Screen.swift:9
+            Text "Press"  [x 16, y 420, 100 × 20]
+          Header "Machines"  [x 16, y 850, 100 × 20]
+          Row  [x 0, y 900, 400 × 80]  App/Screen.swift:9
+            Text "Row"  [x 16, y 920, 100 × 20]
+          Row  [x 0, y 1040, 400 × 80]  App/Screen.swift:9
+            Text "Leg Press"  [x 16, y 1060, 100 × 20]
+        Tab bar "Tabs"  [x 0, y 1120, 400 × 80]
+    """)
+}
+
+@Test func aCappedCaptureEndsBetweenRows() {
+    let rows = [CGRect(x: 0, y: 100, width: 400, height: 80), CGRect(x: 0, y: 180, width: 400, height: 80), CGRect(x: 0, y: 260, width: 400, height: 80)]
+    let texts = [CGRect(x: 16, y: 270, width: 100, height: 20), CGRect(x: 16, y: 300, width: 100, height: 20)]
+    #expect(Stitch.cut(atMost: 300, after: 120, frames: rows + texts) == 260)
+    #expect(Stitch.cut(atMost: 340, after: 120, frames: rows + texts) == 340)
+    #expect(Stitch.cut(atMost: 250, after: 190, frames: rows) == nil)
 }

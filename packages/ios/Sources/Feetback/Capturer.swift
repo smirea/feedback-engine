@@ -184,7 +184,8 @@ enum Capturer {
     /// viewport at a time to the end, keeping the newly revealed strip of each step. Lazy
     /// containers only build rows near the viewport, so each step reads its own components and
     /// elements. Strips span only the scroll view's width, so a sidebar beside it is drawn once.
-    /// The first step supplies the bars above the content, the last the bars below.
+    /// The first step supplies the bars above the content, the last the bars below. A capture
+    /// that reaches the limit ends between two rows, scrolled so the last row meets the bottom bars.
     private static func fullLength(
         _ scrollView: UIScrollView, root: UIView, windows: [UIWindow], reference: UIWindow, format: UIGraphicsImageRendererFormat
     ) async -> (image: UIImage, scene: RawScene, visible: CGRect) {
@@ -197,11 +198,31 @@ enum Capturer {
         // Above about 16k pixels Core Animation stops drawing an image, which would blank the editor.
         let limit = (16_000 / format.scale).rounded(.down)
 
+        func frame() -> CGRect { scrollView.convert(scrollView.bounds, to: space) }
         func band() -> ClosedRange<CGFloat> {
-            let frame = scrollView.convert(scrollView.bounds, to: space)
+            let frame = frame()
             let inset = scrollView.adjustedContentInset
             let lower = max(frame.minY + inset.top, 0)
             return lower...max(min(frame.maxY - inset.bottom, bounds.height), lower + 1)
+        }
+        func visibleSubviews() -> [UIView] { scrollView.subviews.filter { !$0.isHidden && $0.alpha > 0.01 } }
+        func cells() -> [CGRect] {
+            visibleSubviews().filter { $0 is UICollectionViewCell || $0 is UITableViewCell }.map { $0.convert($0.bounds, to: space) }
+        }
+        /// A plain list pins each section's header to the top of the band, over the rows scrolling
+        /// under it, and the next header pushes it out. A header that overlaps a row is floating,
+        /// so content shows only below it.
+        func contentBand() -> ClosedRange<CGFloat> {
+            let band = band(), cells = cells()
+            let floating = visibleSubviews()
+                .filter { ($0 is UICollectionReusableView && !($0 is UICollectionViewCell)) || $0 is UITableViewHeaderFooterView }
+                .map { $0.convert($0.bounds, to: space) }
+                .filter { header in
+                    header.minY <= band.lowerBound + 0.5 && header.maxY > band.lowerBound + 0.5
+                        && cells.contains { $0.intersection(header).height > 0.5 }
+                }
+            let lower = min(floating.map(\.maxY).max() ?? band.lowerBound, band.upperBound - 1)
+            return max(lower, band.lowerBound)...band.upperBound
         }
         func maxOffset() -> CGFloat {
             scrollView.contentSize.height + scrollView.adjustedContentInset.bottom - scrollView.bounds.height
@@ -220,8 +241,10 @@ enum Capturer {
             let found = await settledElements(in: [root], to: reference, minimum: minimum, scrollView: scrollView)
             var components: [RawScene.Component] = []
             collectMarkers(in: root, layer: 0, space: space, into: &components)
+            var scrolling: [RawScene.Component] = []
+            collectMarkers(in: scrollView, layer: 0, space: space, into: &scrolling)
             return ScrollStep(
-                shift: shift, band: band, components: components,
+                shift: shift, band: band, components: components, scrolling: Set(scrolling.map(\.id)),
                 content: found.filter(\.inScrollView).map(\.element), elements: found.filter { !$0.inScrollView }.map(\.element)
             )
         }
@@ -243,28 +266,56 @@ enum Capturer {
             }
         }
         let top = scrollView.contentOffset.y
+        let origin = frame().minY
+        // The scroll view can move on screen while it scrolls, such as under a header that
+        // collapses, so a step's shift counts that movement along with the scrolling.
+        func measuredShift() -> CGFloat { scrollView.contentOffset.y - top + origin - frame().minY }
         let first = band()
-        let columns = scrollView.convert(scrollView.bounds, to: space).intersection(bounds)
+        let end = limit - (bounds.height - first.upperBound)
+        let columns = frame().intersection(bounds)
         var steps = [await observe(shift: 0, band: first, minimum: .milliseconds(120))]
         let firstImage = render(bounds, scrollViewOnTop: false)
         var strips: [(image: UIImage, y: CGFloat)] = []
         var covered = first.upperBound
-        var offset = top
-        while offset < maxOffset() - 0.5, covered < limit - (bounds.height - first.upperBound) {
-            let current = band()
-            scroll(to: min(offset + current.upperBound - current.lowerBound - 1, maxOffset()))
-            let shift = scrollView.contentOffset.y - top
-            let now = band()
-            let start = max(covered - shift, now.lowerBound)
-            guard scrollView.contentOffset.y > offset + 0.5, now.upperBound > start + 0.5 else { break }
-            offset = scrollView.contentOffset.y
-            let step = await observe(shift: shift, band: now)
-            strips.append((render(CGRect(x: columns.minX, y: start, width: columns.width, height: now.upperBound - start), scrollViewOnTop: true), start + shift))
+        var position = top
+        var isCut = false
+        while !isCut, position < maxOffset() - 0.5, covered < end - 0.5 {
+            let current = contentBand(), now = measuredShift()
+            let advance = min(covered - 1 - current.lowerBound, end - current.upperBound) - now
+            scroll(to: min(scrollView.contentOffset.y + advance, maxOffset()))
+            // A new pinned header, or a band that moved, can leave a gap below what is covered or
+            // reach past the end; scrolling back by the difference closes it.
+            for _ in 0..<3 {
+                let reveal = contentBand(), shift = measuredShift()
+                let back = max(reveal.lowerBound + shift - covered, reveal.upperBound + shift - end)
+                guard back > 0.5 else { break }
+                scroll(to: scrollView.contentOffset.y - back)
+            }
+            var shift = measuredShift(), reveal = contentBand()
+            guard scrollView.contentOffset.y > position + 0.5, reveal.upperBound + shift > covered + 0.5 else { break }
+            var step = await observe(shift: shift, band: reveal)
+            if reveal.upperBound + shift >= end - 0.5, scrollView.contentOffset.y < maxOffset() - 0.5 {
+                let start = max(covered - shift, reveal.lowerBound)
+                let rows = (step.components.map(\.frame) + (step.content + step.elements).map(\.frame))
+                    .filter { $0.height < reveal.upperBound - reveal.lowerBound } + cells()
+                if let cut = Stitch.cut(atMost: reveal.upperBound, after: start, frames: rows), cut < reveal.upperBound - 0.5 {
+                    scroll(to: scrollView.contentOffset.y - (reveal.upperBound - cut))
+                    shift = measuredShift()
+                    reveal = contentBand()
+                    step = await observe(shift: shift, band: reveal)
+                    isCut = true
+                }
+            }
+            position = scrollView.contentOffset.y
+            let start = max(covered - shift, reveal.lowerBound)
+            let stop = min(reveal.upperBound, end - shift)
+            strips.append((render(CGRect(x: columns.minX, y: start, width: columns.width, height: stop - start), scrollViewOnTop: true), start + shift))
             steps.append(step)
-            covered = min(now.upperBound + shift, limit - (bounds.height - first.upperBound))
+            covered = stop + shift
         }
         // The bars over the bottom are translucent; drawing them from the last step shows the end
         // of the content behind them, as the real screen does when scrolled to the end.
+        if abs(scrollView.contentOffset.y - position) > 0.5 { scroll(to: position) }
         let lastImage = strips.isEmpty ? firstImage : render(bounds, scrollViewOnTop: false)
         scroll(to: original.y)
 
