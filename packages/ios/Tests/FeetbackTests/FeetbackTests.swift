@@ -186,7 +186,7 @@ private final class Store {
             elements: [tabBar, back, .init(layer: 0, role: "Header", label: "Groceries", frame: CGRect(x: 100, y: 55, width: 200, height: 30))]
         ),
     ]
-    let capture = capture(Stitch.scene(screen: screen, height: 1400, steps: steps))
+    let capture = capture(Stitch.scene(screen: screen, height: 1400, viewport: 100...720, steps: steps))
     #expect(outline(capture) == """
     Screen  [x 0, y 0, 400 × 1400]
       ListScreen  [x 0, y 0, 400 × 1400]  App/Screen.swift:1
@@ -557,7 +557,7 @@ private enum Phase {
             elements: [tabBar, filter, text("Exercises", y: 50, role: "Header")]
         ),
     ]
-    let capture = capture(Stitch.scene(screen: screen, height: 1200, steps: steps))
+    let capture = capture(Stitch.scene(screen: screen, height: 1200, viewport: 200...720, steps: steps))
     #expect(outline(capture) == """
     Screen  [x 0, y 0, 400 × 1200]
       LibraryScreen  [x 0, y 0, 400 × 1200]  App/Screen.swift:1
@@ -600,4 +600,69 @@ private indirect enum Chain {
     let nested = [[[[[1]]]]]
     #expect(Describer.describe(nested) == "[[[[…]]]]")
     #expect(Describer.describe(nested, limit: 8000) == "[[[[[1]]]]]")
+}
+
+/// A `LazyVStack` with pinned headers and footers under a 100-point bar and over a tab bar at 700.
+/// Section B's footer is pinned at the bottom of the first two steps, so the capturer ends their
+/// bands above it, and it reaches its own place on the last step, where it was pinned on the first.
+@Test func stitchingKeepsPinnedFootersOutUntilTheirSectionEnds() {
+    let screenID = UUID(), headerA = UUID(), headerB = UUID(), footerB = UUID()
+    let screenComponent = RawScene.Component(id: screenID, parent: nil, layer: 0, name: "WeekScreen", source: source(1), frame: CGRect(origin: .zero, size: screen), data: nil)
+    func header(_ id: UUID, y: CGFloat) -> RawScene.Component {
+        RawScene.Component(id: id, parent: screenID, layer: 0, name: "SectionHeader", source: source(20), frame: CGRect(x: 0, y: y, width: 400, height: 40), data: nil)
+    }
+    let footer = RawScene.Component(id: footerB, parent: screenID, layer: 0, name: "SectionFooter", source: source(30), frame: CGRect(x: 0, y: 680, width: 400, height: 20), data: nil)
+    func text(_ label: String, y: CGFloat) -> RawScene.Element {
+        .init(layer: 0, role: "Text", label: label, frame: CGRect(x: 16, y: y, width: 100, height: 20))
+    }
+    let bars = [
+        RawScene.Element(layer: 0, role: "Tab bar", label: "Tabs", frame: CGRect(x: 0, y: 700, width: 400, height: 100)),
+        RawScene.Element(layer: 0, role: "Header", label: "Week", frame: CGRect(x: 16, y: 50, width: 100, height: 20)),
+    ]
+    let steps = [
+        ScrollStep(
+            shift: 0, band: 100...680,
+            components: [screenComponent, header(headerA, y: 100), header(headerB, y: 360), footer], scrolling: [headerA, headerB, footerB],
+            content: [text("A", y: 110), text("A1", y: 170), text("A2", y: 270), text("A footer", y: 340), text("B", y: 370), text("B1", y: 430), text("B2", y: 530), text("B3", y: 630), text("B total", y: 680)],
+            elements: bars
+        ),
+        ScrollStep(
+            shift: 540, band: 140...680,
+            components: [screenComponent, header(headerB, y: 100), footer], scrolling: [headerB, footerB],
+            content: [text("B", y: 110), text("B3", y: 90), text("B4", y: 190), text("B5", y: 290), text("B6", y: 390), text("B7", y: 490), text("B8", y: 590), text("B9", y: 690), text("B total", y: 680)],
+            elements: bars
+        ),
+        ScrollStep(
+            shift: 720, band: 140...700,
+            components: [screenComponent, header(headerB, y: 100), footer], scrolling: [headerB, footerB],
+            content: [text("B", y: 110), text("B8", y: 410), text("B9", y: 510), text("B10", y: 610), text("B total", y: 680)],
+            elements: bars
+        ),
+    ]
+    let capture = capture(Stitch.scene(screen: screen, height: 1520, viewport: 100...700, steps: steps))
+    #expect(outline(capture) == """
+    Screen  [x 0, y 0, 400 × 1520]
+      WeekScreen  [x 0, y 0, 400 × 1520]  App/Screen.swift:1
+        Header "Week"  [x 16, y 50, 100 × 20]
+        SectionHeader  [x 0, y 100, 400 × 40]  App/Screen.swift:20
+          Text "A"  [x 16, y 110, 100 × 20]
+        Text "A1"  [x 16, y 170, 100 × 20]
+        Text "A2"  [x 16, y 270, 100 × 20]
+        Text "A footer"  [x 16, y 340, 100 × 20]
+        SectionHeader  [x 0, y 360, 400 × 40]  App/Screen.swift:20
+          Text "B"  [x 16, y 370, 100 × 20]
+        Text "B1"  [x 16, y 430, 100 × 20]
+        Text "B2"  [x 16, y 530, 100 × 20]
+        Text "B3"  [x 16, y 630, 100 × 20]
+        Text "B4"  [x 16, y 730, 100 × 20]
+        Text "B5"  [x 16, y 830, 100 × 20]
+        Text "B6"  [x 16, y 930, 100 × 20]
+        Text "B7"  [x 16, y 1030, 100 × 20]
+        Text "B8"  [x 16, y 1130, 100 × 20]
+        Text "B9"  [x 16, y 1230, 100 × 20]
+        Text "B10"  [x 16, y 1330, 100 × 20]
+        SectionFooter  [x 0, y 1400, 400 × 20]  App/Screen.swift:30
+          Text "B total"  [x 16, y 1400, 100 × 20]
+        Tab bar "Tabs"  [x 0, y 1420, 400 × 100]
+    """)
 }

@@ -19,6 +19,7 @@ struct SettingsScreen: View {
             }
             Section("Examples") {
                 NavigationLink("Exercise Catalog") { CatalogScreen() }
+                NavigationLink("Weekly Timeline") { TimelineScreen() }
             }
             Section("About") {
                 LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")

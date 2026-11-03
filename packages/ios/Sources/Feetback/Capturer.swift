@@ -209,29 +209,63 @@ enum Capturer {
         func cells() -> [CGRect] {
             visibleSubviews().filter { $0 is UICollectionViewCell || $0 is UITableViewCell }.map { $0.convert($0.bounds, to: space) }
         }
-        /// A plain list pins each section's header to the top of the band, over the rows scrolling
-        /// under it, and the next header pushes it out. A header that overlaps a row is floating,
-        /// so content shows only below it.
-        func contentBand() -> ClosedRange<CGFloat> {
-            let band = band(), cells = cells()
-            let headers = ((scrollView as? UICollectionView)?.visibleSupplementaryViews(ofKind: UICollectionView.elementKindSectionHeader) ?? [])
-                + visibleSubviews().filter { $0 is UITableViewHeaderFooterView }
-            let floating = headers
-                .filter { !$0.isHidden && $0.alpha > 0.01 }
-                .map { $0.convert($0.bounds, to: space) }
-                .filter { header in
-                    header.minY <= band.lowerBound + 0.5 && header.maxY > band.lowerBound + 0.5
-                        && cells.contains { $0.intersection(header).height > 0.5 }
-                }
-            let lower = min(floating.map(\.maxY).max() ?? band.lowerBound, band.upperBound - 1)
-            return max(lower, band.lowerBound)...band.upperBound
-        }
         func maxOffset() -> CGFloat {
             scrollView.contentSize.height + scrollView.adjustedContentInset.bottom - scrollView.bounds.height
         }
         func scroll(to y: CGFloat) {
             scrollView.setContentOffset(CGPoint(x: original.x, y: y), animated: false)
-            scrollView.layoutIfNeeded()
+            // SwiftUI moves pinned views and builds lazy rows when the hosting view lays out, not the
+            // scroll view.
+            reference.layoutIfNeeded()
+        }
+        /// Layers inside the scroll view with their frames in its content, keyed by identity. Holding
+        /// the layers keeps a new layer from taking the identity of one that went away.
+        typealias Layers = [ObjectIdentifier: (layer: CALayer, frame: CGRect)]
+        func visit(_ layer: CALayer, depth: Int = 0, _ body: (CALayer, CGRect) -> Bool) {
+            for sublayer in layer.sublayers ?? [] where !sublayer.isHidden && sublayer.opacity > 0.01 {
+                if body(sublayer, sublayer.convert(sublayer.bounds, to: scrollView.layer)), depth < 3 { visit(sublayer, depth: depth + 1, body) }
+            }
+        }
+        func layers() -> Layers {
+            var layers: Layers = [:]
+            visit(scrollView.layer) { layer, frame in
+                layers[ObjectIdentifier(layer)] = (layer, frame)
+                return true
+            }
+            return layers
+        }
+        /// Layers that moved within the content since `earlier`, with their frames then and now. Their
+        /// sublayers move along, so they are not listed again.
+        func moved(since earlier: Layers) -> [(then: CGRect, now: CGRect)] {
+            var moved: [(then: CGRect, now: CGRect)] = []
+            visit(scrollView.layer) { layer, frame in
+                guard let then = earlier[ObjectIdentifier(layer)]?.frame, abs(then.minY - frame.minY) > 0.5 || abs(then.minX - frame.minX) > 0.5 else { return true }
+                moved.append((then, frame))
+                return false
+            }
+            return moved
+        }
+        /// Shrinks `band` past the floating views at its edges: a section header pinned to its top,
+        /// or pushed up by the next section, and a footer pinned to its bottom. Anything taller than
+        /// half the band, such as the scroll view's own edge effects, is not a header or footer.
+        func trimmed(_ band: ClosedRange<CGFloat>, by floating: [CGRect], footers: Bool) -> ClosedRange<CGFloat> {
+            let views = floating.filter { $0.height < (band.upperBound - band.lowerBound) / 2 }
+            let headers = views.filter { $0.minY <= band.lowerBound + 0.5 && $0.maxY > band.lowerBound + 0.5 }
+            let bottom = footers ? views.filter { $0.maxY >= band.upperBound - 0.5 && $0.minY < band.upperBound - 0.5 } : []
+            let lower = min(max(headers.map(\.maxY).max() ?? band.lowerBound, band.lowerBound), band.upperBound - 1)
+            return lower...max(min(bottom.map(\.minY).min() ?? band.upperBound, band.upperBound), lower + 1)
+        }
+        /// The layers of the last step read. `UITableView`, `UICollectionView`, and SwiftUI's
+        /// `LazyVStack` all draw pinned headers and footers as ordinary layers inside the scroll view
+        /// and move them within the content as it scrolls, so comparing with the last step finds them
+        /// in each. Scrolling away and back to compare would rebuild the rows that leave the screen,
+        /// which gives their tags new ids, so a row on the boundary of two steps would show up twice.
+        var previous: Layers = [:]
+        /// The part of the band where content shows: below a pinned header and above a pinned footer.
+        /// At the end, the last footer sits in its own place, where it was pinned a step earlier.
+        func contentBand() -> ClosedRange<CGFloat> {
+            let floating = moved(since: previous).map { scrollView.convert($0.now, to: space) }
+            return trimmed(band(), by: floating, footers: scrollView.contentOffset.y < maxOffset() - 0.5)
         }
         func render(_ rect: CGRect, scrollViewOnTop: Bool) -> UIImage {
             UIGraphicsImageRenderer(bounds: rect, format: format).image { _ in
@@ -277,8 +311,23 @@ enum Capturer {
         let columns = frame().intersection(bounds)
         var steps = [await observe(shift: 0, band: first, minimum: .milliseconds(120))]
         let firstImage = render(bounds, scrollViewOnTop: false)
+        // The first step shows a pinned header where it is, as the screen does, since its section
+        // starts above the capture. A pinned footer hides rows that later steps reveal; with no step
+        // before it, it is found by scrolling down a little and back, which only rebuilds rows above.
+        // That can collapse a large title, so it waits until the first step is read.
+        var firstReveal = first
+        let probe = min((first.upperBound - first.lowerBound) / 2, maxOffset() - top)
+        if probe > 0.5 {
+            let earlier = layers()
+            scroll(to: top + probe)
+            let floating = moved(since: earlier).map(\.then)
+            scroll(to: top)
+            firstReveal = first.lowerBound...trimmed(first, by: floating.map { scrollView.convert($0, to: space) }, footers: true).upperBound
+        }
+        steps[0].band = firstReveal
+        previous = layers()
         var strips: [(image: UIImage, y: CGFloat)] = []
-        var covered = first.upperBound
+        var covered = firstReveal.upperBound
         var position = top
         var isCut = false
         func same(_ a: ClosedRange<CGFloat>, _ b: ClosedRange<CGFloat>) -> Bool {
@@ -326,12 +375,16 @@ enum Capturer {
             let stop = min(reveal.upperBound, end - shift)
             strips.append((render(CGRect(x: columns.minX, y: start, width: columns.width, height: stop - start), scrollViewOnTop: true), start + shift))
             steps.append(step)
+            previous = layers()
             covered = stop + shift
         }
         // The bars over the bottom are translucent; drawing them from the last step shows the end
-        // of the content behind them, as the real screen does when scrolled to the end.
+        // of the content behind them, as the real screen does when scrolled to the end. A pinned
+        // footer ends the last step above the bars, so the content first moves down to meet them.
         if abs(scrollView.contentOffset.y - position) > 0.5 { scroll(to: position) }
-        let lastImage = strips.isEmpty ? firstImage : render(bounds, scrollViewOnTop: false)
+        let gap = first.upperBound + measuredShift() - covered
+        if gap > 0.5 { scroll(to: scrollView.contentOffset.y - gap) }
+        let lastImage = strips.isEmpty && gap <= 0.5 ? firstImage : render(bounds, scrollViewOnTop: false)
         scroll(to: original.y)
 
         let height = covered + bounds.height - first.upperBound
@@ -340,7 +393,14 @@ enum Capturer {
             (scrollView.backgroundColor ?? .systemBackground).resolvedColor(with: reference.traitCollection).setFill()
             context.fill(CGRect(origin: .zero, size: size))
             context.cgContext.saveGState()
-            context.cgContext.clip(to: CGRect(x: 0, y: 0, width: size.width, height: first.upperBound))
+            // A pinned footer is cut from the first step only inside the scroll view's columns; a
+            // sidebar beside it keeps its pixels down to the end of the first screen.
+            let footer = first.upperBound - firstReveal.upperBound
+            context.cgContext.clip(to: [
+                CGRect(x: 0, y: 0, width: size.width, height: firstReveal.upperBound),
+                CGRect(x: 0, y: firstReveal.upperBound, width: columns.minX, height: footer),
+                CGRect(x: columns.maxX, y: firstReveal.upperBound, width: size.width - columns.maxX, height: footer),
+            ])
             firstImage.draw(at: .zero)
             context.cgContext.restoreGState()
             for strip in strips { strip.image.draw(at: CGPoint(x: columns.minX, y: strip.y)) }
@@ -348,7 +408,7 @@ enum Capturer {
             lastImage.draw(at: CGPoint(x: 0, y: covered - first.upperBound))
         }
         let visible = CGRect(x: 0, y: min(max(original.y - top, 0), height - bounds.height), width: bounds.width, height: bounds.height)
-        return (image, Stitch.scene(screen: bounds.size, height: height, steps: steps), visible)
+        return (image, Stitch.scene(screen: bounds.size, height: height, viewport: first, steps: steps), visible)
     }
 
     /// Polls until the element count holds steady. The first capture in a process stalls the main
