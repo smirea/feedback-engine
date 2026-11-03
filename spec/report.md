@@ -9,7 +9,7 @@ A capture is a screenshot plus a tree of nodes. Node 0 is the whole capture. Whe
 | Field | Meaning |
 | --- | --- |
 | `kind` | `screen`, `layer` (a presented sheet, popover, dialog, or menu, or the keyboard), `component` (tagged by the app), or `element` (from the accessibility tree) |
-| `name` | Component name, layer name, or element role (`Button`, `Text`, `Text field`, `Header`, `Image`, …) |
+| `name` | Component name, layer name, or element role (`Button`, `Switch`, `Text`, `Text field`, `Header`, `Image`, …) |
 | `label` | Visible text of an element |
 | `frame` | Rectangle in points from the capture's top-left corner, clipped to the capture |
 | `source` | `file:line` of the component's tag call |

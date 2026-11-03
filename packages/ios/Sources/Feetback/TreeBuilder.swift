@@ -129,7 +129,7 @@ enum TreeBuilder {
         let centre = CGPoint(x: frame.midX, y: frame.midY)
         let around = candidates.filter { index in
             let candidate = components[index].frame
-            let encloses = ["Button", "Link"].contains(element.role) && frame.insetBy(dx: -1, dy: -1).contains(candidate)
+            let encloses = wrappingRoles.contains(element.role) && frame.insetBy(dx: -1, dy: -1).contains(candidate)
                 && (frame.width > candidate.width + 2 || frame.height > candidate.height + 2)
             return candidate.contains(centre) && !encloses
         }
@@ -137,12 +137,15 @@ enum TreeBuilder {
             ?? smallest(in: around, containing: centre, layer: element.layer, of: components, depth: depth)
     }
 
+    /// Controls that merge their content into one accessibility element.
+    private static let wrappingRoles: Set<String> = ["Button", "Link", "Switch"]
+
     /// A button or link merges its content into one accessibility element, so a component inside a
     /// `NavigationLink` shows up next to the link's element instead of under it. Moving the
     /// component under the smallest sibling element that encloses it restores the real nesting.
     private static func wrapInElements(_ entries: inout [Entry], components: [Int]) {
         let elements = entries.indices.filter {
-            if case .element(let role) = entries[$0].kind { ["Button", "Link"].contains(role) } else { false }
+            if case .element(let role) = entries[$0].kind { wrappingRoles.contains(role) } else { false }
         }
         for index in components {
             let component = entries[index]
