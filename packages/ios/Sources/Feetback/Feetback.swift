@@ -1,6 +1,7 @@
 #if canImport(UIKit)
 import SwiftUI
 import UIKit
+import UniformTypeIdentifiers
 
 @MainActor
 public enum Feetback {
@@ -57,9 +58,21 @@ public enum Feetback {
     private static func share(_ session: Session) {
         guard case .editing(let overlay, _) = state, var presenter = overlay.rootViewController else { return }
         while let presented = presenter.presentedViewController { presenter = presented }
-        let image = AnnotatedImage.render(session.capture, items: session.items)
-        let markdown = session.markdown
-        let sheet = UIActivityViewController(activityItems: [image, markdown], applicationActivities: [CopyActivity(image: image, text: markdown)])
+        let activityItems: [Any]
+        let pasteboard: [[String: Any]]
+        switch session.format {
+        case .image:
+            let image = AnnotatedImage.render(session.capture, items: session.items)
+            let markdown = session.markdown
+            activityItems = [image, markdown]
+            pasteboard = (image.pngData().map { [[UTType.png.identifier: $0]] } ?? []) + [[UTType.utf8PlainText.identifier: markdown]]
+        case .json:
+            let json = session.json
+            let file = FileManager.default.temporaryDirectory.appending(path: "feedback.json")
+            activityItems = (try? Data(json.utf8).write(to: file)) != nil ? [file] : [json]
+            pasteboard = [[UTType.json.identifier: Data(json.utf8), UTType.utf8PlainText.identifier: json]]
+        }
+        let sheet = UIActivityViewController(activityItems: activityItems, applicationActivities: [CopyActivity(items: pasteboard)])
         sheet.excludedActivityTypes = [.copyToPasteboard]
         sheet.popoverPresentationController?.sourceView = presenter.view
         presenter.present(sheet, animated: true)

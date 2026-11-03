@@ -9,6 +9,9 @@ final class Session {
     /// How far up from the picked node the target sits: 0 is the picked node itself.
     var level = 0
     var draft = ""
+    var format = ExportFormat(rawValue: UserDefaults.standard.string(forKey: Session.formatKey) ?? "") ?? .image {
+        didSet { UserDefaults.standard.set(format.rawValue, forKey: Session.formatKey) }
+    }
     private(set) var items: [FeedbackItem] = []
 
     init(capture: Capture) {
@@ -41,4 +44,7 @@ final class Session {
     }
 
     var markdown: String { Report.markdown(capture, items: items) }
+    var json: String { Report.json(capture, items: items) }
+
+    private static let formatKey = "feetback.exportFormat"
 }

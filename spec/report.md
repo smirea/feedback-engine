@@ -1,6 +1,6 @@
 # Feedback report format
 
-Every platform package produces the same two artifacts from one capture, so agents read feedback from any app the same way. The iOS package is the reference implementation (`packages/ios/Sources/Feetback/Report.swift` and `AnnotatedImage.swift`).
+Every platform package produces the same artifacts from one capture, so agents read feedback from any app the same way. The iOS package is the reference implementation (`packages/ios/Sources/Feetback/Report.swift` and `AnnotatedImage.swift`).
 
 ## Capture model
 
@@ -32,6 +32,23 @@ Sections appear in this order:
 
 The screenshot sits between two columns. Each item's target has a dashed box with no fill and a numbered badge, using the same numbers as the report. Each item's target title and text go in a card in the left column, as level with the target as the cards above it allow, with a line from the card to the box. A card moves to the right column only when that puts it at least 80 points closer to its target. The right column starts with the app name and the environment entries. The image still reads on its own when the text gets separated from it. A tall capture is drawn at a lower scale, so the image stays under about 40 million pixels.
 
+## JSON export
+
+The JSON export carries everything in the markdown report except the image, as one object with sorted keys. Numbers are points, rounded to one decimal.
+
+| Key | Contents |
+| --- | --- |
+| `app` | App name |
+| `captured` | ISO 8601 date of the capture |
+| `size` | `width` and `height` of the whole capture |
+| `visible` | `x`, `y`, `width`, `height` of the part that was on screen |
+| `environment`, `context` | Arrays of `name` and `value`, in report order |
+| `items` | `number`, `text`, `target` (node id), `title`, `path` (node ids from the screen down to the target), and `code`, the nearest component's `file:line` when there is one |
+| `nodes` | Every node in id order: `id`, `parent`, `layer`, `kind`, `name`, `label`, `frame`, `source`, and `data`. Keys without a value are left out. |
+
 ## Sharing
 
-One share action delivers both artifacts. The copy action writes two pasteboard items, the PNG first and the markdown second.
+The editor offers two export formats, and the choice persists between captures.
+
+- **Image** shares the annotated image and the markdown. The copy action writes two pasteboard items, the PNG first and the markdown second.
+- **JSON** shares a `feedback.json` file. The copy action writes one pasteboard item with JSON and plain-text representations of the same document.

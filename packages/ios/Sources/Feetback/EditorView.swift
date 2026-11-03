@@ -269,7 +269,7 @@ private struct Chain: View {
 }
 
 private struct ItemsSheet: View {
-    let session: Session
+    @Bindable var session: Session
     let share: () -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -304,6 +304,18 @@ private struct ItemsSheet: View {
                         }
                     }
                     .onDelete { offsets in offsets.map { session.items[$0].id }.forEach(session.remove) }
+                }
+                Section {
+                    Picker("Export", selection: $session.format) {
+                        ForEach(ExportFormat.allCases) { Text($0.title).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+                } header: {
+                    Text("Export")
+                } footer: {
+                    Text(session.format == .image
+                        ? "The screenshot with numbered boxes, plus the markdown report."
+                        : "Every item, the component tree, and the attached context as JSON, without the screenshot.")
                 }
                 Section("Attached context") {
                     ForEach(session.capture.environment + session.capture.context, id: \.self) { entry in

@@ -226,3 +226,27 @@ private final class Store {
         Tab bar "Tabs"  [x 0, y 1320, 400 × 80]
     """)
 }
+
+@Test func jsonExportHoldsTheItemsAndTheWholeTree() throws {
+    let list = UUID()
+    let scene = RawScene(
+        screen: screen,
+        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
+        components: [component("ListScreen", CGRect(x: 0, y: 100, width: 400, height: 600), id: list, data: "filter: open")],
+        elements: [.init(layer: 0, role: "Button", label: "Mark done", frame: CGRect(x: 20, y: 210.25, width: 24, height: 24))]
+    )
+    let capture = capture(scene)
+    let button = capture.hitTest(CGPoint(x: 30, y: 220))
+    let json = Report.json(capture, items: [FeedbackItem(target: button, text: "Make it bigger")])
+    let document = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+    #expect(document["app"] as? String == "Demo")
+    #expect(document["items"] as? NSArray == [
+        ["number": 1, "text": "Make it bigger", "target": 2, "title": "Button \"Mark done\"", "path": [0, 1, 2], "code": "App/Screen.swift:100"],
+    ])
+    #expect(document["nodes"] as? NSArray == [
+        ["id": 0, "layer": 0, "kind": "screen", "name": "Screen", "frame": ["x": 0, "y": 0, "width": 400, "height": 800]],
+        ["id": 1, "parent": 0, "layer": 0, "kind": "component", "name": "ListScreen", "frame": ["x": 0, "y": 100, "width": 400, "height": 600], "source": "App/Screen.swift:100", "data": "filter: open"],
+        ["id": 2, "parent": 1, "layer": 0, "kind": "element", "name": "Button", "label": "Mark done", "frame": ["x": 20, "y": 210.3, "width": 24, "height": 24]],
+    ])
+    #expect(document["context"] as? NSArray == [["name": "Store", "value": "Store(count: 2)"]])
+}

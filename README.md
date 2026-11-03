@@ -66,7 +66,8 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 3. Under the screenshot, the selection sits between its parent on the left and its child on the right. Tap either one to move the selection up or down the hierarchy.
 4. Type the feedback and press the arrow. Repeat for as many items as you need.
 5. Open the list to review or remove items, and to see the context that will be attached.
-6. Tap **Share**. **Copy Feedback** puts the annotated image and the report on the clipboard, ready to paste into a chat with an agent. Other share targets, such as Messages, Notes, or Files, receive both too.
+6. Pick the export format in the list. **Image** shares the annotated image and the markdown report. **JSON** shares one `feedback.json` file with every item, the whole component tree, and the attached context, without the screenshot. The choice is remembered.
+7. Tap **Share**. **Copy Feedback** puts the export on the clipboard, ready to paste into a chat with an agent. Other share targets, such as Messages, Notes, or Files, receive it too.
 
 ### How capture works
 
