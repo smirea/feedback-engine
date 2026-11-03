@@ -21,6 +21,16 @@ private func capture(_ scene: RawScene) -> Capture {
 
 private func titles(_ path: [Node]) -> [String] { path.map(\.title) }
 
+private func outline(_ capture: Capture) -> String {
+    let depths = capture.depths
+    return capture.nodes.map { node in
+        let frame = [node.frame.minX, node.frame.minY].map(Report.format).joined(separator: ", y ")
+        let size = "\(Report.format(node.frame.width)) × \(Report.format(node.frame.height))"
+        let source = node.source.map { "  \($0.description)" } ?? ""
+        return "\(String(repeating: "  ", count: depths[node.id]))\(node.title)  [x \(frame), \(size)]\(source)"
+    }.joined(separator: "\n")
+}
+
 @Test func tapPicksDeepestElementAndPathWalksUpThroughTaggedComponents() {
     let list = UUID(), row = UUID()
     let scene = RawScene(
@@ -77,40 +87,6 @@ private func titles(_ path: [Node]) -> [String] { path.map(\.title) }
     #expect(capture(scene).nodes.map(\.name) == ["Screen", "Scroller", "Visible"])
 }
 
-@Test func reportNumbersItemsAndListsEachComponentsDataOnce() {
-    let list = UUID()
-    let scene = RawScene(
-        screen: screen,
-        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
-        components: [
-            component("ListScreen", CGRect(x: 0, y: 100, width: 400, height: 600), id: list, data: "filter: open"),
-            component("Row", CGRect(x: 16, y: 200, width: 368, height: 44), parent: list, data: "title: Milk"),
-        ],
-        elements: [.init(layer: 0, role: "Button", label: "Mark done", frame: CGRect(x: 20, y: 210, width: 24, height: 24))]
-    )
-    let capture = capture(scene)
-    let button = capture.hitTest(CGPoint(x: 30, y: 220))
-    let row = capture.path(from: button)[1].id
-    let markdown = Report.markdown(capture, items: [
-        FeedbackItem(target: button, text: "Make it bigger"),
-        FeedbackItem(target: row, text: "Too tight\nAdd padding"),
-    ])
-    #expect(markdown.contains("""
-    ## 1. Button "Mark done"
-
-    > Make it bigger
-
-    - Path: Screen › ListScreen (`App/Screen.swift:100`) › Row (`App/Screen.swift:200`) › Button "Mark done"
-    - Frame: x 20, y 210, 24 × 24
-    - Element: Button "Mark done"
-    - Code: `App/Screen.swift:200` (Row)
-    """))
-    #expect(markdown.contains("## 2. Row\n\n> Too tight\n> Add padding\n"))
-    #expect(markdown.components(separatedBy: "### Row · `App/Screen.swift:200` · items 1, 2\n```\ntitle: Milk\n```").count == 2)
-    #expect(markdown.contains("### ListScreen · `App/Screen.swift:100` · items 1, 2\n```\nfilter: open\n```"))
-    #expect(markdown.contains("### Store\n```\nStore(count: 2)\n```"))
-}
-
 private struct Row: View {
     let title: String
     @Binding var isDone: Bool
@@ -153,7 +129,6 @@ private final class Store {
     let capture = capture(scene)
     #expect(capture.nodes.map(\.title) == ["Screen", "ListScreen", "Text \"Title\""])
     #expect(titles(capture.path(from: capture.hitTest(CGPoint(x: 20, y: 15)))) == ["Text \"Title\"", "ListScreen", "Screen"])
-    #expect(Report.markdown(capture, items: [FeedbackItem(target: 2, text: "ok")]).contains("- Frame: x 10, y 10, 100 × 20"))
 }
 
 @Test func similarFindsTheSamePartInSiblingComponents() {
@@ -212,7 +187,7 @@ private final class Store {
         ),
     ]
     let capture = capture(Stitch.scene(screen: screen, height: 1400, steps: steps))
-    #expect(Report.outline(capture) == """
+    #expect(outline(capture) == """
     Screen  [x 0, y 0, 400 × 1400]
       ListScreen  [x 0, y 0, 400 × 1400]  App/Screen.swift:1
         Button "Back"  [x 0, y 50, 60 × 44]

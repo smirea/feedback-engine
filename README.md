@@ -1,6 +1,6 @@
 # Feetback
 
-Precise, in-app feedback for the apps you build. Shake the device, tap a component on the frozen screenshot, and write what should change. Feetback shares an annotated image and a markdown report that names each component, its source location, and the data it was showing, so an agent can act on it without guessing.
+Precise, in-app feedback for the apps you build. Shake the device, tap a component on the frozen screenshot, and write what should change. Feetback exports one file: an annotated image that names each component and its source location, or JSON with the whole component tree and the data each component was showing, so an agent can act on it without guessing.
 
 Platform packages live under `packages/`. iOS is available now; a Svelte package is planned and will produce the same report ([spec/report.md](spec/report.md)).
 
@@ -36,7 +36,7 @@ struct MyApp: App {
 ```
 
 - `Feetback.enable()` turns on shake-to-feedback. Wrap it in `#if DEBUG` if you only want it in development builds.
-- `Feetback.context(name) { value }` attaches app state to every report. The closure runs when a capture is taken.
+- `Feetback.context(name) { value }` attaches app state to every JSON export. The closure runs when a capture is taken.
 - `Feetback.present()` opens the editor from your own trigger, such as a settings button.
 
 ### Name your components
@@ -66,13 +66,13 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 3. Under the screenshot, the selection sits between its parent on the left and its child on the right. Tap either one to move the selection up or down the hierarchy.
 4. Type the feedback and press the arrow. Repeat for as many items as you need.
 5. Open the list to review or remove items, and to see the context that will be attached.
-6. Pick the export format in the list. **Image** shares the annotated image and the markdown report. **JSON** shares one `feedback.json` file with every item, the whole component tree, and the attached context, without the screenshot. The choice is remembered.
+6. Pick the export format in the list. **Image** shares one `feedback.png` with the boxes, each item's text and code location, and the environment. **JSON** shares one `feedback.json` with every item, the whole component tree, the component data, and the attached context, without the screenshot. The choice is remembered.
 7. Tap **Share**. **Copy Feedback** puts the export on the clipboard, ready to paste into a chat with an agent. Other share targets, such as Messages, Notes, or Files, receive it too.
 
 ### How capture works
 
 - The screenshot and the tagged components are read at the moment you shake. Each `.feedback` modifier places a plain `UIView` behind its view, and a capture walks the view hierarchy to find them. Tagging costs nothing per frame.
-- Component nesting follows the SwiftUI hierarchy, so parents in the report are the real logical parents.
+- Component nesting follows the SwiftUI hierarchy, so parents in the export are the real logical parents.
 - When the screen has a scrolling list or scroll view that covers at least half of it, the capture covers that content at full length. Feetback covers the app with the frozen screenshot, scrolls through the content one screen at a time, reads each step, and then restores the scroll position. The editor opens at the part that was on screen.
 - SwiftUI only exposes accessibility elements while an assistive client is running. During a capture Feetback turns on accessibility automation, which is the same private switch XCTest and Cash App's AccessibilitySnapshot use, and then restores it. The first capture in a process pauses for about a second while UIKit loads its accessibility support. Later captures take a few milliseconds.
 - Presented sheets are separate layers. Taps on a sheet only select what is inside the sheet.
@@ -99,7 +99,7 @@ cd examples/todo-ios
 
 ```sh
 swift build   # compiles the package for macOS
-swift test    # tree building, hit-testing, report, and value description tests
+swift test    # tree building, hit-testing, stitching, JSON export, and value description tests
 ```
 
 CI runs both, plus a Release simulator build of the example app.

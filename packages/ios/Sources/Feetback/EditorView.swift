@@ -314,7 +314,7 @@ private struct ItemsSheet: View {
                     Text("Export")
                 } footer: {
                     Text(session.format == .image
-                        ? "The screenshot with numbered boxes, plus the markdown report."
+                        ? "One PNG: the screenshot with numbered boxes, each item's text and code location, and the environment."
                         : "Every item, the component tree, and the attached context as JSON, without the screenshot.")
                 }
                 Section("Attached context") {

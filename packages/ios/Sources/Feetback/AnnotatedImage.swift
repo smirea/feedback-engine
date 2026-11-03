@@ -1,10 +1,10 @@
 #if canImport(UIKit)
 import UIKit
 
-/// The image half of a shared report: the screenshot with numbered boxes, each item's text in a
-/// card beside it, and the capture's environment, so the image still reads on its own when the
-/// text gets separated from it. Cards go in the left column at their target's height; one only
-/// moves to the right column, under the environment, when that keeps it much closer.
+/// The image export: the screenshot with numbered boxes, each item's text and code location in a
+/// card beside it, and the capture's environment, so the one file is enough on its own. Cards go
+/// in the left column at their target's height; one only moves to the right column, under the
+/// environment, when that keeps it much closer.
 enum AnnotatedImage {
     private static let margin: CGFloat = 24
     private static let column: CGFloat = 280
@@ -41,6 +41,11 @@ enum AnnotatedImage {
             let text = NSMutableAttributedString(string: node.title + "\n", attributes: [
                 .font: UIFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: secondary,
             ])
+            if let source = capture.nearestComponent(from: item.target)?.source {
+                text.append(NSAttributedString(string: source.description + "\n", attributes: [
+                    .font: UIFont.monospacedSystemFont(ofSize: 10.5, weight: .regular), .foregroundColor: secondary,
+                ]))
+            }
             text.append(NSAttributedString(string: item.text, attributes: [.font: UIFont.systemFont(ofSize: 14), .foregroundColor: primary]))
             let height = max(measure(text, width: textWidth), badge) + padding * 2
             return Card(number: index + 1, color: Palette.uiColor(index), text: text, height: height, target: node.frame.offsetBy(dx: shot.minX, dy: shot.minY))

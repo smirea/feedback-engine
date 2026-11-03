@@ -43,7 +43,6 @@ final class Session {
         items.removeAll { $0.id == id }
     }
 
-    var markdown: String { Report.markdown(capture, items: items) }
     var json: String { Report.json(capture, items: items) }
 
     private static let formatKey = "feetback.exportFormat"

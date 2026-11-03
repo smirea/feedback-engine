@@ -58,21 +58,20 @@ public enum Feetback {
     private static func share(_ session: Session) {
         guard case .editing(let overlay, _) = state, var presenter = overlay.rootViewController else { return }
         while let presented = presenter.presentedViewController { presenter = presented }
-        let activityItems: [Any]
-        let pasteboard: [[String: Any]]
+        let data: Data
+        let pasteboard: [String: Any]
         switch session.format {
         case .image:
-            let image = AnnotatedImage.render(session.capture, items: session.items)
-            let markdown = session.markdown
-            activityItems = [image, markdown]
-            pasteboard = (image.pngData().map { [[UTType.png.identifier: $0]] } ?? []) + [[UTType.utf8PlainText.identifier: markdown]]
+            data = AnnotatedImage.render(session.capture, items: session.items).pngData() ?? Data()
+            pasteboard = [UTType.png.identifier: data]
         case .json:
             let json = session.json
-            let file = FileManager.default.temporaryDirectory.appending(path: "feedback.json")
-            activityItems = (try? Data(json.utf8).write(to: file)) != nil ? [file] : [json]
-            pasteboard = [[UTType.json.identifier: Data(json.utf8), UTType.utf8PlainText.identifier: json]]
+            data = Data(json.utf8)
+            pasteboard = [UTType.json.identifier: data, UTType.utf8PlainText.identifier: json]
         }
-        let sheet = UIActivityViewController(activityItems: activityItems, applicationActivities: [CopyActivity(items: pasteboard)])
+        let file = FileManager.default.temporaryDirectory.appending(path: "feedback.\(session.format.fileExtension)")
+        let item: Any = (try? data.write(to: file)) != nil ? file : data
+        let sheet = UIActivityViewController(activityItems: [item], applicationActivities: [CopyActivity(item: pasteboard)])
         sheet.excludedActivityTypes = [.copyToPasteboard]
         sheet.popoverPresentationController?.sourceView = presenter.view
         presenter.present(sheet, animated: true)

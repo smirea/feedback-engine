@@ -1,13 +1,13 @@
 #if canImport(UIKit)
 import UIKit
 
-/// Writes the export to the pasteboard. An image export is two items, the PNG then the
-/// markdown, so pasting into a chat with an agent brings both.
+/// Writes the export to the pasteboard as one item, ready to paste into a chat with an agent.
 final class CopyActivity: UIActivity {
-    private let items: [[String: Any]]
+    /// One pasteboard item, keyed by type identifier.
+    private let item: [String: Any]
 
-    init(items: [[String: Any]]) {
-        self.items = items
+    init(item: [String: Any]) {
+        self.item = item
     }
 
     override var activityType: UIActivity.ActivityType? { UIActivity.ActivityType("feetback.copy") }
@@ -18,7 +18,7 @@ final class CopyActivity: UIActivity {
     override func canPerform(withActivityItems activityItems: [Any]) -> Bool { true }
 
     override func perform() {
-        UIPasteboard.general.setItems(items)
+        UIPasteboard.general.setItems([item])
         activityDidFinish(true)
     }
 }
