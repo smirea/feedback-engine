@@ -13,6 +13,10 @@ final class Session {
         didSet { UserDefaults.standard.set(format.rawValue, forKey: Session.formatKey) }
     }
     private(set) var items: [FeedbackItem] = []
+    /// The items as they were when a share last completed.
+    var shared: [FeedbackItem] = []
+    /// Closing asks first only when it would lose items that were never shared.
+    var hasUnsharedItems: Bool { !items.isEmpty && items != shared }
 
     init(capture: Capture) {
         self.capture = capture

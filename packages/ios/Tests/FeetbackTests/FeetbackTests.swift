@@ -247,3 +247,45 @@ private final class Store {
     #expect(titles(capture.path(from: capture.hitTest(CGPoint(x: 370, y: 340)))) == ["Button \"Work, 3\"", "ListsScreen", "Screen"])
     #expect(capture.similar(to: capture.hitTest(CGPoint(x: 100, y: 340))).map { capture.nodes[$0].frame.minY } == [379])
 }
+
+@Test func imageCardsGoBesideTheSideTheirTargetIsOnAndTheEnvironmentFillsAGap() {
+    let layout = CardLayout.place(
+        targets: [
+            CGRect(x: 0, y: 50, width: 60, height: 44),
+            CGRect(x: 350, y: 50, width: 44, height: 44),
+            CGRect(x: 0, y: 600, width: 400, height: 100),
+        ],
+        heights: [60, 60, 60],
+        screen: screen,
+        environmentHeight: 150
+    )
+    #expect(layout.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
+    #expect(layout.cards == [
+        .init(isLeft: true, origin: CGPoint(x: 24, y: 66)),
+        .init(isLeft: false, origin: CGPoint(x: 776, y: 66)),
+        .init(isLeft: true, origin: CGPoint(x: 24, y: 644)),
+    ])
+    #expect(layout.environment == CGPoint(x: 776, y: 150))
+    #expect(layout.size == CGSize(width: 1080, height: 848))
+}
+
+@Test func theEnvironmentStaysAtTheTopWhenTheRightColumnHasRoom() {
+    let layout = CardLayout.place(
+        targets: [CGRect(x: 360, y: 700, width: 30, height: 30)], heights: [50], screen: screen, environmentHeight: 200
+    )
+    #expect(layout.cards == [.init(isLeft: false, origin: CGPoint(x: 776, y: 714))])
+    #expect(layout.environment == CGPoint(x: 776, y: 24))
+}
+
+@MainActor @Test func closingAsksOnlyWhileItemsAreUnshared() {
+    let session = Session(capture: capture(RawScene(screen: screen, layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))], components: [], elements: [])))
+    #expect(session.hasUnsharedItems == false)
+    session.draft = "Bigger title"
+    session.add()
+    #expect(session.hasUnsharedItems == true)
+    session.shared = session.items
+    #expect(session.hasUnsharedItems == false)
+    session.draft = "Wrong color"
+    session.add()
+    #expect(session.hasUnsharedItems == true)
+}

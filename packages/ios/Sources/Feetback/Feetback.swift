@@ -10,7 +10,15 @@ public enum Feetback {
     private enum State {
         case idle
         case capturing
-        case editing(overlay: UIWindow, previousKey: UIWindow?)
+        case editing(Editing)
+    }
+
+    /// What closing the editor puts back.
+    private struct Editing {
+        let overlay: UIWindow
+        let previousKey: UIWindow?
+        weak var responder: UIResponder?
+        let accessibilityHidden: [(window: UIWindow, wasHidden: Bool)]
     }
 
     private static var providers: [(name: String, value: @MainActor () -> Any)] = []
@@ -42,21 +50,31 @@ public enum Feetback {
             state = .idle
             return
         }
+        let responder = scene.windows.lazy.compactMap { firstResponder(in: $0) }.first
         scene.windows.forEach { $0.endEditing(true) }
 
         let previousKey = scene.keyWindow
         let session = Session(capture: capture)
         let window = UIWindow(windowScene: scene)
         window.windowLevel = .alert + 1
-        let host = UIHostingController(rootView: EditorView(session: session, dismiss: dismiss, share: { share(session) }))
-        host.view.accessibilityViewIsModal = true
-        window.rootViewController = host
+        window.rootViewController = UIHostingController(rootView: EditorView(session: session, dismiss: dismiss, share: { share(session) }))
+        // `accessibilityViewIsModal` only hides siblings in the same window, so the app's windows
+        // are hidden from VoiceOver and UI automation one by one. The keyboard's windows stay
+        // visible for the editor's own text field.
+        let hidden = scene.windows.filter { $0 !== window && !Capturer.isSystemWindow($0) }.map { ($0, $0.accessibilityElementsHidden) }
+        hidden.forEach { $0.0.accessibilityElementsHidden = true }
         window.makeKeyAndVisible()
-        state = .editing(overlay: window, previousKey: previousKey)
+        state = .editing(Editing(overlay: window, previousKey: previousKey, responder: responder, accessibilityHidden: hidden))
+        UIAccessibility.post(notification: .screenChanged, argument: window)
+    }
+
+    private static func firstResponder(in view: UIView) -> UIView? {
+        if view.isFirstResponder { return view }
+        return view.subviews.lazy.compactMap { firstResponder(in: $0) }.first
     }
 
     private static func share(_ session: Session) {
-        guard case .editing(let overlay, _) = state, var presenter = overlay.rootViewController else { return }
+        guard case .editing(let editing) = state, var presenter = editing.overlay.rootViewController else { return }
         while let presented = presenter.presentedViewController { presenter = presented }
         let data: Data
         let pasteboard: [String: Any]
@@ -73,14 +91,21 @@ public enum Feetback {
         let item: Any = (try? data.write(to: file)) != nil ? file : data
         let sheet = UIActivityViewController(activityItems: [item], applicationActivities: [CopyActivity(item: pasteboard)])
         sheet.excludedActivityTypes = [.copyToPasteboard]
+        let items = session.items
+        sheet.completionWithItemsHandler = { _, completed, _, _ in
+            if completed { session.shared = items }
+        }
         sheet.popoverPresentationController?.sourceView = presenter.view
         presenter.present(sheet, animated: true)
     }
 
     static func dismiss() {
-        if case .editing(let overlay, let previousKey) = state {
-            overlay.isHidden = true
-            previousKey?.makeKey()
+        if case .editing(let editing) = state {
+            editing.overlay.isHidden = true
+            for (window, wasHidden) in editing.accessibilityHidden { window.accessibilityElementsHidden = wasHidden }
+            editing.previousKey?.makeKey()
+            editing.responder?.becomeFirstResponder()
+            UIAccessibility.post(notification: .screenChanged, argument: nil)
         }
         state = .idle
     }

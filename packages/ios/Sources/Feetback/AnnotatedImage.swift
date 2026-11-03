@@ -1,42 +1,91 @@
+import CoreGraphics
+
+/// Where the image export puts each item's card. A card sits in the left column, as level with its
+/// target as the cards above it allow. It moves to the right column when that makes its line to
+/// the target at least `rightColumnPenalty` points shorter, as for a button at the trailing edge.
+/// The environment then takes the first gap in the right column that is tall enough, from the top.
+enum CardLayout {
+    static let margin: CGFloat = 24
+    static let column: CGFloat = 280
+    static let gutter: CGFloat = 36
+    static let spacing: CGFloat = 12
+    static let badge: CGFloat = 20
+    static let padding: CGFloat = 10
+    static let rightColumnPenalty: CGFloat = 80
+
+    struct Card: Equatable {
+        var isLeft: Bool
+        var origin: CGPoint
+    }
+
+    struct Layout: Equatable {
+        let shot: CGRect
+        let cards: [Card]
+        let environment: CGPoint
+        let size: CGSize
+    }
+
+    /// `targets` are frames in the capture; the layout's frames are in the image.
+    static func place(targets: [CGRect], heights: [CGFloat], screen: CGSize, environmentHeight: CGFloat) -> Layout {
+        let shot = CGRect(x: margin + column + gutter, y: margin, width: screen.width, height: screen.height)
+        let rightX = shot.maxX + gutter
+        let targets = targets.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
+        var cards = targets.map { _ in Card(isLeft: true, origin: .zero) }
+        var nextLeft = margin, nextRight = margin
+        for index in targets.indices.sorted(by: { (targets[$0].midY, $0) < (targets[$1].midY, $1) }) {
+            let desired = max(targets[index].midY - heights[index] / 2, margin)
+            let left = Card(isLeft: true, origin: CGPoint(x: margin, y: max(desired, nextLeft)))
+            let right = Card(isLeft: false, origin: CGPoint(x: rightX, y: max(desired, nextRight)))
+            let card = length(left, to: targets[index]) - length(right, to: targets[index]) >= rightColumnPenalty ? right : left
+            cards[index] = card
+            if card.isLeft { nextLeft = card.origin.y + heights[index] + spacing } else { nextRight = card.origin.y + heights[index] + spacing }
+        }
+
+        var environmentY = margin
+        for index in cards.indices.filter({ !cards[$0].isLeft }).sorted(by: { cards[$0].origin.y < cards[$1].origin.y }) {
+            if environmentY + environmentHeight + spacing * 2 <= cards[index].origin.y { break }
+            environmentY = max(environmentY, cards[index].origin.y + heights[index] + spacing * 2)
+        }
+        let height = max(shot.maxY, nextLeft - spacing, nextRight - spacing, environmentY + environmentHeight) + margin
+        return Layout(
+            shot: shot, cards: cards, environment: CGPoint(x: rightX, y: environmentY),
+            size: CGSize(width: rightX + column + margin, height: height)
+        )
+    }
+
+    /// From the card's badge to the nearest side of the target, at the badge's height when the
+    /// target spans it.
+    static func line(_ card: Card, to target: CGRect) -> (start: CGPoint, end: CGPoint) {
+        let start = CGPoint(x: card.isLeft ? card.origin.x + column : card.origin.x, y: card.origin.y + padding + badge / 2)
+        let end = CGPoint(x: card.isLeft ? target.minX : target.maxX, y: min(max(start.y, target.minY + 2), target.maxY - 2))
+        return (start, end)
+    }
+
+    private static func length(_ card: Card, to target: CGRect) -> CGFloat {
+        let (start, end) = line(card, to: target)
+        return hypot(end.x - start.x, end.y - start.y)
+    }
+}
+
 #if canImport(UIKit)
 import UIKit
 
 /// The image export: the screenshot with numbered boxes, each item's text and code location in a
-/// card beside it, and the capture's environment, so the one file is enough on its own. Cards go
-/// in the left column at their target's height; one only moves to the right column, under the
-/// environment, when that keeps it much closer.
+/// card beside it, and the capture's environment, so the one file is enough on its own.
 enum AnnotatedImage {
-    private static let margin: CGFloat = 24
-    private static let column: CGFloat = 280
-    private static let gutter: CGFloat = 36
-    private static let spacing: CGFloat = 12
-    private static let badge: CGFloat = 20
-    private static let padding: CGFloat = 10
-    private static let rightColumnPenalty: CGFloat = 80
+    private static let column = CardLayout.column
+    private static let badge = CardLayout.badge
+    private static let padding = CardLayout.padding
     /// Keeps a tall full-length capture shareable: about 160 MB of pixels at most.
     private static let pixelBudget: CGFloat = 40_000_000
 
     private static let secondary = UIColor(white: 0.42, alpha: 1)
     private static let primary = UIColor(white: 0.08, alpha: 1)
 
-    private struct Card {
-        let number: Int
-        let color: UIColor
-        let text: NSAttributedString
-        let height: CGFloat
-        let target: CGRect
-        var origin = CGPoint.zero
-        var isLeft = true
-    }
-
     static func render(_ capture: Capture, items: [FeedbackItem]) -> UIImage {
-        let shot = CGRect(x: margin + column + gutter, y: margin, width: capture.screen.width, height: capture.screen.height)
-        let rightX = shot.maxX + gutter
-        let width = rightX + column + margin
         let environment = environmentText(capture)
         let environmentHeight = measure(environment, width: column)
-
-        var cards = items.enumerated().map { index, item in
+        let cards = items.enumerated().map { index, item in
             let node = capture.nodes[item.target]
             let text = NSMutableAttributedString(string: node.title + "\n", attributes: [
                 .font: UIFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: secondary,
@@ -47,20 +96,12 @@ enum AnnotatedImage {
                 ]))
             }
             text.append(NSAttributedString(string: item.text, attributes: [.font: UIFont.systemFont(ofSize: 14), .foregroundColor: primary]))
-            let height = max(measure(text, width: textWidth), badge) + padding * 2
-            return Card(number: index + 1, color: Palette.uiColor(index), text: text, height: height, target: node.frame.offsetBy(dx: shot.minX, dy: shot.minY))
+            return (number: index + 1, color: Palette.uiColor(index), text: text, height: max(measure(text, width: textWidth), badge) + padding * 2, frame: node.frame)
         }
-        var nextLeft = margin
-        var nextRight = margin + environmentHeight + spacing * 2
-        for index in cards.indices.sorted(by: { cards[$0].target.midY < cards[$1].target.midY }) {
-            let desired = max(cards[index].target.midY - cards[index].height / 2, margin)
-            let left = max(desired, nextLeft), right = max(desired, nextRight)
-            cards[index].isLeft = left <= right + rightColumnPenalty
-            cards[index].origin = CGPoint(x: cards[index].isLeft ? margin : rightX, y: cards[index].isLeft ? left : right)
-            if cards[index].isLeft { nextLeft = left + cards[index].height + spacing } else { nextRight = right + cards[index].height + spacing }
-        }
+        let layout = CardLayout.place(targets: cards.map(\.frame), heights: cards.map(\.height), screen: capture.screen, environmentHeight: environmentHeight)
+        let shot = layout.shot
+        let size = layout.size
 
-        let size = CGSize(width: width, height: max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin)
         let format = UIGraphicsImageRendererFormat()
         format.scale = min(capture.scale, (pixelBudget / (size.width * size.height)).squareRoot())
         return UIGraphicsImageRenderer(size: size, format: format).image { context in
@@ -76,18 +117,15 @@ enum AnnotatedImage {
             frame.lineWidth = 1
             frame.stroke()
 
-            for card in cards {
-                let box = UIBezierPath(roundedRect: card.target.insetBy(dx: -1, dy: -1), cornerRadius: 4)
+            for (card, placement) in zip(cards, layout.cards) {
+                let target = card.frame.offsetBy(dx: shot.minX, dy: shot.minY)
+                let box = UIBezierPath(roundedRect: target.insetBy(dx: -1, dy: -1), cornerRadius: 4)
                 box.lineWidth = 1.5
                 box.setLineDash([6, 4], count: 2, phase: 0)
                 card.color.withAlphaComponent(0.9).setStroke()
                 box.stroke()
 
-                let start = CGPoint(x: card.isLeft ? card.origin.x + column : card.origin.x, y: card.origin.y + padding + badge / 2)
-                let end = CGPoint(
-                    x: card.isLeft ? card.target.minX : card.target.maxX,
-                    y: min(max(start.y, card.target.minY + 2), card.target.maxY - 2)
-                )
+                let (start, end) = CardLayout.line(placement, to: target)
                 let line = UIBezierPath()
                 line.move(to: start)
                 line.addLine(to: end)
@@ -98,14 +136,14 @@ enum AnnotatedImage {
                 UIBezierPath(ovalIn: CGRect(x: end.x - 2.5, y: end.y - 2.5, width: 5, height: 5)).fill()
 
                 let corner = CGPoint(
-                    x: min(max(card.target.minX, shot.minX + badge / 2 + 2), shot.maxX - badge / 2 - 2),
-                    y: min(max(card.target.minY, shot.minY + badge / 2 + 2), shot.maxY - badge / 2 - 2)
+                    x: min(max(target.minX, shot.minX + badge / 2 + 2), shot.maxX - badge / 2 - 2),
+                    y: min(max(target.minY, shot.minY + badge / 2 + 2), shot.maxY - badge / 2 - 2)
                 )
                 drawBadge(card.number, color: card.color, center: corner)
             }
 
-            for card in cards {
-                let rect = CGRect(origin: card.origin, size: CGSize(width: column, height: card.height))
+            for (card, placement) in zip(cards, layout.cards) {
+                let rect = CGRect(origin: placement.origin, size: CGSize(width: column, height: card.height))
                 let background = UIBezierPath(roundedRect: rect, cornerRadius: 10)
                 UIColor.white.setFill()
                 background.fill()
@@ -119,7 +157,7 @@ enum AnnotatedImage {
                 )
             }
 
-            environment.draw(with: CGRect(x: rightX, y: margin, width: column, height: environmentHeight), options: [.usesLineFragmentOrigin], context: nil)
+            environment.draw(with: CGRect(origin: layout.environment, size: CGSize(width: column, height: environmentHeight)), options: [.usesLineFragmentOrigin], context: nil)
         }
     }
 

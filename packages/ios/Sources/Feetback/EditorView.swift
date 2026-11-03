@@ -3,10 +3,14 @@ import SwiftUI
 import UIKit
 
 struct EditorView: View {
+    /// Past this size the header wraps and the panel leaves no room for the screenshot.
+    static let largestTextSize = DynamicTypeSize.xxxLarge
+
     @Bindable var session: Session
     let dismiss: () -> Void
     let share: () -> Void
     @State private var showsList = false
+    @State private var confirmsClose = false
     /// The panel's first height. The screenshot's scale stays fixed to it, so the picture does not
     /// jump as the panel grows with a selection or a longer draft.
     @State private var panelHeight: CGFloat = 0
@@ -29,6 +33,13 @@ struct EditorView: View {
         }
         .background(Color(white: 0.08).ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .dynamicTypeSize(...EditorView.largestTextSize)
+        .alert("Discard feedback?", isPresented: $confirmsClose) {
+            Button("Discard", role: .destructive, action: dismiss)
+            Button("Keep Editing", role: .cancel) {}
+        } message: {
+            Text("Closing discards \(itemCount) you haven't shared.")
+        }
         .sheet(isPresented: $showsList) {
             ItemsSheet(session: session, share: share)
                 .presentationDetents([.medium, .large])
@@ -37,10 +48,12 @@ struct EditorView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            Button("Close", systemImage: "xmark", action: dismiss)
+            Button("Close", systemImage: "xmark") {
+                if session.hasUnsharedItems { confirmsClose = true } else { dismiss() }
+            }
                 .labelStyle(.iconOnly)
             Spacer()
-            Text("Feedback").font(.headline)
+            Text("Feedback").font(.headline).lineLimit(1).minimumScaleFactor(0.6)
             Spacer()
             Button {
                 composing = false
@@ -48,6 +61,7 @@ struct EditorView: View {
             } label: {
                 Image(systemName: "list.bullet")
             }
+            .accessibilityLabel("Feedback list, \(itemCount)")
             .overlay(alignment: .topTrailing) {
                 if !session.items.isEmpty {
                     Text("\(session.items.count)")
@@ -60,7 +74,6 @@ struct EditorView: View {
                         .accessibilityHidden(true)
                 }
             }
-            .accessibilityLabel("Feedback list, \(session.items.count) items")
             Button("Share", systemImage: "square.and.arrow.up", action: share)
                 .labelStyle(.iconOnly)
                 .disabled(session.items.isEmpty)
@@ -70,6 +83,10 @@ struct EditorView: View {
         .buttonBorderShape(.circle)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
+    }
+
+    private var itemCount: String {
+        session.items.count == 1 ? "1 item" : "\(session.items.count) items"
     }
 }
 
@@ -84,7 +101,10 @@ private struct ScreenshotCanvas: View {
     var body: some View {
         GeometryReader { proxy in
             let capture = session.capture
-            let scale = max(min((proxy.size.width - 24) / capture.screen.width, (proxy.size.height - panelHeight - 16) / capture.visible.height), 0.05)
+            let widthFit = (proxy.size.width - 24) / capture.screen.width
+            // Smaller than half the width, the screenshot is too small to tap. It scrolls behind
+            // the panel instead.
+            let scale = max(min(widthFit, (proxy.size.height - panelHeight - 16) / capture.visible.height), widthFit / 2, 0.05)
             let size = CGSize(width: capture.screen.width * scale, height: capture.screen.height * scale)
             let bottom = max(proxy.frame(in: .global).maxY - panelTop, panelHeight) + 8
             let hidden = capture.screen.height - capture.visible.height
@@ -327,6 +347,7 @@ private struct ItemsSheet: View {
             }
             .navigationTitle("Feedback")
             .navigationBarTitleDisplayMode(.inline)
+            .dynamicTypeSize(...EditorView.largestTextSize)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
                 ToolbarItem(placement: .primaryAction) {

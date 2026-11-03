@@ -35,6 +35,20 @@ struct ListDetailScreen: View {
                 }
             }
             .navigationTitle(list.name)
+            .toolbar {
+                Menu("Options", systemImage: "ellipsis.circle") {
+                    Picker("Sort", selection: Bindable(store).sortOrder) {
+                        ForEach(SortOrder.allCases) { Text($0.rawValue.capitalized) }
+                    }
+                    Button("Mark All Done", systemImage: "checkmark.circle") {
+                        list.items.filter { !$0.isDone }.forEach {
+                            var item = $0
+                            item.isDone = true
+                            store.update(item, in: listID)
+                        }
+                    }
+                }
+            }
             .safeAreaInset(edge: .bottom) { AddTodoBar { store.add($0, to: listID) } }
             .sheet(item: $editing) { item in
                 TodoDetailSheet(item: item, listID: listID)
