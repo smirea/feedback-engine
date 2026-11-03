@@ -4,19 +4,21 @@ Every platform package exports a capture in one of two formats, each a single fi
 
 ## Capture model
 
-A capture is a screenshot plus a tree of nodes. Node 0 is the whole capture. When the screen's main scroll view has more content than fits, the capture shows that content at full length: the bars above it stay at the top, the bars below it move to the bottom, and the capture is taller than the device screen. The capture records which part was on screen when it was taken. Nodes are numbered depth-first in reading order, so a parent always has a lower number than its children.
+A capture is a screenshot plus a tree of nodes. Node 0 is the whole capture. When the screen's main scroll view has more content than fits, the capture shows that content at full length: the bars above it stay at the top, the bars below it move to the bottom, and the capture is taller than the device screen. A capture that reaches its height limit ends between two rows. The capture records which part was on screen when it was taken. Nodes are numbered depth-first in reading order, so a parent always has a lower number than its children.
 
 | Field | Meaning |
 | --- | --- |
 | `kind` | `screen`, `layer` (a presented sheet, popover, dialog, or menu, or the keyboard), `component` (tagged by the app), or `element` (from the accessibility tree) |
 | `name` | Component name, layer name, or element role (`Button`, `Text`, `Text field`, `Header`, `Image`, …) |
 | `label` | Visible text of an element |
-| `frame` | Rectangle in points from the capture's top-left corner |
+| `frame` | Rectangle in points from the capture's top-left corner, clipped to the capture |
 | `source` | `file:line` of the component's tag call |
 | `data` | Text description of the component's data at capture time |
 | `layer` | 0 for the base screen. Higher layers are presented on top. |
 
-Hit-testing picks the smallest node under the point, considering only the topmost layer that covers it.
+Hit-testing picks the smallest node under the point, considering only the topmost layer that covers it. A node that a higher layer covers completely can never be picked, so the tree leaves it out. Content hidden under the bars or a pinned section header of a full-length capture is left out too, and each section header appears once, where its section starts.
+
+An element's parent is the smallest component that holds its centre and at least three quarters of its area, or else the smallest that holds its centre. Of two components with the same frame, the inner one wins.
 
 ## Image export
 

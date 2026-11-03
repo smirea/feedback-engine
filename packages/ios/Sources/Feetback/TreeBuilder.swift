@@ -45,10 +45,16 @@ enum TreeBuilder {
 
     static func build(_ scene: RawScene) -> [Node] {
         let screen = CGRect(origin: .zero, size: scene.screen)
+        let covers = scene.layers.enumerated().dropFirst().filter { usable($0.element.frame) }.map { (layer: $0.offset, frame: $0.element.frame) }
+        /// No tap can reach what a higher layer covers completely, so the tree leaves it out.
+        func shown(_ frame: CGRect, layer: Int) -> Bool {
+            frame.intersects(screen) && !covers.contains { $0.layer > layer && $0.frame.contains(frame) }
+        }
+
         var entries: [Entry] = [Entry(parent: nil, layer: 0, kind: .screen, name: "Screen", label: nil, frame: screen, data: nil)]
         var layerEntry = [0]
         for (index, layer) in scene.layers.enumerated().dropFirst() {
-            guard usable(layer.frame) else {
+            guard usable(layer.frame), shown(layer.frame, layer: index) else {
                 layerEntry.append(0)
                 continue
             }
@@ -63,12 +69,22 @@ enum TreeBuilder {
             return nil
         }
         for (index, component) in components.enumerated() where parentOf[index] == nil {
-            parentOf[index] = smallest(in: components.indices, containing: component.frame, layer: component.layer, of: components, excluding: index)
+            parentOf[index] = smallest(
+                in: components.indices.filter { area(components[$0].frame) > area(component.frame) },
+                containing: component.frame, layer: component.layer, of: components, depth: { _ in 0 }
+            )
         }
         breakCycles(&parentOf)
+        var depthOf: [Int: Int] = [:]
+        func depth(_ index: Int) -> Int {
+            if let known = depthOf[index] { return known }
+            let value = parentOf[index].map { depth($0) + 1 } ?? 0
+            depthOf[index] = value
+            return value
+        }
 
         var keep = Array(repeating: false, count: components.count)
-        for (index, component) in components.enumerated() where component.frame.intersects(screen) {
+        for (index, component) in components.enumerated() where shown(component.frame, layer: component.layer) {
             var current: Int? = index
             while let node = current, !keep[node] {
                 keep[node] = true
@@ -77,21 +93,21 @@ enum TreeBuilder {
         }
 
         var componentEntry: [Int: Int] = [:]
-        for (index, component) in components.enumerated() where keep[index] {
+        let kept = components.indices.filter { keep[$0] }
+        for index in kept {
+            let component = components[index]
             componentEntry[index] = entries.count
             entries.append(Entry(
                 parent: nil, layer: component.layer, kind: .component(component.source),
                 name: component.name, label: nil, frame: component.frame, data: component.data
             ))
         }
-        for (index, entry) in componentEntry {
-            entries[entry].parent = parentOf[index].flatMap { componentEntry[$0] } ?? layerEntry[components[index].layer]
+        for index in kept {
+            entries[componentEntry[index]!].parent = parentOf[index].flatMap { componentEntry[$0] } ?? layerEntry[components[index].layer]
         }
 
-        let kept = componentEntry.keys.map { $0 }
-        for element in scene.elements where usable(element.frame) && element.frame.intersects(screen) {
-            let container = smallest(in: kept, containing: element.frame.insetBy(dx: 1, dy: 1), layer: element.layer, of: components, excluding: nil)
-                ?? smallest(in: kept, containing: CGRect(origin: CGPoint(x: element.frame.midX, y: element.frame.midY), size: .zero), layer: element.layer, of: components, excluding: nil)
+        for element in scene.elements where usable(element.frame) && shown(element.frame, layer: element.layer) {
+            let container = container(of: element, in: kept, of: components, depth: depth)
             entries.append(Entry(
                 parent: container.flatMap { componentEntry[$0] } ?? layerEntry[element.layer],
                 layer: element.layer, kind: .element(role: element.role), name: element.role,
@@ -99,15 +115,32 @@ enum TreeBuilder {
             ))
         }
 
-        wrapInElements(&entries, components: Array(componentEntry.values))
-        return ordered(entries)
+        wrapInElements(&entries, components: kept.map { componentEntry[$0]! })
+        return ordered(entries, clippedTo: screen)
+    }
+
+    /// The smallest component that contains the element. An element can stick out a little past
+    /// the component it belongs to, such as text with a shadow or negative padding, so a smaller
+    /// component holding its centre and most of its area wins over a larger one that contains it
+    /// completely. A component that a button or link encloses with room to spare is never its
+    /// container: the button wraps the component.
+    private static func container(of element: RawScene.Element, in candidates: [Int], of components: [RawScene.Component], depth: (Int) -> Int) -> Int? {
+        let frame = element.frame
+        let centre = CGPoint(x: frame.midX, y: frame.midY)
+        let around = candidates.filter { index in
+            let candidate = components[index].frame
+            let encloses = ["Button", "Link"].contains(element.role) && frame.insetBy(dx: -1, dy: -1).contains(candidate)
+                && (frame.width > candidate.width + 2 || frame.height > candidate.height + 2)
+            return candidate.contains(centre) && !encloses
+        }
+        return smallest(in: around.filter { area(components[$0].frame.intersection(frame)) >= area(frame) * 0.75 }, containing: centre, layer: element.layer, of: components, depth: depth)
+            ?? smallest(in: around, containing: centre, layer: element.layer, of: components, depth: depth)
     }
 
     /// A button or link merges its content into one accessibility element, so a component inside a
     /// `NavigationLink` shows up next to the link's element instead of under it. Moving the
     /// component under the smallest sibling element that encloses it restores the real nesting.
     private static func wrapInElements(_ entries: inout [Entry], components: [Int]) {
-        func area(_ frame: CGRect) -> CGFloat { frame.width * frame.height }
         let elements = entries.indices.filter {
             if case .element(let role) = entries[$0].kind { ["Button", "Link"].contains(role) } else { false }
         }
@@ -129,17 +162,26 @@ enum TreeBuilder {
         !frame.isNull && !frame.isEmpty && [frame.minX, frame.minY, frame.width, frame.height].allSatisfy { $0.isFinite && abs($0) < 100_000 }
     }
 
+    private static func area(_ frame: CGRect) -> CGFloat { frame.isNull ? 0 : frame.width * frame.height }
+
+    /// Among candidates of equal size, the deepest wins, so content lands in the innermost of two
+    /// components that share a frame, such as a card wrapping another tagged view.
     private static func smallest(
-        in candidates: some Sequence<Int>, containing frame: CGRect, layer: Int, of components: [RawScene.Component], excluding: Int?
+        in candidates: [Int], containing point: CGPoint, layer: Int, of components: [RawScene.Component], depth: (Int) -> Int
     ) -> Int? {
-        let area = frame.width * frame.height
-        return candidates
-            .filter { index in
-                let candidate = components[index]
-                guard index != excluding, candidate.layer == layer, candidate.frame.contains(frame) else { return false }
-                return excluding == nil || candidate.frame.width * candidate.frame.height > area
+        smallest(in: candidates, containing: CGRect(origin: point, size: .zero), layer: layer, of: components, depth: depth)
+    }
+
+    private static func smallest(
+        in candidates: [Int], containing frame: CGRect, layer: Int, of components: [RawScene.Component], depth: (Int) -> Int
+    ) -> Int? {
+        candidates
+            .filter { components[$0].layer == layer && components[$0].frame.contains(frame) }
+            .min { a, b in
+                let areaA = area(components[a].frame), areaB = area(components[b].frame)
+                if areaA != areaB { return areaA < areaB }
+                return depth(a) != depth(b) ? depth(a) > depth(b) : a > b
             }
-            .min { components[$0].frame.width * components[$0].frame.height < components[$1].frame.width * components[$1].frame.height }
     }
 
     private static func breakCycles(_ parentOf: inout [Int?]) {
@@ -158,7 +200,8 @@ enum TreeBuilder {
     }
 
     /// Renumbers depth-first in reading order, so every parent precedes its children.
-    private static func ordered(_ entries: [Entry]) -> [Node] {
+    /// Frames are clipped to the capture, so nothing reports a position outside the image.
+    private static func ordered(_ entries: [Entry], clippedTo bounds: CGRect) -> [Node] {
         var children = Array(repeating: [Int](), count: entries.count)
         for (index, entry) in entries.enumerated() { if let parent = entry.parent { children[parent].append(index) } }
         var nodes: [Node] = []
@@ -167,7 +210,7 @@ enum TreeBuilder {
             let id = nodes.count
             nodes.append(Node(
                 id: id, parent: parent, layer: entry.layer, kind: entry.kind, name: entry.name,
-                label: entry.label, frame: entry.frame, data: entry.data
+                label: entry.label, frame: entry.frame.intersects(bounds) ? entry.frame.intersection(bounds) : entry.frame, data: entry.data
             ))
             let sorted = children[index].sorted { a, b in
                 let fa = entries[a].frame, fb = entries[b].frame

@@ -17,6 +17,9 @@ struct SettingsScreen: View {
                 Button("Send Feedback", systemImage: "bubble.left.and.text.bubble.right") { Feetback.present() }
                 Text("Or shake the device on any screen.").font(.footnote).foregroundStyle(.secondary)
             }
+            Section("Examples") {
+                NavigationLink("Exercise Catalog") { CatalogScreen() }
+            }
             Section("About") {
                 LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")
                 LabeledContent("Lists", value: "\(store.lists.count)")
