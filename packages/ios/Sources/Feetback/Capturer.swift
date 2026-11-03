@@ -214,8 +214,10 @@ enum Capturer {
         /// so content shows only below it.
         func contentBand() -> ClosedRange<CGFloat> {
             let band = band(), cells = cells()
-            let floating = visibleSubviews()
-                .filter { ($0 is UICollectionReusableView && !($0 is UICollectionViewCell)) || $0 is UITableViewHeaderFooterView }
+            let headers = ((scrollView as? UICollectionView)?.visibleSupplementaryViews(ofKind: UICollectionView.elementKindSectionHeader) ?? [])
+                + visibleSubviews().filter { $0 is UITableViewHeaderFooterView }
+            let floating = headers
+                .filter { !$0.isHidden && $0.alpha > 0.01 }
                 .map { $0.convert($0.bounds, to: space) }
                 .filter { header in
                     header.minY <= band.lowerBound + 0.5 && header.maxY > band.lowerBound + 0.5
@@ -279,30 +281,43 @@ enum Capturer {
         var covered = first.upperBound
         var position = top
         var isCut = false
+        func same(_ a: ClosedRange<CGFloat>, _ b: ClosedRange<CGFloat>) -> Bool {
+            abs(a.lowerBound - b.lowerBound) < 0.5 && abs(a.upperBound - b.upperBound) < 0.5
+        }
+        /// Reads the current position once it holds still. A large title collapses after the first
+        /// scroll, and UIKit moves the content offset while it animates, so a position that moved
+        /// during the read is corrected and read again. A new pinned header, or a band that moved,
+        /// can leave a gap below what is covered or reach past the end; scrolling back by the
+        /// difference closes it. `nil` when the position reveals nothing new.
+        func settle() async -> (shift: CGFloat, reveal: ClosedRange<CGFloat>, step: ScrollStep)? {
+            var result: (shift: CGFloat, reveal: ClosedRange<CGFloat>, step: ScrollStep)?
+            for _ in 0..<3 {
+                for _ in 0..<3 {
+                    let reveal = contentBand(), shift = measuredShift()
+                    let back = max(reveal.lowerBound + shift - covered, reveal.upperBound + shift - end)
+                    guard back > 0.5 else { break }
+                    scroll(to: scrollView.contentOffset.y - back)
+                }
+                let shift = measuredShift(), reveal = contentBand()
+                guard scrollView.contentOffset.y > position + 0.5, reveal.upperBound + shift > covered + 0.5 else { return result }
+                result = (shift, reveal, await observe(shift: shift, band: reveal))
+                if abs(measuredShift() - shift) < 0.5, same(contentBand(), reveal) { break }
+            }
+            return result
+        }
         while !isCut, position < maxOffset() - 0.5, covered < end - 0.5 {
             let current = contentBand(), now = measuredShift()
             let advance = min(covered - 1 - current.lowerBound, end - current.upperBound) - now
             scroll(to: min(scrollView.contentOffset.y + advance, maxOffset()))
-            // A new pinned header, or a band that moved, can leave a gap below what is covered or
-            // reach past the end; scrolling back by the difference closes it.
-            for _ in 0..<3 {
-                let reveal = contentBand(), shift = measuredShift()
-                let back = max(reveal.lowerBound + shift - covered, reveal.upperBound + shift - end)
-                guard back > 0.5 else { break }
-                scroll(to: scrollView.contentOffset.y - back)
-            }
-            var shift = measuredShift(), reveal = contentBand()
-            guard scrollView.contentOffset.y > position + 0.5, reveal.upperBound + shift > covered + 0.5 else { break }
-            var step = await observe(shift: shift, band: reveal)
+            guard var (shift, reveal, step) = await settle() else { break }
             if reveal.upperBound + shift >= end - 0.5, scrollView.contentOffset.y < maxOffset() - 0.5 {
                 let start = max(covered - shift, reveal.lowerBound)
                 let rows = (step.components.map(\.frame) + (step.content + step.elements).map(\.frame))
                     .filter { $0.height < reveal.upperBound - reveal.lowerBound } + cells()
                 if let cut = Stitch.cut(atMost: reveal.upperBound, after: start, frames: rows), cut < reveal.upperBound - 0.5 {
                     scroll(to: scrollView.contentOffset.y - (reveal.upperBound - cut))
-                    shift = measuredShift()
-                    reveal = contentBand()
-                    step = await observe(shift: shift, band: reveal)
+                    guard let settled = await settle() else { break }
+                    (shift, reveal, step) = settled
                     isCut = true
                 }
             }
