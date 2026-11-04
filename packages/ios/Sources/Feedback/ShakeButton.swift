@@ -100,23 +100,27 @@ private final class ButtonController: UIViewController {
         return UIBlurEffect(style: .systemThinMaterial)
     }
 
-    /// Where the pill comes from and goes back to: shrunk into the middle of the status bar, which
-    /// on most iPhones is the Dynamic Island.
-    private var tucked: CGAffineTransform {
-        let rise = background.center.y - view.safeAreaInsets.top / 2
-        return CGAffineTransform(translationX: 0, y: -rise).scaledBy(x: 0.3, y: 0.3)
-    }
+    /// The pill grows out of, and shrinks back into, a capsule the size of the Dynamic Island
+    /// centered in the status bar. Animating the glass view's frame, not its transform, is what
+    /// makes the glass reflow like liquid instead of scaling as a picture.
+    private lazy var tucked = [
+        background.centerYAnchor.constraint(equalTo: view.topAnchor),
+        background.widthAnchor.constraint(equalToConstant: 126),
+        background.heightAnchor.constraint(equalToConstant: 37),
+    ]
+    private lazy var shown = [
+        background.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
+        background.widthAnchor.constraint(equalTo: button.widthAnchor),
+        background.heightAnchor.constraint(equalTo: button.heightAnchor),
+    ]
 
     override func loadView() {
         view = UIView()
         view.backgroundColor = .clear
 
         background.translatesAutoresizingMaskIntoConstraints = false
-        if #available(iOS 26, *) {
-            background.cornerConfiguration = .capsule()
-        } else {
-            background.clipsToBounds = true
-        }
+        background.clipsToBounds = true
+        if #available(iOS 26, *) { background.cornerConfiguration = .capsule() }
         view.addSubview(background)
 
         var configuration = UIButton.Configuration.plain()
@@ -136,38 +140,41 @@ private final class ButtonController: UIViewController {
         background.contentView.addSubview(button)
 
         NSLayoutConstraint.activate([
-            background.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 8),
             background.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            button.topAnchor.constraint(equalTo: background.topAnchor),
-            button.bottomAnchor.constraint(equalTo: background.bottomAnchor),
-            button.leadingAnchor.constraint(equalTo: background.leadingAnchor),
-            button.trailingAnchor.constraint(equalTo: background.trailingAnchor),
-        ])
+            button.centerXAnchor.constraint(equalTo: background.centerXAnchor),
+            button.centerYAnchor.constraint(equalTo: background.centerYAnchor),
+        ] + tucked)
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
+        tucked[0].constant = view.safeAreaInsets.top / 2
         if #unavailable(iOS 26) { background.layer.cornerRadius = background.bounds.height / 2 }
     }
 
-    /// Animating a visual effect view's `effect` from nil is what makes glass materialize.
+    /// Animating a visual effect view's `effect` from nil is what makes glass materialize. It
+    /// materializes quickly over the island so the whole morph down to the pill stays visible.
     func materialize() {
         view.layoutIfNeeded()
-        background.transform = tucked
         button.alpha = 0
-        UIView.animate(springDuration: 0.6, bounce: 0.3) {
-            self.background.effect = self.effect
-            self.background.transform = .identity
-            self.button.alpha = 1
-        }
+        NSLayoutConstraint.deactivate(tucked)
+        NSLayoutConstraint.activate(shown)
+        UIView.animate(withDuration: 0.15) { self.background.effect = self.effect }
+        UIView.animate(springDuration: 0.6, bounce: 0.3) { self.view.layoutIfNeeded() }
+        UIView.animate(withDuration: 0.25, delay: 0.22, options: .curveEaseOut) { self.button.alpha = 1 }
     }
 
     func dematerialize(completion: @escaping @MainActor () -> Void) {
-        UIView.animate(withDuration: 0.35, delay: 0, options: .curveEaseIn, animations: {
-            self.background.effect = nil
-            self.background.transform = self.tucked
-            self.button.alpha = 0
-        }, completion: { _ in MainActor.assumeIsolated { completion() } })
+        UIView.animate(withDuration: 0.12) { self.button.alpha = 0 }
+        NSLayoutConstraint.deactivate(shown)
+        NSLayoutConstraint.activate(tucked)
+        UIView.animate(springDuration: 0.45, bounce: 0, delay: 0.05, options: [], animations: {
+            self.view.layoutIfNeeded()
+        }, completion: { _ in
+            UIView.animate(withDuration: 0.15, animations: { self.background.effect = nil }, completion: { _ in
+                MainActor.assumeIsolated { completion() }
+            })
+        })
     }
 }
 #endif
