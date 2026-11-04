@@ -1,24 +1,36 @@
 #if canImport(UIKit)
 import ImageIO
 import Security
+import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
 /// Posts feedback to ProcrastiMate as one task: the image export as a task image, the JSON export as
 /// its notes. Uses ProcrastiMate's agent API (`POST /api/tasks`, `PATCH /api/tasks`) and image upload
 /// (`PUT /api/images`).
-public enum Procrastimate {
-    public enum Link: Sendable {
-        /// The session ProcrastiMate keeps in the team's shared keychain group while it is signed in,
-        /// as for Notouroboros. The host app needs the group in its `keychain-access-groups`
-        /// entitlement, and a simulator build must be signed, even ad hoc, for the keychain to honor it.
-        case shared(accessGroup: String = "FNYFHG5SV7.com.stefan.shared")
-        /// A personal `pm.` token from ProcrastiMate's settings. `apiURL` is the server's origin,
-        /// without `/api`.
-        case token(apiURL: URL, token: String)
+enum Procrastimate {
+    /// ProcrastiMate keeps its session here while it is signed in, for the team's other apps.
+    static let accessGroup = "FNYFHG5SV7.com.stefan.shared"
+
+    struct Project: Codable, Identifiable, Hashable, Sendable {
+        let id: String
+        let name: String
+    }
+
+    /// The projects from the last time the picker loaded them, so it opens filled.
+    static var cachedProjects: [Project] {
+        get { UserDefaults.standard.data(forKey: "feetback.procrastimate.projects").flatMap { try? JSONDecoder().decode([Project].self, from: $0) } ?? [] }
+        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: "feetback.procrastimate.projects") }
+    }
+
+    /// The project of the last post, or nil for the Inbox.
+    static var lastProject: String? {
+        get { UserDefaults.standard.string(forKey: "feetback.procrastimate.project") }
+        set { UserDefaults.standard.set(newValue, forKey: "feetback.procrastimate.project") }
     }
 
     enum Failure: LocalizedError {
+        case missingEntitlement
         case signedOut
         case server(status: Int, message: String?)
         case unreadable
@@ -26,7 +38,8 @@ public enum Procrastimate {
 
         var errorDescription: String? {
             switch self {
-            case .signedOut: "ProcrastiMate is signed out. Sign in there, then try again."
+            case .missingEntitlement: "This app can't read ProcrastiMate's session. Add `$(AppIdentifierPrefix)com.stefan.shared` to its `keychain-access-groups` entitlement."
+            case .signedOut: "ProcrastiMate isn't signed in on this device. Open it, sign in, then try again."
             case .server(let status, let message): message.map { "ProcrastiMate: \($0)" } ?? "ProcrastiMate answered \(status)."
             case .unreadable: "ProcrastiMate sent a response Feetback could not read."
             case .imageTooLarge: "The image could not be made small enough to upload."
@@ -38,38 +51,37 @@ public enum Procrastimate {
         let apiURL: URL
         let token: String
 
-        init(_ link: Link) throws {
-            switch link {
-            case .token(let apiURL, let token):
-                (self.apiURL, self.token) = (apiURL, token)
-            case .shared(let accessGroup):
-                struct Item: Decodable { let apiURL: String; let token: String }
-                let query: [String: Any] = [
-                    kSecClass as String: kSecClassGenericPassword,
-                    kSecAttrService as String: "procrastimate-link",
-                    kSecAttrAccount as String: "default",
-                    kSecAttrAccessGroup as String: accessGroup,
-                    kSecReturnData as String: true,
-                    kSecMatchLimit as String: kSecMatchLimitOne,
-                ]
-                var result: CFTypeRef?
-                guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data,
-                      let item = try? JSONDecoder().decode(Item.self, from: data), !item.token.isEmpty,
-                      let apiURL = URL(string: item.apiURL)
-                else { throw Failure.signedOut }
-                (self.apiURL, self.token) = (apiURL, item.token)
-            }
+        /// Reads the session ProcrastiMate shares through the team's keychain group, as
+        /// Notouroboros does. A simulator honors the group only in a signed build, even ad hoc.
+        init() throws {
+            struct Item: Decodable { let apiURL: String; let token: String }
+            let query: [String: Any] = [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: "procrastimate-link",
+                kSecAttrAccount as String: "default",
+                kSecAttrAccessGroup as String: Procrastimate.accessGroup,
+                kSecReturnData as String: true,
+                kSecMatchLimit as String: kSecMatchLimitOne,
+            ]
+            var result: CFTypeRef?
+            let status = SecItemCopyMatching(query as CFDictionary, &result)
+            if status == errSecMissingEntitlement { throw Failure.missingEntitlement }
+            guard status == errSecSuccess, let data = result as? Data,
+                  let item = try? JSONDecoder().decode(Item.self, from: data), !item.token.isEmpty,
+                  let apiURL = URL(string: item.apiURL)
+            else { throw Failure.signedOut }
+            (self.apiURL, self.token) = (apiURL, item.token)
         }
 
         /// The space's projects in the app's order. `/api/view` is the only route that lists them,
         /// and it carries every task too.
-        func projects() async throws -> [PostOption] {
+        func projects() async throws -> [Project] {
             struct View: Decodable {
                 struct Row: Decodable { let id: String; let name: String; let order: Double; let createdAt: Double }
                 let projects: [Row]
             }
             let view: View = try decode(await send("GET", "api/view"))
-            return view.projects.sorted { ($0.order, $0.createdAt) < ($1.order, $1.createdAt) }.map { PostOption(id: $0.id, name: $0.name) }
+            return view.projects.sorted { ($0.order, $0.createdAt) < ($1.order, $1.createdAt) }.map { Project(id: $0.id, name: $0.name) }
         }
 
         /// Uploads the image before the task that lists it, as ProcrastiMate's own clients do, so the
@@ -166,24 +178,117 @@ public enum Procrastimate {
     }
 }
 
-struct ProcrastimateDestination: Destination {
-    let link: Procrastimate.Link
+/// Picks the project, and the task's name when there is more than one item, then posts.
+struct ProcrastimateSheet: View {
+    let session: Session
+    let close: () -> Void
+    @State private var projects = Procrastimate.cachedProjects
+    @State private var selection = Procrastimate.lastProject
+    @State private var name = ""
+    @State private var loading = true
+    @State private var loadError: String?
+    @State private var postError: String?
+    @State private var posting = false
+    @FocusState private var naming: Bool
 
-    var key: String { "procrastimate" }
-    var sheetTitle: String { "Add to ProcrastiMate" }
-    var containerTitle: String { "Project" }
-    var fixedOptions: [PostOption] { [PostOption(id: "", name: "Inbox", systemImage: "tray")] }
-
-    func options() async throws -> [PostOption] {
-        try await Procrastimate.Client(link).projects()
+    static func controller(session: Session) -> UIViewController {
+        let host = UIHostingController<ProcrastimateSheet?>(rootView: nil)
+        host.rootView = ProcrastimateSheet(session: session) { [weak host] in host?.dismiss(animated: true) }
+        host.overrideUserInterfaceStyle = .dark
+        host.sheetPresentationController?.detents = [.medium(), .large()]
+        return host
     }
 
-    func post(_ post: Post, to option: PostOption) async throws -> String {
-        guard let image = post.image.cgImage else { throw Procrastimate.Failure.imageTooLarge }
-        let client = try Procrastimate.Client(link)
-        let encoded = try await Task.detached(priority: .userInitiated) { try Procrastimate.TaskImage(image) }.value
-        _ = try await client.post(title: post.title, notes: post.json, projectId: option.id.isEmpty ? nil : option.id, image: encoded)
-        return "Added to \(option.name) in ProcrastiMate"
+    private var title: String {
+        session.items.count == 1 ? session.items[0].text : name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if session.items.count > 1 {
+                    Section("Name") {
+                        TextField("Task name", text: $name)
+                            .focused($naming)
+                            .submitLabel(.done)
+                    }
+                } else {
+                    Section("Task") { Text(title).lineLimit(3) }
+                }
+                Section {
+                    Picker("Project", selection: $selection) {
+                        Label("Inbox", systemImage: "tray").tag(String?.none)
+                        ForEach(projects) { Text($0.name).tag(Optional($0.id)) }
+                    }
+                    .pickerStyle(.inline)
+                    .labelsHidden()
+                } header: {
+                    HStack {
+                        Text("Project")
+                        if loading { ProgressView().controlSize(.mini) }
+                    }
+                } footer: {
+                    if let loadError { Text(loadError).foregroundStyle(.red) }
+                }
+                if let postError {
+                    Section { Text(postError).foregroundStyle(.red) }
+                }
+            }
+            .navigationTitle("Add to ProcrastiMate")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: close) }
+                ToolbarItem(placement: .confirmationAction) {
+                    if posting {
+                        ProgressView()
+                    } else {
+                        Button("Add", action: post).disabled(title.isEmpty)
+                    }
+                }
+            }
+            .disabled(posting)
+        }
+        .dynamicTypeSize(...EditorView.largestTextSize)
+        .interactiveDismissDisabled(posting)
+        .task { await load() }
+        .onAppear { naming = session.items.count > 1 }
+    }
+
+    private func load() async {
+        defer { loading = false }
+        do {
+            let loaded = try await Procrastimate.Client().projects()
+            projects = loaded
+            Procrastimate.cachedProjects = loaded
+            if let selected = selection, !loaded.contains(where: { $0.id == selected }) { selection = nil }
+        } catch {
+            loadError = error.localizedDescription
+        }
+    }
+
+    private func post() {
+        posting = true
+        postError = nil
+        let items = session.items
+        let project = selection.flatMap { id in projects.first { $0.id == id } }
+        let title = title
+        let json = session.json
+        let image = AnnotatedImage.render(session.capture, items: items).cgImage
+        Task {
+            do {
+                guard let image else { throw Procrastimate.Failure.imageTooLarge }
+                let client = try Procrastimate.Client()
+                let encoded = try await Task.detached(priority: .userInitiated) { try Procrastimate.TaskImage(image) }.value
+                _ = try await client.post(title: title, notes: json, projectId: project?.id, image: encoded)
+                Procrastimate.lastProject = project?.id
+                session.shared.formUnion(items)
+                session.toast = "Added to \(project?.name ?? "Inbox") in ProcrastiMate"
+                close()
+            } catch {
+                postError = error.localizedDescription
+                posting = false
+            }
+        }
     }
 }
 #endif

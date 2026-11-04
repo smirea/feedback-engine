@@ -21,8 +21,6 @@ public enum Feetback {
         let accessibilityHidden: [(window: UIWindow, wasHidden: Bool)]
     }
 
-    private static var procrastimateLink: Procrastimate.Link?
-    private static var githubToken: String?
     private static var providers: [(name: String, value: @MainActor () -> Any)] = []
     private static var state = State.idle
 
@@ -37,21 +35,6 @@ public enum Feetback {
     public static func context(_ name: String, _ value: @escaping @MainActor () -> Any) {
         providers.removeAll { $0.name == name }
         providers.append((name, value))
-    }
-
-    /// Adds ProcrastiMate to the Share menu: it posts the feedback as a task in a project picked
-    /// there, with the image attached and the JSON in its notes.
-    public static func procrastimate(_ link: Procrastimate.Link = .shared()) {
-        procrastimateLink = link
-    }
-
-    /// Adds GitHub Issue to the Share menu: it opens an issue in a repository picked there, with
-    /// the image attached and the JSON in its body. Attaching uses the endpoint behind
-    /// `gh issue create --attach`, which takes only some apps' tokens: GitHub CLI's
-    /// (`gh auth token`) works. The token needs write access to the repository and, for JSON too
-    /// long for an issue, the `gist` scope.
-    public static func github(token: String) {
-        githubToken = token
     }
 
     /// Captures the active screen and opens the editor. Does nothing while the editor is open.
@@ -93,8 +76,8 @@ public enum Feetback {
     private static func share(_ session: Session, as target: ShareTarget) {
         guard case .editing(let editing) = state, var presenter = editing.overlay.rootViewController else { return }
         while let presented = presenter.presentedViewController { presenter = presented }
-        if let destination = destination(target) {
-            presenter.present(PostSheet.controller(session: session, destination: destination), animated: true)
+        if target == .procrastimate {
+            presenter.present(ProcrastimateSheet.controller(session: session), animated: true)
             return
         }
         var files: [(name: String, data: Data)] = []
@@ -118,14 +101,6 @@ public enum Feetback {
         }
         sheet.popoverPresentationController?.sourceView = presenter.view
         presenter.present(sheet, animated: true)
-    }
-
-    static func destination(_ target: ShareTarget) -> (any Destination)? {
-        switch target {
-        case .procrastimate: procrastimateLink.map(ProcrastimateDestination.init)
-        case .github: githubToken.map(GitHubDestination.init)
-        case .image, .json, .zip: nil
-        }
     }
 
     private static func write(_ file: (name: String, data: Data)) throws -> URL {
@@ -180,7 +155,6 @@ enum ShareTarget: CaseIterable {
     /// `feedback.png` and `feedback.json` in one `feedback.zip`.
     case zip
     case procrastimate
-    case github
 
     var title: String {
         switch self {
@@ -188,7 +162,6 @@ enum ShareTarget: CaseIterable {
         case .json: "JSON"
         case .zip: "Image and JSON (ZIP)"
         case .procrastimate: "ProcrastiMate"
-        case .github: "GitHub Issue"
         }
     }
 
@@ -198,7 +171,6 @@ enum ShareTarget: CaseIterable {
         case .json: "curlybraces"
         case .zip: "doc.zipper"
         case .procrastimate: "checklist"
-        case .github: "exclamationmark.bubble"
         }
     }
 }
