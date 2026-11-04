@@ -353,7 +353,13 @@ struct ProcrastimateSheet: View {
             let loaded = try await Procrastimate.Client().projects()
             projects = loaded
             Procrastimate.cachedProjects = loaded
-            if let project = place.projectId, !loaded.contains(where: { $0.id == project }) { place = .init() }
+            if let id = place.projectId {
+                if let project = loaded.first(where: { $0.id == id }) {
+                    if let section = place.sectionId, !project.sections.contains(where: { $0.id == section }) { place.sectionId = nil }
+                } else {
+                    place = .init()
+                }
+            }
         } catch {
             loadError = error.localizedDescription
         }
