@@ -78,8 +78,7 @@ struct EditorView: View {
     private var header: some View {
         HStack(spacing: 12) {
             Button("Close", systemImage: "xmark") {
-                let typing = !session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                if typing || !session.unshared.isEmpty { confirmsClose = true } else { dismiss() }
+                if session.isTyping || !session.unshared.isEmpty { confirmsClose = true } else { dismiss() }
             }
                 .labelStyle(.iconOnly)
             Spacer()
@@ -338,20 +337,32 @@ private struct TargetPanel: View {
                 .lineLimit(3, reservesSpace: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             HStack(alignment: .bottom, spacing: 8) {
-                TextField("Feedback on \(target.name)…", text: $session.draft, axis: .vertical)
+                if let editing = session.editing, let index = session.items.firstIndex(of: editing) {
+                    Text("\(index + 1)")
+                        .font(.caption.bold())
+                        .foregroundStyle(.white)
+                        .frame(width: 22, height: 22)
+                        .background(Palette.color(index), in: Circle())
+                        .padding(.bottom, 8)
+                        .accessibilityLabel("Editing item \(index + 1)")
+                }
+                TextField("Feedback on \(target.name)…", text: $session.text, axis: .vertical)
                     .lineLimit(1...4)
                     .focused(composing)
                     .accessibilityLabel("Feedback text")
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
                     .background(Color(white: 0.18), in: RoundedRectangle(cornerRadius: 18))
-                Button("Add feedback", systemImage: "arrow.up.circle.fill") {
-                    session.add()
+                Button(
+                    session.editing == nil ? "Add feedback" : "Save feedback",
+                    systemImage: session.editing == nil ? "arrow.up.circle.fill" : "checkmark.circle.fill"
+                ) {
+                    session.submit()
                     composing.wrappedValue = false
                 }
                     .labelStyle(.iconOnly)
                     .font(.title)
-                    .disabled(session.draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!session.canSubmit)
             }
         }
         .padding(16)
@@ -368,14 +379,14 @@ private struct Chain: View {
         let path = session.path
         let level = min(session.level, path.count - 1)
         HStack(spacing: 8) {
-            neighbor(level + 1 < path.count ? path[level + 1] : nil, isParent: true) { session.level = level + 1 }
+            neighbor(level + 1 < path.count ? path[level + 1] : nil, isParent: true) { session.step(to: level + 1) }
                 .frame(minWidth: 90, maxWidth: .infinity, alignment: .leading)
             Text(session.target.title)
                 .font(.headline)
                 .foregroundStyle(.yellow)
                 .lineLimit(1)
                 .layoutPriority(1)
-            neighbor(level > 0 ? path[level - 1] : nil, isParent: false) { session.level = level - 1 }
+            neighbor(level > 0 ? path[level - 1] : nil, isParent: false) { session.step(to: level - 1) }
                 .frame(minWidth: 90, maxWidth: .infinity, alignment: .trailing)
         }
     }

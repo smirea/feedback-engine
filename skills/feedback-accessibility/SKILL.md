@@ -10,7 +10,7 @@ A Feedback capture is built from two sources:
 1. **Elements** come from the accessibility tree: whatever VoiceOver stops on, such as a text, a button, an image, or one data point of a chart. Feedback reads only leaf elements. A container is walked through but never becomes a node, even when it has a label.
 2. **Components** come from `.feedback(...)` tags. SwiftUI exposes no view hierarchy at runtime, so a tag is the only way a capture learns that a card, chart, or section exists.
 
-A tap selects the smallest node under the finger. Where no element or tagged view sits under the point, the tap falls through to the nearest enclosing tag, usually the whole screen.
+A tap selects the smallest node under the finger. Where no element or tagged view sits under the point, the tap falls through to the nearest enclosing tag, usually the whole screen. The one exception: inside the box of a component or element that already has feedback, a tap selects that item so its feedback can be edited, and a second tap on the same spot drills down to the smallest node.
 
 So get accessibility right for VoiceOver users, then add tags only where accessibility alone leaves a tap ambiguous.
 
@@ -83,7 +83,7 @@ Do this after changing a screen, in a Debug simulator build with realistic data:
    ```
 
    It mirrors Feedback's hit testing on an 8 pt grid and prints the share of taps that fall through to a screen or layer root, the bands where most of a row falls through, and the elements that sit directly under a root. Every band should be a margin, a gap, or empty space, and every listed element should be a precise target on its own, such as a lone button. Anything else is a missing tag. This covers the parts of a long screen that the editor canvas doesn't show without scrolling.
-4. Spot-check with real taps on the regions you changed: every card, a chart's mark and its empty plot area, a row, and the key values. Read the selection title under the screenshot. The canvas is a scaled screenshot, so convert app points with its frame. With agent-device, use plain coordinate presses and `agent-device screenshot` to read the result. Taking snapshots between presses, or pressing with `--settle`, has stopped the canvas from receiving taps.
+4. Spot-check with real taps on the regions you changed: every card, a chart's mark and its empty plot area, a row, and the key values. Read the selection title under the screenshot. Check targets before adding any feedback, or tap twice inside a numbered box, since a first tap there selects the item instead of the smallest node. The canvas is a scaled screenshot, so convert app points with its frame. With agent-device, use plain coordinate presses and `agent-device screenshot` to read the result. Taking snapshots between presses, or pressing with `--settle`, has stopped the canvas from receiving taps.
 5. Check that VoiceOver output didn't get worse: agent-device's snapshot lists the elements VoiceOver reads.
 
 Agent-device's XCTest runner turns accessibility on for the whole simulator, which is the same state a capture switches on, so its snapshots are a fair preview of the elements. The tags only show up in a capture.
