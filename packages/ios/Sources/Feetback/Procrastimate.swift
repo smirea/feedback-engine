@@ -15,15 +15,76 @@ enum Procrastimate {
     struct Project: Codable, Identifiable, Hashable, Sendable {
         let id: String
         let name: String
+        let icon: String?
+        /// In the project's order.
+        let sections: [Section]
+
+        /// ProcrastiMate's own SF Symbol for each of its icon names (`ProjectIcons.swift` there). A
+        /// project without an icon, or with one newer than this list, shows the `#` it always had.
+        var systemImage: String {
+            switch icon {
+            case "home": "house"
+            case "work": "briefcase"
+            case "errands": "checklist"
+            case "shopping": "cart"
+            case "groceries": "basket"
+            case "money": "banknote"
+            case "bills": "receipt"
+            case "health": "cross.case"
+            case "fitness": "dumbbell"
+            case "food": "fork.knife"
+            case "travel": "airplane"
+            case "car": "car"
+            case "learning": "graduationcap"
+            case "reading": "book"
+            case "ideas": "lightbulb"
+            case "writing": "pencil"
+            case "code": "chevron.left.forwardslash.chevron.right"
+            case "calendar": "calendar"
+            case "family": "person.3"
+            case "pets": "pawprint"
+            case "garden": "leaf"
+            case "cleaning": "bubbles.and.sparkles"
+            case "repairs": "wrench.and.screwdriver"
+            case "documents": "doc.text"
+            case "email": "envelope"
+            case "calls": "phone"
+            case "music": "music.note"
+            case "movies": "film"
+            case "games": "gamecontroller"
+            case "gifts": "gift"
+            case "art": "paintbrush"
+            case "photos": "camera"
+            case "outdoors": "mountain.2"
+            case "goals": "target"
+            case "favorites": "star"
+            case "love": "heart"
+            case "someday": "moon"
+            default: "number"
+            }
+        }
+    }
+
+    struct Section: Codable, Identifiable, Hashable, Sendable {
+        let id: String
+        let name: String
+    }
+
+    /// Where a task goes: the Inbox when `projectId` is nil, and the project's top, above its
+    /// sections, when `sectionId` is.
+    struct Place: Hashable, Sendable {
+        var projectId: String?
+        var sectionId: String?
     }
 
     /// The projects from the last time the picker loaded them, so it opens filled.
     static var cachedProjects: [Project] {
-        get { UserDefaults.standard.data(forKey: "feetback.procrastimate.projects").flatMap { try? JSONDecoder().decode([Project].self, from: $0) } ?? [] }
-        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: "feetback.procrastimate.projects") }
+        get { UserDefaults.standard.data(forKey: "feetback.procrastimate.projects.v2").flatMap { try? JSONDecoder().decode([Project].self, from: $0) } ?? [] }
+        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: "feetback.procrastimate.projects.v2") }
     }
 
-    /// The project of the last post, or nil for the Inbox.
+    /// The project of the last post, or nil for the Inbox. Its section is not kept: a new post starts
+    /// at the project's top.
     static var lastProject: String? {
         get { UserDefaults.standard.string(forKey: "feetback.procrastimate.project") }
         set { UserDefaults.standard.set(newValue, forKey: "feetback.procrastimate.project") }
@@ -73,26 +134,31 @@ enum Procrastimate {
             (self.apiURL, self.token) = (apiURL, item.token)
         }
 
-        /// The space's projects in the app's order. `/api/view` is the only route that lists them,
-        /// and it carries every task too.
+        /// The space's projects and their sections in the app's order. `/api/view` is the only route
+        /// that lists them, and it carries every task too.
         func projects() async throws -> [Project] {
             struct View: Decodable {
-                struct Row: Decodable { let id: String; let name: String; let order: Double; let createdAt: Double }
+                struct Row: Decodable { let id: String; let name: String; let icon: String?; let order: Double; let createdAt: Double }
+                struct SectionRow: Decodable { let id: String; let projectId: String; let name: String; let order: Double; let createdAt: Double }
                 let projects: [Row]
+                let sections: [SectionRow]
             }
             let view: View = try decode(await send("GET", "api/view"))
-            return view.projects.sorted { ($0.order, $0.createdAt) < ($1.order, $1.createdAt) }.map { Project(id: $0.id, name: $0.name) }
+            let sections = Dictionary(grouping: view.sections.sorted { ($0.order, $0.createdAt) < ($1.order, $1.createdAt) }, by: \.projectId)
+            return view.projects.sorted { ($0.order, $0.createdAt) < ($1.order, $1.createdAt) }.map { row in
+                Project(id: row.id, name: row.name, icon: row.icon, sections: (sections[row.id] ?? []).map { Section(id: $0.id, name: $0.name) })
+            }
         }
 
         /// Uploads the image before the task that lists it, as ProcrastiMate's own clients do, so the
         /// task never names an image the server cannot serve. Returns the task's id.
-        func post(title: String, notes: String, projectId: String?, image: TaskImage) async throws -> String {
+        func post(title: String, notes: String, place: Place, image: TaskImage) async throws -> String {
             for (size, data) in [("full", image.full), ("thumb", image.thumb)] {
                 _ = try await send("PUT", "api/images", query: ["id": image.id, "size": size], body: data, type: "image/jpeg")
             }
-            struct NewTask: Encodable { let title: String; let notes: String; let projectId: String? }
+            struct NewTask: Encodable { let title: String; let notes: String; let projectId: String?; let sectionId: String? }
             struct Task: Decodable { let id: String }
-            let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(title: title, notes: notes, projectId: projectId)))
+            let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(title: title, notes: notes, projectId: place.projectId, sectionId: place.sectionId)))
             struct Ref: Encodable { let id: String; let width: Int; let height: Int }
             struct Edit: Encodable { let images: [Ref] }
             let edit = Edit(images: [Ref(id: image.id, width: image.width, height: image.height)])
@@ -183,7 +249,7 @@ struct ProcrastimateSheet: View {
     let session: Session
     let close: () -> Void
     @State private var projects = Procrastimate.cachedProjects
-    @State private var selection = Procrastimate.lastProject
+    @State private var place = Procrastimate.Place(projectId: Procrastimate.lastProject)
     @State private var name = ""
     @State private var loading = true
     @State private var loadError: String?
@@ -216,12 +282,25 @@ struct ProcrastimateSheet: View {
                     Section("Task") { Text(title).lineLimit(3) }
                 }
                 Section {
-                    Picker("Project", selection: $selection) {
-                        Label("Inbox", systemImage: "tray").tag(String?.none)
-                        ForEach(projects) { Text($0.name).tag(Optional($0.id)) }
+                    row("Inbox", systemImage: "tray", picked: place.projectId == nil) { place = .init() }
+                    ForEach(projects) { project in
+                        let open = project.id == place.projectId && !project.sections.isEmpty
+                        row(project.name, systemImage: project.systemImage, picked: project.id == place.projectId && !open) {
+                            place = .init(projectId: project.id)
+                        }
+                        // The picked project lists its sections under it, as ProcrastiMate's own menus
+                        // do: its top first, as `No section`.
+                        if open {
+                            row("No section", systemImage: project.systemImage, picked: place.sectionId == nil, indented: true) {
+                                place = .init(projectId: project.id)
+                            }
+                            ForEach(project.sections) { section in
+                                row(section.name, systemImage: "rectangle.split.1x2", picked: place.sectionId == section.id, indented: true) {
+                                    place = .init(projectId: project.id, sectionId: section.id)
+                                }
+                            }
+                        }
                     }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
                 } header: {
                     HStack {
                         Text("Project")
@@ -254,13 +333,27 @@ struct ProcrastimateSheet: View {
         .onAppear { naming = session.items.count > 1 }
     }
 
+    private func row(_ name: String, systemImage: String, picked: Bool, indented: Bool = false, pick: @escaping () -> Void) -> some View {
+        Button(action: pick) {
+            HStack {
+                Label(name, systemImage: systemImage)
+                Spacer()
+                if picked { Image(systemName: "checkmark").foregroundStyle(.tint).fontWeight(.semibold) }
+            }
+            .padding(.leading, indented ? 28 : 0)
+            .contentShape(.rect)
+        }
+        .foregroundStyle(.primary)
+        .accessibilityAddTraits(picked ? .isSelected : [])
+    }
+
     private func load() async {
         defer { loading = false }
         do {
             let loaded = try await Procrastimate.Client().projects()
             projects = loaded
             Procrastimate.cachedProjects = loaded
-            if let selected = selection, !loaded.contains(where: { $0.id == selected }) { selection = nil }
+            if let project = place.projectId, !loaded.contains(where: { $0.id == project }) { place = .init() }
         } catch {
             loadError = error.localizedDescription
         }
@@ -270,7 +363,9 @@ struct ProcrastimateSheet: View {
         posting = true
         postError = nil
         let items = session.items
-        let project = selection.flatMap { id in projects.first { $0.id == id } }
+        let place = place
+        let project = place.projectId.flatMap { id in projects.first { $0.id == id } }
+        let section = project?.sections.first { $0.id == place.sectionId }
         let title = title
         let json = session.json
         let image = AnnotatedImage.render(session.capture, items: items).cgImage
@@ -279,10 +374,12 @@ struct ProcrastimateSheet: View {
                 guard let image else { throw Procrastimate.Failure.imageTooLarge }
                 let client = try Procrastimate.Client()
                 let encoded = try await Task.detached(priority: .userInitiated) { try Procrastimate.TaskImage(image) }.value
-                _ = try await client.post(title: title, notes: json, projectId: project?.id, image: encoded)
+                let id = try await client.post(title: title, notes: json, place: place, image: encoded)
                 Procrastimate.lastProject = project?.id
                 session.shared.formUnion(items)
-                session.toast = "Added to \(project?.name ?? "Inbox") in ProcrastiMate"
+                let destination = [project?.name ?? "Inbox", section?.name].compactMap { $0 }.joined(separator: " / ")
+                // ProcrastiMate opens `procrastimate://task/<id>` on the task, as it does Notouroboros's links.
+                session.toast = Toast(text: "Added to \(destination) in ProcrastiMate", link: URL(string: "procrastimate://task/\(id)"))
                 close()
             } catch {
                 postError = error.localizedDescription

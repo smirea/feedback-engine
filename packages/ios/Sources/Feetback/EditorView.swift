@@ -25,19 +25,29 @@ struct EditorView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .overlay(alignment: .top) {
                         if let toast = session.toast {
-                            Label(toast, systemImage: "checkmark.circle.fill")
+                            Button {
+                                if let link = toast.link { UIApplication.shared.open(link) }
+                                session.toast = nil
+                            } label: {
+                                HStack(spacing: 6) {
+                                    Label(toast.text, systemImage: "checkmark.circle.fill")
+                                    if toast.link != nil { Image(systemName: "arrow.up.forward.app").accessibilityHidden(true) }
+                                }
                                 .font(.subheadline.weight(.semibold))
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
                                 .background(.green.opacity(0.9), in: Capsule())
                                 .foregroundStyle(.white)
-                                .padding(.top, 8)
-                                .transition(.move(edge: .top).combined(with: .opacity))
-                                .task(id: toast) {
-                                    UIAccessibility.post(notification: .announcement, argument: toast)
-                                    try? await Task.sleep(for: .seconds(3))
-                                    session.toast = nil
-                                }
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint(toast.link == nil ? "" : "Opens the link")
+                            .padding(.top, 8)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                            .task(id: toast) {
+                                UIAccessibility.post(notification: .announcement, argument: toast.text)
+                                try? await Task.sleep(for: .seconds(toast.link == nil ? 3 : 5))
+                                session.toast = nil
+                            }
                         }
                     }
                     .animation(.snappy, value: session.toast)
