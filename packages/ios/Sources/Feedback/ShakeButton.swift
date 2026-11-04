@@ -7,6 +7,7 @@ import UIKit
 enum ShakeButton {
     private static var window: PassthroughWindow?
     private static var dismissal: Task<Void, Never>?
+    private static var backgroundObserver: NSObjectProtocol?
 
     /// Another shake replaces the button, which restarts the timer and catches a shake that lands
     /// while the button is dissolving.
@@ -15,6 +16,10 @@ enum ShakeButton {
         dismissal = Task {
             try? await Task.sleep(for: .seconds(5))
             if !Task.isCancelled { dissolve() }
+        }
+        // Locking the phone or leaving the app clears the button, so it never waits on return.
+        backgroundObserver = NotificationCenter.default.addObserver(forName: UIScene.didEnterBackgroundNotification, object: scene, queue: .main) { _ in
+            MainActor.assumeIsolated { hide() }
         }
 
         let controller = ButtonController()
@@ -30,6 +35,8 @@ enum ShakeButton {
     /// Hides the button at once, so a capture taken right after doesn't include it.
     static func hide() {
         dismissal?.cancel()
+        backgroundObserver.map(NotificationCenter.default.removeObserver)
+        backgroundObserver = nil
         window?.isHidden = true
         window = nil
     }
