@@ -261,18 +261,23 @@ enum Procrastimate {
     }
 }
 
-/// Picks the project, and the task's name when there is more than one item, then posts.
+/// Picks the project and the task's name, then posts.
 struct ProcrastimateSheet: View {
     let session: Session
     let close: () -> Void
     @State private var projects = Procrastimate.cachedProjects
     @State private var place = Procrastimate.Place(projectId: Procrastimate.lastProject)
-    @State private var name = ""
+    @State private var name: String
     @State private var loading = true
     @State private var loadError: String?
     @State private var postError: String?
     @State private var posting = false
-    @FocusState private var naming: Bool
+
+    init(session: Session, close: @escaping () -> Void) {
+        self.session = session
+        self.close = close
+        _name = State(initialValue: [session.capture.screenName ?? session.capture.environment.first { $0.name == "App" }?.value, "Feedback"].compactMap { $0 }.joined(separator: " "))
+    }
 
     static func controller(session: Session) -> UIViewController {
         let host = UIHostingController<ProcrastimateSheet?>(rootView: nil)
@@ -282,21 +287,13 @@ struct ProcrastimateSheet: View {
         return host
     }
 
-    private var title: String {
-        session.items.count == 1 ? session.items[0].text : name.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
+    private var title: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         NavigationStack {
             Form {
-                if session.items.count > 1 {
-                    Section("Name") {
-                        TextField("Task name", text: $name)
-                            .focused($naming)
-                            .submitLabel(.done)
-                    }
-                } else {
-                    Section("Task") { Text(title).lineLimit(3) }
+                Section("Name") {
+                    TextField("Task name", text: $name).submitLabel(.done)
                 }
                 Section {
                     row("Inbox", systemImage: "tray", picked: place.projectId == nil) { place = .init() }
@@ -347,7 +344,6 @@ struct ProcrastimateSheet: View {
         .dynamicTypeSize(...EditorView.largestTextSize)
         .interactiveDismissDisabled(posting)
         .task { await load() }
-        .onAppear { naming = session.items.count > 1 }
     }
 
     private func row(_ name: String, systemImage: String, picked: Bool, indented: Bool = false, pick: @escaping () -> Void) -> some View {

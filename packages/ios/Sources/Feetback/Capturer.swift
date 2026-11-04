@@ -32,10 +32,12 @@ enum Capturer {
 
         var sources: [LayerSource] = []
         var navigation: [String] = []
+        var screenName: String?
         func add(_ source: LayerSource) {
             sources.append(source)
-            let titles = navigationTitles(in: source.view)
-            navigation += sources.count == 1 ? titles : ["(\(source.name))"] + titles
+            let (tab, titles) = navigationTitles(in: source.view)
+            navigation += (sources.count == 1 ? [] : ["(\(source.name))"]) + (tab.map { ["\($0) tab"] } ?? []) + titles
+            screenName = titles.last ?? tab ?? screenName
         }
         for (index, window) in windows.enumerated() {
             var controller = window.rootViewController
@@ -71,7 +73,7 @@ enum Capturer {
             guard let image = full.image.cgImage else { return nil }
             return Capture(
                 date: .now, screen: full.scene.screen, visible: full.visible, scale: format.scale, image: image,
-                nodes: TreeBuilder.build(full.scene), environment: environment, context: context
+                nodes: TreeBuilder.build(full.scene), environment: environment, context: context, screenName: screenName
             )
         }
 
@@ -101,7 +103,8 @@ enum Capturer {
             image: cgImage,
             nodes: TreeBuilder.build(raw),
             environment: environment,
-            context: context
+            context: context,
+            screenName: screenName
         )
     }
 
@@ -521,8 +524,8 @@ enum Capturer {
         roles.firstIndex { $0.1 == role } ?? roles.count
     }
 
-    /// Tab and navigation titles, such as `["Lists tab", "Lists", "Groceries"]`.
-    private static func navigationTitles(in view: UIView) -> [String] {
+    /// The selected tab's title and the navigation titles, such as `("Lists", ["Lists", "Groceries"])`.
+    private static func navigationTitles(in view: UIView) -> (tab: String?, titles: [String]) {
         var tab: String?
         var titles: [String]?
         func visit(_ view: UIView) {
@@ -534,7 +537,7 @@ enum Capturer {
             view.subviews.forEach(visit)
         }
         visit(view)
-        return (tab.map { ["\($0) tab"] } ?? []) + (titles ?? [])
+        return (tab, titles ?? [])
     }
 
     private static func environment(window: UIWindow, scene: UIWindowScene, navigation: [String]) -> [ContextEntry] {
