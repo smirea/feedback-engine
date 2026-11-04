@@ -11,6 +11,9 @@ import UniformTypeIdentifiers
 enum Procrastimate {
     /// ProcrastiMate keeps its session here while it is signed in, for the team's other apps.
     static let accessGroup = "FNYFHG5SV7.com.stefan.shared"
+    /// ProcrastiMate's `FILE_PART_BYTES` and `FILE_MAX_BYTES` (`shared/images.ts`).
+    static let filePartBytes = 1_500_000
+    static let fileMaxBytes = 25_000_000
 
     struct Project: Codable, Identifiable, Hashable, Sendable {
         let id: String
@@ -96,6 +99,7 @@ enum Procrastimate {
         case server(status: Int, message: String?)
         case unreadable
         case imageTooLarge
+        case reportTooLarge
 
         var errorDescription: String? {
             switch self {
@@ -104,6 +108,7 @@ enum Procrastimate {
             case .server(let status, let message): message.map { "ProcrastiMate: \($0)" } ?? "ProcrastiMate answered \(status)."
             case .unreadable: "ProcrastiMate sent a response Feetback could not read."
             case .imageTooLarge: "The image could not be made small enough to upload."
+            case .reportTooLarge: "The JSON report is over ProcrastiMate's 25 MB file limit."
             }
         }
     }
@@ -150,20 +155,32 @@ enum Procrastimate {
             }
         }
 
-        /// Uploads the image before the task that lists it, as ProcrastiMate's own clients do, so the
-        /// task never names an image the server cannot serve. Returns the task's id.
-        func post(title: String, notes: String, place: Place, image: TaskImage) async throws -> String {
+        /// Uploads the attachments before the task that lists them, as ProcrastiMate's own clients do,
+        /// so the task never names bytes the server cannot serve. Returns the task's id.
+        func post(title: String, place: Place, image: TaskImage, report: Data) async throws -> String {
+            guard report.count <= Procrastimate.fileMaxBytes else { throw Failure.reportTooLarge }
             for (size, data) in [("full", image.full), ("thumb", image.thumb)] {
                 _ = try await send("PUT", "api/images", query: ["id": image.id, "size": size], body: data, type: "image/jpeg")
             }
-            struct NewTask: Encodable { let title: String; let notes: String; let projectId: String?; let sectionId: String? }
+            // ProcrastiMate stores a file in parts that each fit one database row.
+            let reportID = UUID().uuidString.lowercased()
+            for (index, start) in stride(from: 0, to: report.count, by: Procrastimate.filePartBytes).enumerated() {
+                let part = report.subdata(in: start..<min(start + Procrastimate.filePartBytes, report.count))
+                _ = try await send("PUT", "api/images", query: ["id": reportID, "size": "part\(index)"], body: part, type: "application/octet-stream")
+            }
+            struct NewTask: Encodable { let title: String; let projectId: String?; let sectionId: String? }
             struct Task: Decodable { let id: String }
-            let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(title: title, notes: notes, projectId: place.projectId, sectionId: place.sectionId)))
-            struct Ref: Encodable { let id: String; let width: Int; let height: Int }
-            struct Edit: Encodable { let images: [Ref] }
-            let edit = Edit(images: [Ref(id: image.id, width: image.width, height: image.height)])
-            // The agent API cannot create a task with images, so a failed attach would leave a task
-            // without its screenshot, and the retry would add a second one.
+            let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(title: title, projectId: place.projectId, sectionId: place.sectionId)))
+            // An image ref is `{id, width, height}` and a file ref `{id, name, type, bytes}`; the server
+            // tells them apart by shape.
+            struct Ref: Encodable { let id: String; var width: Int?; var height: Int?; var name: String?; var type: String?; var bytes: Int? }
+            struct Edit: Encodable { let attachments: [Ref] }
+            let edit = Edit(attachments: [
+                Ref(id: image.id, width: image.width, height: image.height),
+                Ref(id: reportID, name: "feedback.json", type: "application/json", bytes: report.count),
+            ])
+            // The agent API cannot create a task with attachments, so a failed attach would leave a
+            // task without them, and the retry would add a second one.
             do {
                 _ = try await send("PATCH", "api/tasks", query: ["id": task.id], json: edit)
             } catch {
@@ -373,14 +390,14 @@ struct ProcrastimateSheet: View {
         let project = place.projectId.flatMap { id in projects.first { $0.id == id } }
         let section = project?.sections.first { $0.id == place.sectionId }
         let title = title
-        let json = session.json
+        let report = Data(session.compactJSON.utf8)
         let image = AnnotatedImage.render(session.capture, items: items).cgImage
         Task {
             do {
                 guard let image else { throw Procrastimate.Failure.imageTooLarge }
                 let client = try Procrastimate.Client()
                 let encoded = try await Task.detached(priority: .userInitiated) { try Procrastimate.TaskImage(image) }.value
-                let id = try await client.post(title: title, notes: json, place: place, image: encoded)
+                let id = try await client.post(title: title, place: place, image: encoded, report: report)
                 Procrastimate.lastProject = project?.id
                 session.shared.formUnion(items)
                 let destination = [project?.name ?? "Inbox", section?.name].compactMap { $0 }.joined(separator: " / ")

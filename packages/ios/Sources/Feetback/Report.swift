@@ -10,7 +10,7 @@ enum Report {
 }
 
 extension Report {
-    static func json(_ capture: Capture, items: [FeedbackItem]) -> String {
+    static func json(_ capture: Capture, items: [FeedbackItem], pretty: Bool = true) -> String {
         let document = JSONDocument(
             app: capture.environment.first { $0.name == "App" }?.value ?? "App",
             captured: capture.date,
@@ -29,7 +29,7 @@ extension Report {
             nodes: capture.nodes.map(JSONDocument.TreeNode.init)
         )
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        encoder.outputFormatting = pretty ? [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes] : [.sortedKeys, .withoutEscapingSlashes]
         encoder.dateEncodingStrategy = .iso8601
         encoder.nonConformingFloatEncodingStrategy = .convertToString(positiveInfinity: "inf", negativeInfinity: "-inf", nan: "nan")
         // Plain structs of strings and numbers, with non-finite numbers handled above, cannot fail to encode.

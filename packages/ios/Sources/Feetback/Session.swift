@@ -47,6 +47,7 @@ final class Session {
     }
 
     var json: String { Report.json(capture, items: items) }
+    var compactJSON: String { Report.json(capture, items: items, pretty: false) }
 }
 
 /// Tapping a toast with a link opens it, such as the task a post created.
