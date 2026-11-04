@@ -52,7 +52,7 @@ struct MyApp: App {
 }
 ```
 
-- `Feedback.enable()` turns on shake-to-feedback. A shake drops an **Add Feedback** glass pill out of the top center of the screen, from the Dynamic Island on iPhones that have one, and tapping it opens the editor. Top center sits between a navigation bar's leading and trailing buttons, so the pill covers at most the bar's title. Left alone, the pill shrinks back up after 5 seconds, so an accidental shake costs nothing. Leaving the app or locking the phone clears it at once. Wrap the call in `#if DEBUG` if you only want it in development builds.
+- `Feedback.enable()` turns on shake-to-feedback. A shake morphs an **Add Feedback** glass pill out of the top center of the screen, growing from a Dynamic Island–sized capsule, and tapping it opens the editor. Top center sits between a navigation bar's leading and trailing buttons, so the pill covers at most the bar's title. Left alone, the pill morphs back up after 5 seconds, so an accidental shake costs nothing. Leaving the app or locking the phone clears it at once. Wrap the call in `#if DEBUG` if you only want it in development builds.
 - `Feedback.context(name) { value }` attaches app state to every JSON export. The closure runs when a capture is taken.
 - `Feedback.present()` opens the editor directly from your own trigger, such as a settings button.
 - **ProcrastiMate** in the Share menu posts with the session ProcrastiMate shares through the keychain group `FNYFHG5SV7.com.stefan.shared` while it is signed in on the device. Add `$(AppIdentifierPrefix)com.stefan.shared` to the app's `keychain-access-groups` entitlement. A simulator build has to be signed, even ad hoc (`CODE_SIGN_IDENTITY=-`), for the group to count. Without the entitlement, the picker says so.
