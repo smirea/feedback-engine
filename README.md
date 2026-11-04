@@ -52,9 +52,9 @@ struct MyApp: App {
 }
 ```
 
-- `Feedback.enable()` turns on shake-to-feedback. Wrap it in `#if DEBUG` if you only want it in development builds.
+- `Feedback.enable()` turns on shake-to-feedback. A shake shows a glass button with the app's icon in the top-right corner, and tapping it opens the editor. Left alone, the button dissolves after 5 seconds, so an accidental shake costs nothing. Wrap the call in `#if DEBUG` if you only want it in development builds.
 - `Feedback.context(name) { value }` attaches app state to every JSON export. The closure runs when a capture is taken.
-- `Feedback.present()` opens the editor from your own trigger, such as a settings button.
+- `Feedback.present()` opens the editor directly from your own trigger, such as a settings button.
 - **ProcrastiMate** in the Share menu posts with the session ProcrastiMate shares through the keychain group `FNYFHG5SV7.com.stefan.shared` while it is signed in on the device. Add `$(AppIdentifierPrefix)com.stefan.shared` to the app's `keychain-access-groups` entitlement. A simulator build has to be signed, even ad hoc (`CODE_SIGN_IDENTITY=-`), for the group to count. Without the entitlement, the picker says so.
 
 ### Name your components
@@ -99,20 +99,20 @@ The command reads the skill from `master`, so the app picks up changes without a
 
 ### Give feedback
 
-1. Shake the device. In the simulator, use **Device › Shake**.
+1. Shake the device, then tap the button with the app's icon that appears in the top-right corner within 5 seconds. In the simulator, use **Device › Shake**.
 2. Tap the screenshot. The most specific component or element under your finger is selected, and the same part in sibling components, such as the same button in every row, is outlined faintly. Scroll the screenshot to reach content that was off screen, and pinch to zoom in on small targets, up to 4×. Scrolling and zooming also work while you type.
 3. Under the screenshot, the selection sits between its parent on the left and its child on the right. Tap either one to move the selection up or down the hierarchy.
 4. Type the feedback and press the arrow. Repeat for as many items as you need.
 5. Open the list to review or remove items, and to see the context that will be attached.
 6. Tap **Share** and pick what to send. **Image** is one `feedback.png` with the boxes, each item's text and code location, and the environment. **JSON** is one `feedback.json` with every item, the whole component tree, the component data, and the attached context, without the screenshot. **Image and JSON (ZIP)** is both files in one `feedback.zip`. In the share sheet, **Copy Feedback** puts the export on the clipboard, ready to paste into a chat with an agent, and other targets, such as Messages, Notes, or Files, receive it too.
 7. **ProcrastiMate** opens a project picker with the last project you posted to already selected. A project with sections lists them under it once picked. The task name starts as the screen's navigation title followed by `Feedback`, such as `Groceries Feedback`, and you can edit it. **Add** creates the task with the image and `feedback.json` attached, and a toast confirms it. Tap the toast to open the task in ProcrastiMate.
-8. Tap **Close** to return to the app. If some items were never shared, Feedback asks before it discards them. The text field that had focus before the shake gets it back.
+8. Tap **Close** to return to the app. If some items were never shared, Feedback asks before it discards them. The text field that had focus before the editor opened gets it back.
 
 While the editor is open, VoiceOver and UI automation see only the editor. Its text stops growing at the largest standard Dynamic Type size, so the screenshot keeps room at accessibility sizes.
 
 ### How capture works
 
-- The screenshot and the tagged components are read at the moment you shake. Each `.feedback` modifier places a plain `UIView` behind its view, and a capture walks the view hierarchy to find them. Tagging costs nothing per frame.
+- The screenshot and the tagged components are read at the moment you tap the feedback button. Each `.feedback` modifier places a plain `UIView` behind its view, and a capture walks the view hierarchy to find them. Tagging costs nothing per frame.
 - Component nesting follows the SwiftUI hierarchy, so parents in the export are the real logical parents.
 - When the screen has a scrolling list or scroll view that covers at least half of it, the capture covers that content at full length. Feedback covers the app with the frozen screenshot, scrolls through the content one screen at a time, reads each step, and then restores the scroll position. The editor opens at the part that was on screen.
 - SwiftUI only exposes accessibility elements while an assistive client is running. During a capture Feedback turns on accessibility automation, which is the same private switch XCTest and Cash App's AccessibilitySnapshot use, and then restores it. The first capture in a process pauses for about a second while UIKit loads its accessibility support. Later captures take a few milliseconds.
@@ -125,7 +125,7 @@ While the editor is open, VoiceOver and UI automation see only the editor. Its t
 - A full-length capture stops at 16,000 pixels, about 5,300 points on a 3x screen, and ends between two rows. A capture with a long list also takes longer, because each screen of content is read in turn.
 - Scrolling during a capture is real scrolling. Code that reacts to it, such as infinite-scroll loading, runs.
 - The accessibility switch is private API, looked up at runtime. If a future iOS removes it, captures still work with tagged components only. Be careful about shipping it in App Store builds.
-- `.feedback(self)` reads `@Binding` values when you shake. A binding whose getter can trap, such as `Binding(get: { selection! })`, crashes the capture the same way it would crash a redraw. Pass explicit `data:` for those views.
+- `.feedback(self)` reads `@Binding` values when a capture is taken. A binding whose getter can trap, such as `Binding(get: { selection! })`, crashes the capture the same way it would crash a redraw. Pass explicit `data:` for those views.
 - Components inside lazy containers, such as `List` and `LazyVStack`, appear only for rows that exist on screen, except in the scroll view captured at full length.
 
 ## Example app
