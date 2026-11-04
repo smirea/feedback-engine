@@ -24,7 +24,8 @@ public enum Feetback {
     private static var providers: [(name: String, value: @MainActor () -> Any)] = []
     private static var state = State.idle
 
-    /// Turns on shake-to-feedback: shaking captures the screen and opens the editor.
+    /// Turns on shake-to-feedback: shaking shows a button that captures the screen and opens
+    /// the editor.
     /// Call it once at launch, for example in `App.init`.
     public static func enable() {
         isShakeEnabled = true
@@ -40,6 +41,7 @@ public enum Feetback {
     /// Captures the active screen and opens the editor. Does nothing while the editor is open.
     public static func present() {
         guard case .idle = state, let scene = activeScene else { return }
+        ShakeButton.hide()
         state = .capturing
         Task { await open(in: scene) }
     }
@@ -143,6 +145,11 @@ public enum Feetback {
         state = .idle
     }
 
+    static func shaken() {
+        guard case .idle = state, let scene = activeScene else { return }
+        ShakeButton.show(in: scene)
+    }
+
     private static var activeScene: UIWindowScene? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
@@ -178,7 +185,7 @@ enum ShareTarget: CaseIterable {
 extension UIWindow {
     override open func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
         if motion == .motionShake, Feetback.isShakeEnabled {
-            Feetback.present()
+            Feetback.shaken()
             return
         }
         super.motionEnded(motion, with: event)
