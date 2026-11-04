@@ -1,7 +1,6 @@
 #if canImport(UIKit)
 import ImageIO
 import Security
-import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
@@ -17,11 +16,6 @@ public enum Procrastimate {
         /// A personal `pm.` token from ProcrastiMate's settings. `apiURL` is the server's origin,
         /// without `/api`.
         case token(apiURL: URL, token: String)
-    }
-
-    struct Project: Codable, Identifiable, Hashable, Sendable {
-        let id: String
-        let name: String
     }
 
     enum Failure: LocalizedError {
@@ -69,13 +63,13 @@ public enum Procrastimate {
 
         /// The space's projects in the app's order. `/api/view` is the only route that lists them,
         /// and it carries every task too.
-        func projects() async throws -> [Project] {
+        func projects() async throws -> [PostOption] {
             struct View: Decodable {
                 struct Row: Decodable { let id: String; let name: String; let order: Double; let createdAt: Double }
                 let projects: [Row]
             }
             let view: View = try decode(await send("GET", "api/view"))
-            return view.projects.sorted { ($0.order, $0.createdAt) < ($1.order, $1.createdAt) }.map { Project(id: $0.id, name: $0.name) }
+            return view.projects.sorted { ($0.order, $0.createdAt) < ($1.order, $1.createdAt) }.map { PostOption(id: $0.id, name: $0.name) }
         }
 
         /// Uploads the image before the task that lists it, as ProcrastiMate's own clients do, so the
@@ -163,133 +157,26 @@ public enum Procrastimate {
             return nil
         }
     }
-
-    private static let projectsKey = "feetback.procrastimate.projects"
-    private static let lastProjectKey = "feetback.procrastimate.project"
-
-    /// The projects from the last time the picker loaded them, so it opens filled.
-    static var cachedProjects: [Project] {
-        get { UserDefaults.standard.data(forKey: projectsKey).flatMap { try? JSONDecoder().decode([Project].self, from: $0) } ?? [] }
-        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: projectsKey) }
-    }
-
-    /// The project of the last post, or nil for the Inbox.
-    static var lastProject: String? {
-        get { UserDefaults.standard.string(forKey: lastProjectKey) }
-        set { UserDefaults.standard.set(newValue, forKey: lastProjectKey) }
-    }
 }
 
-/// Picks the project, and the task's name when there is more than one item, then posts.
-struct ProcrastimateSheet: View {
-    let session: Session
+struct ProcrastimateDestination: Destination {
     let link: Procrastimate.Link
-    let close: () -> Void
-    @State private var projects = Procrastimate.cachedProjects
-    @State private var selection = Procrastimate.lastProject
-    @State private var name = ""
-    @State private var loadError: String?
-    @State private var postError: String?
-    @State private var posting = false
-    @FocusState private var naming: Bool
 
-    static func controller(session: Session, link: Procrastimate.Link) -> UIViewController {
-        let host = UIHostingController<ProcrastimateSheet?>(rootView: nil)
-        host.rootView = ProcrastimateSheet(session: session, link: link) { [weak host] in host?.dismiss(animated: true) }
-        host.overrideUserInterfaceStyle = .dark
-        host.sheetPresentationController?.detents = [.medium(), .large()]
-        return host
+    var key: String { "procrastimate" }
+    var sheetTitle: String { "Add to ProcrastiMate" }
+    var containerTitle: String { "Project" }
+    var fixedOptions: [PostOption] { [PostOption(id: "", name: "Inbox", systemImage: "tray")] }
+
+    func options() async throws -> [PostOption] {
+        try await Procrastimate.Client(link).projects()
     }
 
-    private var title: String {
-        session.items.count == 1 ? session.items[0].text : name.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                if session.items.count > 1 {
-                    Section("Name") {
-                        TextField("Task name", text: $name)
-                            .focused($naming)
-                            .submitLabel(.done)
-                    }
-                } else {
-                    Section("Task") { Text(title).lineLimit(3) }
-                }
-                Section {
-                    Picker("Project", selection: $selection) {
-                        Label("Inbox", systemImage: "tray").tag(String?.none)
-                        ForEach(projects) { Text($0.name).tag(Optional($0.id)) }
-                    }
-                    .pickerStyle(.inline)
-                    .labelsHidden()
-                } header: {
-                    HStack {
-                        Text("Project")
-                        if projects.isEmpty && loadError == nil { ProgressView().controlSize(.mini) }
-                    }
-                } footer: {
-                    if let loadError { Text(loadError).foregroundStyle(.red) }
-                }
-                if let postError {
-                    Section { Text(postError).foregroundStyle(.red) }
-                }
-            }
-            .navigationTitle("Add to ProcrastiMate")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: close) }
-                ToolbarItem(placement: .confirmationAction) {
-                    if posting {
-                        ProgressView()
-                    } else {
-                        Button("Add", action: post).disabled(title.isEmpty)
-                    }
-                }
-            }
-            .disabled(posting)
-        }
-        .dynamicTypeSize(...EditorView.largestTextSize)
-        .interactiveDismissDisabled(posting)
-        .task { await load() }
-        .onAppear { naming = session.items.count > 1 }
-    }
-
-    private func load() async {
-        do {
-            let loaded = try await Procrastimate.Client(link).projects()
-            projects = loaded
-            Procrastimate.cachedProjects = loaded
-            if let selected = selection, !loaded.contains(where: { $0.id == selected }) { selection = nil }
-        } catch {
-            loadError = error.localizedDescription
-        }
-    }
-
-    private func post() {
-        posting = true
-        postError = nil
-        let items = session.items
-        let project = selection.flatMap { id in projects.first { $0.id == id } }
-        let title = title
-        let json = session.json
-        let image = AnnotatedImage.render(session.capture, items: items).cgImage
-        Task {
-            do {
-                guard let image else { throw Procrastimate.Failure.imageTooLarge }
-                let client = try Procrastimate.Client(link)
-                let encoded = try await Task.detached(priority: .userInitiated) { try Procrastimate.TaskImage(image) }.value
-                _ = try await client.post(title: title, notes: json, projectId: project?.id, image: encoded)
-                Procrastimate.lastProject = project?.id
-                session.shared.formUnion(items)
-                session.toast = "Added to \(project?.name ?? "Inbox") in ProcrastiMate"
-                close()
-            } catch {
-                postError = error.localizedDescription
-                posting = false
-            }
-        }
+    func post(_ post: Post, to option: PostOption) async throws -> String {
+        guard let image = post.image.cgImage else { throw Procrastimate.Failure.imageTooLarge }
+        let client = try Procrastimate.Client(link)
+        let encoded = try await Task.detached(priority: .userInitiated) { try Procrastimate.TaskImage(image) }.value
+        _ = try await client.post(title: post.title, notes: post.json, projectId: option.id.isEmpty ? nil : option.id, image: encoded)
+        return "Added to \(option.name) in ProcrastiMate"
     }
 }
 #endif

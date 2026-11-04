@@ -398,7 +398,7 @@ private struct ShareMenu: View {
 
     var body: some View {
         Menu {
-            ForEach(ShareTarget.allCases.filter { $0 != .procrastimate || Feetback.procrastimateLink != nil }, id: \.self) { target in
+            ForEach(ShareTarget.allCases.filter { [.image, .json, .zip].contains($0) || Feetback.destination($0) != nil }, id: \.self) { target in
                 Button(target.title, systemImage: target.systemImage) { share(target) }
             }
         } label: {

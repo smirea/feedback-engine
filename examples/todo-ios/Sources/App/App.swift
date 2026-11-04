@@ -11,11 +11,13 @@ struct TodoDemoApp: App {
         Feetback.enable()
         Feetback.context("TodoStore") { store }
         Feetback.procrastimate(Self.procrastimateLink)
+        if let token = UserDefaults.standard.string(forKey: "githubToken") { Feetback.github(token: token) }
     }
 
     /// This demo is not in the team's shared keychain group, so it posts with a personal token when
     /// one is set: `defaults write com.stefan.tododemo procrastimateURL <origin>`, and the same
-    /// for `procrastimateToken`.
+    /// for `procrastimateToken`. GitHub Issue appears once `githubToken` holds a token, such as
+    /// the output of `gh auth token`.
     private static var procrastimateLink: Procrastimate.Link {
         let defaults = UserDefaults.standard
         guard let url = defaults.string(forKey: "procrastimateURL").flatMap(URL.init(string:)),

@@ -17,7 +17,7 @@ Shake the device, tap any component on the frozen screenshot, and write what sho
   <sub>Three notes and the exported image in about 10 seconds. <a href="docs/demo.mp4">Full quality video</a></sub>
 </p>
 
-Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. Or post the feedback straight to a ProcrastiMate project as a task.
+Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. Or post the feedback straight to a ProcrastiMate project as a task, or to a GitHub repository as an issue.
 
 Platform packages live under `packages/`. iOS is available now; a Svelte package is planned and will produce the same report ([spec/report.md](spec/report.md)).
 
@@ -56,6 +56,7 @@ struct MyApp: App {
 - `Feetback.context(name) { value }` attaches app state to every JSON export. The closure runs when a capture is taken.
 - `Feetback.present()` opens the editor from your own trigger, such as a settings button.
 - `Feetback.procrastimate()` adds **ProcrastiMate** to the Share menu. It signs in with the session ProcrastiMate shares through the keychain group `FNYFHG5SV7.com.stefan.shared`, so the app needs `$(AppIdentifierPrefix)com.stefan.shared` in its `keychain-access-groups` entitlement, and a simulator build has to be signed, even ad hoc (`CODE_SIGN_IDENTITY=-`). An app outside that group passes a personal token from ProcrastiMate's settings instead: `Feetback.procrastimate(.token(apiURL: URL(string: "https://…")!, token: "pm.…"))`.
+- `Feetback.github(token:)` adds **GitHub Issue** to the Share menu. The image is attached through the endpoint behind `gh issue create --attach`, which takes tokens from only some apps: GitHub CLI's token (`gh auth token`) works. The token needs write access to the repository, and the `gist` scope for JSON too long for an issue.
 
 ### Name your components
 
@@ -96,7 +97,8 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 5. Open the list to review or remove items, and to see the context that will be attached.
 6. Tap **Share** and pick what to send. **Image** is one `feedback.png` with the boxes, each item's text and code location, and the environment. **JSON** is one `feedback.json` with every item, the whole component tree, the component data, and the attached context, without the screenshot. **Image and JSON (ZIP)** is both files in one `feedback.zip`. In the share sheet, **Copy Feedback** puts the export on the clipboard, ready to paste into a chat with an agent, and other targets, such as Messages, Notes, or Files, receive it too.
 7. **ProcrastiMate**, when the app turned it on, opens a project picker with the last project you posted to already selected. With one item, the task is named after it. With more, type a name. **Add** creates the task with the image attached and the JSON as its notes, and a toast confirms it.
-8. Tap **Close** to return to the app. If some items were never shared, Feetback asks before it discards them. The text field that had focus before the shake gets it back.
+8. **GitHub Issue** works the same way, with a repository picker listing the 100 repositories you pushed to most recently. The issue lists the items with their code locations, then the image, then the JSON in a collapsed block. GitHub attaches only images and videos, so the JSON goes in the body, or in a secret gist linked from it when it is too long for an issue.
+9. Tap **Close** to return to the app. If some items were never shared, Feetback asks before it discards them. The text field that had focus before the shake gets it back.
 
 While the editor is open, VoiceOver and UI automation see only the editor. Its text stops growing at the largest standard Dynamic Type size, so the screenshot keeps room at accessibility sizes.
 
