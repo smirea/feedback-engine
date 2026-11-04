@@ -1,13 +1,13 @@
 #if canImport(UIKit)
 import UIKit
 
-/// Writes the export to the pasteboard as one item, ready to paste into a chat with an agent.
+/// Writes the export to the pasteboard, one item per file, ready to paste into a chat with an agent.
 final class CopyActivity: UIActivity {
-    /// One pasteboard item, keyed by type identifier.
-    private let item: [String: Any]
+    /// Pasteboard items, each keyed by type identifier.
+    private let items: [[String: Any]]
 
-    init(item: [String: Any]) {
-        self.item = item
+    init(items: [[String: Any]]) {
+        self.items = items
     }
 
     override var activityType: UIActivity.ActivityType? { UIActivity.ActivityType("feetback.copy") }
@@ -18,7 +18,7 @@ final class CopyActivity: UIActivity {
     override func canPerform(withActivityItems activityItems: [Any]) -> Bool { true }
 
     override func perform() {
-        UIPasteboard.general.setItems([item])
+        UIPasteboard.general.setItems(items)
         activityDidFinish(true)
     }
 }

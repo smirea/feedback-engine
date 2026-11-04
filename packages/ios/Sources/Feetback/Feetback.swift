@@ -21,6 +21,8 @@ public enum Feetback {
         let accessibilityHidden: [(window: UIWindow, wasHidden: Bool)]
     }
 
+    private static var procrastimateLink: Procrastimate.Link?
+    private static var githubToken: String?
     private static var providers: [(name: String, value: @MainActor () -> Any)] = []
     private static var state = State.idle
 
@@ -35,6 +37,21 @@ public enum Feetback {
     public static func context(_ name: String, _ value: @escaping @MainActor () -> Any) {
         providers.removeAll { $0.name == name }
         providers.append((name, value))
+    }
+
+    /// Adds ProcrastiMate to the Share menu: it posts the feedback as a task in a project picked
+    /// there, with the image attached and the JSON in its notes.
+    public static func procrastimate(_ link: Procrastimate.Link = .shared()) {
+        procrastimateLink = link
+    }
+
+    /// Adds GitHub Issue to the Share menu: it opens an issue in a repository picked there, with
+    /// the image attached and the JSON in its body. Attaching uses the endpoint behind
+    /// `gh issue create --attach`, which takes only some apps' tokens: GitHub CLI's
+    /// (`gh auth token`) works. The token needs write access to the repository and, for JSON too
+    /// long for an issue, the `gist` scope.
+    public static func github(token: String) {
+        githubToken = token
     }
 
     /// Captures the active screen and opens the editor. Does nothing while the editor is open.
@@ -57,7 +74,7 @@ public enum Feetback {
         let session = Session(capture: capture)
         let window = UIWindow(windowScene: scene)
         window.windowLevel = .alert + 1
-        window.rootViewController = UIHostingController(rootView: EditorView(session: session, dismiss: dismiss, share: { share(session) }))
+        window.rootViewController = UIHostingController(rootView: EditorView(session: session, dismiss: dismiss, share: { share(session, as: $0) }))
         // `accessibilityViewIsModal` only hides siblings in the same window, so the app's windows
         // are hidden from VoiceOver and UI automation one by one. The keyboard's windows stay
         // visible for the editor's own text field.
@@ -73,23 +90,27 @@ public enum Feetback {
         return view.subviews.lazy.compactMap { firstResponder(in: $0) }.first
     }
 
-    private static func share(_ session: Session) {
+    private static func share(_ session: Session, as target: ShareTarget) {
         guard case .editing(let editing) = state, var presenter = editing.overlay.rootViewController else { return }
         while let presented = presenter.presentedViewController { presenter = presented }
-        let data: Data
-        let pasteboard: [String: Any]
-        switch session.format {
-        case .image:
-            data = AnnotatedImage.render(session.capture, items: session.items).pngData() ?? Data()
-            pasteboard = [UTType.png.identifier: data]
-        case .json:
-            let json = session.json
-            data = Data(json.utf8)
-            pasteboard = [UTType.json.identifier: data, UTType.utf8PlainText.identifier: json]
+        if let destination = destination(target) {
+            presenter.present(PostSheet.controller(session: session, destination: destination), animated: true)
+            return
         }
-        let file = FileManager.default.temporaryDirectory.appending(path: "feedback.\(session.format.fileExtension)")
-        let item: Any = (try? data.write(to: file)) != nil ? file : data
-        let sheet = UIActivityViewController(activityItems: [item], applicationActivities: [CopyActivity(item: pasteboard)])
+        var files: [(name: String, data: Data)] = []
+        var pasteboard: [[String: Any]] = []
+        if target != .json {
+            let png = AnnotatedImage.render(session.capture, items: session.items).pngData() ?? Data()
+            files.append(("feedback.png", png))
+            pasteboard.append([UTType.png.identifier: png])
+        }
+        if target != .image {
+            let json = session.json
+            files.append(("feedback.json", Data(json.utf8)))
+            pasteboard.append([UTType.json.identifier: Data(json.utf8), UTType.utf8PlainText.identifier: json])
+        }
+        let file = try? target == .zip ? zip(files) : write(files[0])
+        let sheet = UIActivityViewController(activityItems: [file ?? files[0].data], applicationActivities: [CopyActivity(items: pasteboard)])
         sheet.excludedActivityTypes = [.copyToPasteboard]
         let items = session.items
         sheet.completionWithItemsHandler = { _, completed, _, _ in
@@ -97,6 +118,43 @@ public enum Feetback {
         }
         sheet.popoverPresentationController?.sourceView = presenter.view
         presenter.present(sheet, animated: true)
+    }
+
+    static func destination(_ target: ShareTarget) -> (any Destination)? {
+        switch target {
+        case .procrastimate: procrastimateLink.map(ProcrastimateDestination.init)
+        case .github: githubToken.map(GitHubDestination.init)
+        case .image, .json, .zip: nil
+        }
+    }
+
+    private static func write(_ file: (name: String, data: Data)) throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appending(path: file.name)
+        try file.data.write(to: url)
+        return url
+    }
+
+    /// Foundation has no zip writer, but coordinating a read of a folder `forUploading` hands over
+    /// a zip of it.
+    private static func zip(_ files: [(name: String, data: Data)]) throws -> URL {
+        let manager = FileManager.default
+        let folder = manager.temporaryDirectory.appending(path: "feedback")
+        try? manager.removeItem(at: folder)
+        try manager.createDirectory(at: folder, withIntermediateDirectories: true)
+        for file in files { try file.data.write(to: folder.appending(path: file.name)) }
+        let zip = manager.temporaryDirectory.appending(path: "feedback.zip")
+        var coordination: NSError?
+        var copy: Error?
+        NSFileCoordinator().coordinate(readingItemAt: folder, options: .forUploading, error: &coordination) { zipped in
+            do {
+                try? manager.removeItem(at: zip)
+                try manager.copyItem(at: zipped, to: zip)
+            } catch {
+                copy = error
+            }
+        }
+        if let error = coordination ?? copy { throw error }
+        return zip
     }
 
     static func dismiss() {
@@ -113,6 +171,35 @@ public enum Feetback {
     private static var activeScene: UIWindowScene? {
         let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
         return scenes.first { $0.activationState == .foregroundActive } ?? scenes.first
+    }
+}
+
+enum ShareTarget: CaseIterable {
+    case image
+    case json
+    /// `feedback.png` and `feedback.json` in one `feedback.zip`.
+    case zip
+    case procrastimate
+    case github
+
+    var title: String {
+        switch self {
+        case .image: "Image"
+        case .json: "JSON"
+        case .zip: "Image and JSON (ZIP)"
+        case .procrastimate: "ProcrastiMate"
+        case .github: "GitHub Issue"
+        }
+    }
+
+    var systemImage: String {
+        switch self {
+        case .image: "photo"
+        case .json: "curlybraces"
+        case .zip: "doc.zipper"
+        case .procrastimate: "checklist"
+        case .github: "exclamationmark.bubble"
+        }
     }
 }
 
