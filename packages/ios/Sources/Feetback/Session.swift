@@ -10,7 +10,7 @@ final class Session {
     var level = 0
     var draft = ""
     /// A short confirmation the editor shows over the screenshot, such as a finished post.
-    var toast: String?
+    var toast: Toast?
     private(set) var items: [FeedbackItem] = []
     /// Every item that was in a completed share.
     var shared: Set<FeedbackItem> = []
@@ -47,4 +47,10 @@ final class Session {
     }
 
     var json: String { Report.json(capture, items: items) }
+}
+
+/// Tapping a toast with a link opens it, such as the task a post created.
+struct Toast: Equatable {
+    let text: String
+    var link: URL?
 }
