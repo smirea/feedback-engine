@@ -277,18 +277,70 @@ private final class Store {
     #expect(layout.environment == CGPoint(x: 776, y: 24))
 }
 
+private func rowScene() -> RawScene {
+    let row = UUID()
+    return RawScene(
+        screen: screen,
+        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
+        components: [component("Row", CGRect(x: 0, y: 200, width: 400, height: 60), id: row)],
+        elements: [
+            .init(layer: 0, role: "Text", label: "Milk", frame: CGRect(x: 16, y: 210, width: 200, height: 40)),
+            .init(layer: 0, role: "Button", label: "Delete", frame: CGRect(x: 340, y: 210, width: 40, height: 40)),
+        ]
+    )
+}
+
 @MainActor @Test func unsharedItemsAreTheOnesNoCompletedShareIncluded() {
-    let session = Session(capture: capture(RawScene(screen: screen, layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))], components: [], elements: [])))
-    for text in ["Bigger title", "Wrong color"] {
-        session.draft = text
-        session.add()
+    let session = Session(capture: capture(rowScene()))
+    for (point, text) in [(CGPoint(x: 50, y: 220), "Bigger title"), (CGPoint(x: 350, y: 220), "Wrong color")] {
+        session.pick(at: point)
+        session.text = text
+        session.submit()
     }
     #expect(session.unshared.map(\.text) == ["Bigger title", "Wrong color"])
     session.shared.formUnion(session.items)
     session.remove(session.items[1].id)
-    session.draft = "Typo"
-    session.add()
-    #expect(session.unshared.map(\.text) == ["Typo"])
+    session.pick(at: CGPoint(x: 350, y: 220))
+    session.text = "Typo"
+    session.submit()
+    session.pick(at: CGPoint(x: 50, y: 220))
+    session.text = "Huge title"
+    session.submit()
+    #expect(session.unshared.map(\.text) == ["Huge title", "Typo"])
+}
+
+@MainActor @Test func tappingAnItemsBoxEditsItsFeedbackAndOtherLevelsKeepTheirOwn() {
+    let session = Session(capture: capture(rowScene()))
+    let milk = CGPoint(x: 50, y: 220)
+    session.pick(at: milk)
+    session.level = 1
+    session.text = "Row is too tall"
+    session.submit()
+
+    session.text = "Note on the whole screen"
+    session.pick(at: milk)
+    #expect(session.target.title == "Row")
+    #expect(session.text == "Row is too tall")
+    session.text = "Row is too tall and grey"
+    #expect(session.isTyping)
+
+    session.level = 0
+    #expect(session.target.title == "Text \"Milk\"")
+    #expect(session.editing == nil)
+    #expect(session.text == "Note on the whole screen")
+
+    session.level = 1
+    #expect(session.text == "Row is too tall")
+    #expect(!session.canSubmit)
+
+    session.pick(at: milk)
+    #expect(session.target.title == "Text \"Milk\"")
+    session.pick(at: CGPoint(x: 350, y: 220))
+    #expect(session.target.title == "Row")
+    session.text = "Row is too short"
+    session.submit()
+    #expect(session.items.map(\.text) == ["Row is too short"])
+    #expect(session.text == "Note on the whole screen")
 }
 
 private struct ChartValues: DynamicProperty {
