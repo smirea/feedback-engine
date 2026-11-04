@@ -84,7 +84,14 @@ public enum Procrastimate {
             struct Ref: Encodable { let id: String; let width: Int; let height: Int }
             struct Edit: Encodable { let images: [Ref] }
             let edit = Edit(images: [Ref(id: image.id, width: image.width, height: image.height)])
-            _ = try await send("PATCH", "api/tasks", query: ["id": task.id], json: edit)
+            // The agent API cannot create a task with images, so a failed attach would leave a task
+            // without its screenshot, and the retry would add a second one.
+            do {
+                _ = try await send("PATCH", "api/tasks", query: ["id": task.id], json: edit)
+            } catch {
+                _ = try? await send("DELETE", "api/tasks", query: ["id": task.id])
+                throw error
+            }
             return task.id
         }
 
