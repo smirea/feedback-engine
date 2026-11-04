@@ -52,7 +52,7 @@ struct MyApp: App {
 }
 ```
 
-- `Feedback.enable()` turns on shake-to-feedback. A shake shows a glass button with the app's icon in the top-right corner, and tapping it opens the editor. Left alone, the button dissolves after 5 seconds, so an accidental shake costs nothing. Leaving the app or locking the phone clears it at once. Wrap the call in `#if DEBUG` if you only want it in development builds.
+- `Feedback.enable()` turns on shake-to-feedback. A shake drops an **Add Feedback** glass pill out of the top center of the screen, from the Dynamic Island on iPhones that have one, and tapping it opens the editor. Top center sits between a navigation bar's leading and trailing buttons, so the pill covers at most the bar's title. Left alone, the pill shrinks back up after 5 seconds, so an accidental shake costs nothing. Leaving the app or locking the phone clears it at once. Wrap the call in `#if DEBUG` if you only want it in development builds.
 - `Feedback.context(name) { value }` attaches app state to every JSON export. The closure runs when a capture is taken.
 - `Feedback.present()` opens the editor directly from your own trigger, such as a settings button.
 - **ProcrastiMate** in the Share menu posts with the session ProcrastiMate shares through the keychain group `FNYFHG5SV7.com.stefan.shared` while it is signed in on the device. Add `$(AppIdentifierPrefix)com.stefan.shared` to the app's `keychain-access-groups` entitlement. A simulator build has to be signed, even ad hoc (`CODE_SIGN_IDENTITY=-`), for the group to count. Without the entitlement, the picker says so.
@@ -99,7 +99,7 @@ The command reads the skill from `master`, so the app picks up changes without a
 
 ### Give feedback
 
-1. Shake the device, then tap the button with the app's icon that appears in the top-right corner within 5 seconds. In the simulator, use **Device › Shake**.
+1. Shake the device, then tap **Add Feedback** at the top of the screen within 5 seconds. In the simulator, use **Device › Shake**.
 2. Tap the screenshot. The most specific component or element under your finger is selected, and the same part in sibling components, such as the same button in every row, is outlined faintly. Scroll the screenshot to reach content that was off screen, and pinch to zoom in on small targets, up to 4×. Scrolling and zooming also work while you type.
 3. Under the screenshot, the selection sits between its parent on the left and its child on the right. Tap either one to move the selection up or down the hierarchy.
 4. Type the feedback and press the arrow. Repeat for as many items as you need.

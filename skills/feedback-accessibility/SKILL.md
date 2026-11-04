@@ -73,7 +73,7 @@ A `List` or `Form` section has no frame a tag can measure, and a modifier on `Se
 
 Do this after changing a screen, in a Debug simulator build with realistic data:
 
-1. Open the screen, shake with `xcrun simctl notify_post <udid> com.apple.UIKit.SimulatorShake`, and within 5 s press the **Send feedback** button the shake shows in the top-right corner. The editor can take about 3 s to open over a long list.
+1. Open the screen, shake with `xcrun simctl notify_post <udid> com.apple.UIKit.SimulatorShake`, and within 5 s press the **Add Feedback** pill the shake shows at the top center. The editor can take about 3 s to open over a long list.
 2. Export the tree: add one item, then **Share › JSON**. The file is written when the share sheet opens. Read it from the app's data container, not the pasteboard: `"$(xcrun simctl get_app_container <udid> <bundle id> data)/tmp/feedback.json"`.
 3. Replay every tap with `scripts/taps.py` from this skill's folder. Without a local copy, stream it from GitHub:
 
