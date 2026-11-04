@@ -8,7 +8,7 @@ struct EditorView: View {
 
     @Bindable var session: Session
     let dismiss: () -> Void
-    let share: () -> Void
+    let share: (ShareTarget) -> Void
     @State private var showsList = false
     @State private var confirmsClose = false
     /// The panel's first height. The screenshot's scale stays fixed to it, so the picture does not
@@ -23,6 +23,24 @@ struct EditorView: View {
                 header
                 ScreenshotCanvas(session: session, panelHeight: panelHeight, panelTop: panelTop)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .overlay(alignment: .top) {
+                        if let toast = session.toast {
+                            Label(toast, systemImage: "checkmark.circle.fill")
+                                .font(.subheadline.weight(.semibold))
+                                .padding(.horizontal, 16)
+                                .padding(.vertical, 10)
+                                .background(.green.opacity(0.9), in: Capsule())
+                                .foregroundStyle(.white)
+                                .padding(.top, 8)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                                .task(id: toast) {
+                                    UIAccessibility.post(notification: .announcement, argument: toast)
+                                    try? await Task.sleep(for: .seconds(3))
+                                    session.toast = nil
+                                }
+                        }
+                    }
+                    .animation(.snappy, value: session.toast)
             }
             .ignoresSafeArea(.keyboard)
             TargetPanel(session: session, composing: $composing)
@@ -76,7 +94,7 @@ struct EditorView: View {
                         .accessibilityHidden(true)
                 }
             }
-            Button("Share", systemImage: "square.and.arrow.up", action: share)
+            ShareMenu(share: share)
                 .labelStyle(.iconOnly)
                 .disabled(session.items.isEmpty)
         }
@@ -375,9 +393,24 @@ private struct Chain: View {
     }
 }
 
+private struct ShareMenu: View {
+    let share: (ShareTarget) -> Void
+
+    var body: some View {
+        Menu {
+            ForEach(ShareTarget.allCases.filter { $0 != .procrastimate || Feetback.procrastimateLink != nil }, id: \.self) { target in
+                Button(target.title, systemImage: target.systemImage) { share(target) }
+            }
+        } label: {
+            Label("Share", systemImage: "square.and.arrow.up")
+        }
+        .menuStyle(.button)
+    }
+}
+
 private struct ItemsSheet: View {
     @Bindable var session: Session
-    let share: () -> Void
+    let share: (ShareTarget) -> Void
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -412,18 +445,6 @@ private struct ItemsSheet: View {
                     }
                     .onDelete { offsets in offsets.map { session.items[$0].id }.forEach(session.remove) }
                 }
-                Section {
-                    Picker("Export", selection: $session.format) {
-                        ForEach(ExportFormat.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                } header: {
-                    Text("Export")
-                } footer: {
-                    Text(session.format == .image
-                        ? "One PNG: the screenshot with numbered boxes, each item's text and code location, and the environment."
-                        : "Every item, the component tree, and the attached context as JSON, without the screenshot.")
-                }
                 Section("Attached context") {
                     ForEach(session.capture.environment + session.capture.context, id: \.self) { entry in
                         DisclosureGroup(entry.name) {
@@ -438,8 +459,7 @@ private struct ItemsSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Share", systemImage: "square.and.arrow.up", action: share)
-                    .disabled(session.items.isEmpty)
+                    ShareMenu(share: share).disabled(session.items.isEmpty)
                 }
             }
         }

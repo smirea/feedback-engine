@@ -9,17 +9,6 @@ enum Report {
     }
 }
 
-enum ExportFormat: String, CaseIterable, Identifiable, Sendable {
-    /// The annotated screenshot.
-    case image
-    /// Everything in the report as one JSON document, without the screenshot.
-    case json
-
-    var id: Self { self }
-    var title: String { self == .image ? "Image" : "JSON" }
-    var fileExtension: String { self == .image ? "png" : "json" }
-}
-
 extension Report {
     static func json(_ capture: Capture, items: [FeedbackItem]) -> String {
         let document = JSONDocument(

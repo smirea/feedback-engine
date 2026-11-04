@@ -9,9 +9,8 @@ final class Session {
     /// How far up from the picked node the target sits: 0 is the picked node itself.
     var level = 0
     var draft = ""
-    var format = ExportFormat(rawValue: UserDefaults.standard.string(forKey: Session.formatKey) ?? "") ?? .image {
-        didSet { UserDefaults.standard.set(format.rawValue, forKey: Session.formatKey) }
-    }
+    /// A short confirmation the editor shows over the screenshot, such as a finished post.
+    var toast: String?
     private(set) var items: [FeedbackItem] = []
     /// Every item that was in a completed share.
     var shared: Set<FeedbackItem> = []
@@ -48,6 +47,4 @@ final class Session {
     }
 
     var json: String { Report.json(capture, items: items) }
-
-    private static let formatKey = "feetback.exportFormat"
 }

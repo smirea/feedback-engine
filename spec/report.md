@@ -51,7 +51,9 @@ The JSON export carries everything the capture knows except the image, as one ob
 
 ## Sharing
 
-The editor offers two export formats, and the choice persists between captures.
+The Share menu offers three exports and, where the app has turned it on, a ProcrastiMate post.
 
 - **Image** shares one `feedback.png`. The copy action writes one PNG pasteboard item.
 - **JSON** shares one `feedback.json`. The copy action writes one pasteboard item with JSON and plain-text representations of the same document.
+- **Image and JSON** shares one `feedback.zip` holding both files in a `feedback` folder. The copy action writes both pasteboard items.
+- **ProcrastiMate** creates one task in the picked project, or the Inbox. Its title is the item's text when there is one item, and a name the user types otherwise. Its notes are the JSON export, and its one image is the image export as JPEG, at most 2,048 pixels wide and 1.5 MB, with a thumbnail at most 320 pixels wide and 200 KB. The image is uploaded before the task is created.
