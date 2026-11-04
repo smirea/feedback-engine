@@ -4,7 +4,7 @@ import UIKit
 import UniformTypeIdentifiers
 
 @MainActor
-public enum Feetback {
+public enum Feedback {
     private(set) static var isShakeEnabled = false
 
     private enum State {
@@ -184,8 +184,8 @@ enum ShareTarget: CaseIterable {
 
 extension UIWindow {
     override open func motionEnded(_ motion: UIEvent.EventSubtype, with event: UIEvent?) {
-        if motion == .motionShake, Feetback.isShakeEnabled {
-            Feetback.shaken()
+        if motion == .motionShake, Feedback.isShakeEnabled {
+            Feedback.shaken()
             return
         }
         super.motionEnded(motion, with: event)

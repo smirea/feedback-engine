@@ -10,7 +10,7 @@ final class CopyActivity: UIActivity {
         self.items = items
     }
 
-    override var activityType: UIActivity.ActivityType? { UIActivity.ActivityType("feetback.copy") }
+    override var activityType: UIActivity.ActivityType? { UIActivity.ActivityType("feedback.copy") }
     override var activityTitle: String? { "Copy Feedback" }
     override var activityImage: UIImage? { UIImage(systemName: "doc.on.clipboard") }
     override class var activityCategory: UIActivity.Category { .action }

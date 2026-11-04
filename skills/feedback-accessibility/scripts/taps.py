@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replays Feetback's tap selection over a JSON export and reports where taps fall through.
+"""Replays Feedback's tap selection over a JSON export and reports where taps fall through.
 
 Usage: taps.py <feedback.json> [--step 8]
 

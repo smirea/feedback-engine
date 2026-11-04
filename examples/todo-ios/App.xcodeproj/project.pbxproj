@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A00000000000000000000022 /* Feetback in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000021 /* Feetback */; };
+		A00000000000000000000022 /* Feedback in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000021 /* Feedback */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -23,7 +23,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A00000000000000000000022 /* Feetback in Frameworks */,
+				A00000000000000000000022 /* Feedback in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -66,7 +66,7 @@
 			);
 			name = App;
 			packageProductDependencies = (
-				A00000000000000000000021 /* Feetback */,
+				A00000000000000000000021 /* Feedback */,
 			);
 			productName = App;
 			productReference = A00000000000000000000006 /* App.app */;
@@ -222,9 +222,9 @@
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		A00000000000000000000021 /* Feetback */ = {
+		A00000000000000000000021 /* Feedback */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = Feetback;
+			productName = Feedback;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

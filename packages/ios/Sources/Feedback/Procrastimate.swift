@@ -82,15 +82,15 @@ enum Procrastimate {
 
     /// The projects from the last time the picker loaded them, so it opens filled.
     static var cachedProjects: [Project] {
-        get { UserDefaults.standard.data(forKey: "feetback.procrastimate.projects.v2").flatMap { try? JSONDecoder().decode([Project].self, from: $0) } ?? [] }
-        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: "feetback.procrastimate.projects.v2") }
+        get { UserDefaults.standard.data(forKey: "feedback.procrastimate.projects.v2").flatMap { try? JSONDecoder().decode([Project].self, from: $0) } ?? [] }
+        set { UserDefaults.standard.set(try? JSONEncoder().encode(newValue), forKey: "feedback.procrastimate.projects.v2") }
     }
 
     /// The project of the last post, or nil for the Inbox. Its section is not kept: a new post starts
     /// at the project's top.
     static var lastProject: String? {
-        get { UserDefaults.standard.string(forKey: "feetback.procrastimate.project") }
-        set { UserDefaults.standard.set(newValue, forKey: "feetback.procrastimate.project") }
+        get { UserDefaults.standard.string(forKey: "feedback.procrastimate.project") }
+        set { UserDefaults.standard.set(newValue, forKey: "feedback.procrastimate.project") }
     }
 
     enum Failure: LocalizedError {
@@ -106,7 +106,7 @@ enum Procrastimate {
             case .missingEntitlement: "This app can't read ProcrastiMate's session. Add `$(AppIdentifierPrefix)com.stefan.shared` to its `keychain-access-groups` entitlement."
             case .signedOut: "ProcrastiMate isn't signed in on this device. Open it, sign in, then try again."
             case .server(let status, let message): message.map { "ProcrastiMate: \($0)" } ?? "ProcrastiMate answered \(status)."
-            case .unreadable: "ProcrastiMate sent a response Feetback could not read."
+            case .unreadable: "ProcrastiMate sent a response Feedback could not read."
             case .imageTooLarge: "The image could not be made small enough to upload."
             case .reportTooLarge: "The JSON report is over ProcrastiMate's 25 MB file limit."
             }
@@ -201,7 +201,7 @@ enum Procrastimate {
             request.httpMethod = method
             request.httpBody = body
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-            request.setValue("Feetback", forHTTPHeaderField: "User-Agent")
+            request.setValue("Feedback", forHTTPHeaderField: "User-Agent")
             if let type { request.setValue(type, forHTTPHeaderField: "Content-Type") }
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let status = (response as? HTTPURLResponse)?.statusCode else { throw Failure.unreadable }

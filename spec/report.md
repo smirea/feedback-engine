@@ -1,6 +1,6 @@
 # Feedback export format
 
-Every platform package exports a capture in one of two formats, each a single file, so agents read feedback from any app the same way. The iOS package is the reference implementation (`packages/ios/Sources/Feetback/Report.swift` and `AnnotatedImage.swift`).
+Every platform package exports a capture in one of two formats, each a single file, so agents read feedback from any app the same way. The iOS package is the reference implementation (`packages/ios/Sources/Feedback/Report.swift` and `AnnotatedImage.swift`).
 
 ## Capture model
 

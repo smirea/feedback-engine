@@ -1,4 +1,4 @@
-import Feetback
+import Feedback
 import SwiftUI
 
 enum Filter: String, CaseIterable, Identifiable {

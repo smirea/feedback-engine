@@ -1,4 +1,4 @@
-import Feetback
+import Feedback
 import SwiftUI
 
 struct SettingsScreen: View {
@@ -14,7 +14,7 @@ struct SettingsScreen: View {
                 }
             }
             Section("Feedback") {
-                Button("Send Feedback", systemImage: "bubble.left.and.text.bubble.right") { Feetback.present() }
+                Button("Send Feedback", systemImage: "bubble.left.and.text.bubble.right") { Feedback.present() }
                 Text("Or shake the device on any screen.").font(.footnote).foregroundStyle(.secondary)
             }
             Section("Examples") {

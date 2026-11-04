@@ -1,11 +1,11 @@
-# Feetback
+# Feedback
 
 **Point at your app. Say what's wrong. Hand an agent the exact component and line of code.**
 
-Shake the device, tap any component on the frozen screenshot, and write what should change. Feetback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
+Shake the device, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
 
 <p align="center">
-  <img src="docs/editor.png" alt="The Feetback editor: a frozen screenshot with the Groceries row selected, showing ListRow, App/ListsScreen.swift:81 and its data" width="270">
+  <img src="docs/editor.png" alt="The Feedback editor: a frozen screenshot with the Groceries row selected, showing ListRow, App/ListsScreen.swift:81 and its data" width="270">
   &nbsp;&nbsp;&nbsp;
   <img src="docs/export.png" alt="The exported feedback.png: the screenshot with three numbered boxes, each linked to a card with the component, its file:line, and the note" width="560">
 </p>
@@ -27,7 +27,7 @@ Requires iOS 17 or later and Swift 6.
 
 ### Add the package
 
-In Xcode, add the package from this repository (or a local checkout with **Add Local…**) and link the `Feetback` library to your app target. In a `Package.swift`:
+In Xcode, add the package from this repository (or a local checkout with **Add Local…**) and link the `Feedback` library to your app target. In a `Package.swift`:
 
 ```swift
 .package(url: "https://github.com/smirea/feedback-engine", branch: "master"),
@@ -36,7 +36,7 @@ In Xcode, add the package from this repository (or a local checkout with **Add L
 ### Turn it on
 
 ```swift
-import Feetback
+import Feedback
 
 @main
 struct MyApp: App {
@@ -45,16 +45,16 @@ struct MyApp: App {
     init() {
         let store = Store()
         _store = State(initialValue: store)
-        Feetback.enable()
-        Feetback.context("Store") { store }
+        Feedback.enable()
+        Feedback.context("Store") { store }
     }
     // ...
 }
 ```
 
-- `Feetback.enable()` turns on shake-to-feedback. A shake shows a glass button with the app's icon in the top-right corner, and tapping it opens the editor. Left alone, the button dissolves after 5 seconds, so an accidental shake costs nothing. Wrap the call in `#if DEBUG` if you only want it in development builds.
-- `Feetback.context(name) { value }` attaches app state to every JSON export. The closure runs when a capture is taken.
-- `Feetback.present()` opens the editor directly from your own trigger, such as a settings button.
+- `Feedback.enable()` turns on shake-to-feedback. A shake shows a glass button with the app's icon in the top-right corner, and tapping it opens the editor. Left alone, the button dissolves after 5 seconds, so an accidental shake costs nothing. Wrap the call in `#if DEBUG` if you only want it in development builds.
+- `Feedback.context(name) { value }` attaches app state to every JSON export. The closure runs when a capture is taken.
+- `Feedback.present()` opens the editor directly from your own trigger, such as a settings button.
 - **ProcrastiMate** in the Share menu posts with the session ProcrastiMate shares through the keychain group `FNYFHG5SV7.com.stefan.shared` while it is signed in on the device. Add `$(AppIdentifierPrefix)com.stefan.shared` to the app's `keychain-access-groups` entitlement. A simulator build has to be signed, even ad hoc (`CODE_SIGN_IDENTITY=-`), for the group to count. Without the entitlement, the picker says so.
 
 ### Name your components
@@ -89,13 +89,13 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 
 ### Set up your app's coding agents
 
-[`skills/feetback-accessibility/SKILL.md`](skills/feetback-accessibility/SKILL.md) is the playbook for making screens accessible and precise to point at: built-in accessibility first, Feetback tags only where a tap would otherwise be ambiguous, and a way to check each screen. To have your app's agents follow it, add this to the app's `AGENTS.md` (or `CLAUDE.md`):
+[`skills/feedback-accessibility/SKILL.md`](skills/feedback-accessibility/SKILL.md) is the playbook for making screens accessible and precise to point at: built-in accessibility first, Feedback tags only where a tap would otherwise be ambiguous, and a way to check each screen. To have your app's agents follow it, add this to the app's `AGENTS.md` (or `CLAUDE.md`):
 
 ```md
-- When you build or change a SwiftUI screen, row, card, or chart, follow Feetback's accessibility skill. Read the latest with `gh api repos/smirea/feedback-engine/contents/skills/feetback-accessibility/SKILL.md -H 'Accept: application/vnd.github.raw'`.
+- When you build or change a SwiftUI screen, row, card, or chart, follow Feedback's accessibility skill. Read the latest with `gh api repos/smirea/feedback-engine/contents/skills/feedback-accessibility/SKILL.md -H 'Accept: application/vnd.github.raw'`.
 ```
 
-The command reads the skill from `master`, so the app picks up changes without a copy to update. To make it a project skill that Claude Code loads by name, copy the folder to `.claude/skills/feetback-accessibility/` instead, and refresh the copy when the skill changes.
+The command reads the skill from `master`, so the app picks up changes without a copy to update. To make it a project skill that Claude Code loads by name, copy the folder to `.claude/skills/feedback-accessibility/` instead, and refresh the copy when the skill changes.
 
 ### Give feedback
 
@@ -106,7 +106,7 @@ The command reads the skill from `master`, so the app picks up changes without a
 5. Open the list to review or remove items, and to see the context that will be attached.
 6. Tap **Share** and pick what to send. **Image** is one `feedback.png` with the boxes, each item's text and code location, and the environment. **JSON** is one `feedback.json` with every item, the whole component tree, the component data, and the attached context, without the screenshot. **Image and JSON (ZIP)** is both files in one `feedback.zip`. In the share sheet, **Copy Feedback** puts the export on the clipboard, ready to paste into a chat with an agent, and other targets, such as Messages, Notes, or Files, receive it too.
 7. **ProcrastiMate** opens a project picker with the last project you posted to already selected. A project with sections lists them under it once picked. The task name starts as the screen's navigation title followed by `Feedback`, such as `Groceries Feedback`, and you can edit it. **Add** creates the task with the image and `feedback.json` attached, and a toast confirms it. Tap the toast to open the task in ProcrastiMate.
-8. Tap **Close** to return to the app. If some items were never shared, Feetback asks before it discards them. The text field that had focus before the editor opened gets it back.
+8. Tap **Close** to return to the app. If some items were never shared, Feedback asks before it discards them. The text field that had focus before the editor opened gets it back.
 
 While the editor is open, VoiceOver and UI automation see only the editor. Its text stops growing at the largest standard Dynamic Type size, so the screenshot keeps room at accessibility sizes.
 
@@ -114,10 +114,10 @@ While the editor is open, VoiceOver and UI automation see only the editor. Its t
 
 - The screenshot and the tagged components are read at the moment you tap the feedback button. Each `.feedback` modifier places a plain `UIView` behind its view, and a capture walks the view hierarchy to find them. Tagging costs nothing per frame.
 - Component nesting follows the SwiftUI hierarchy, so parents in the export are the real logical parents.
-- When the screen has a scrolling list or scroll view that covers at least half of it, the capture covers that content at full length. Feetback covers the app with the frozen screenshot, scrolls through the content one screen at a time, reads each step, and then restores the scroll position. The editor opens at the part that was on screen.
-- SwiftUI only exposes accessibility elements while an assistive client is running. During a capture Feetback turns on accessibility automation, which is the same private switch XCTest and Cash App's AccessibilitySnapshot use, and then restores it. The first capture in a process pauses for about a second while UIKit loads its accessibility support. Later captures take a few milliseconds.
+- When the screen has a scrolling list or scroll view that covers at least half of it, the capture covers that content at full length. Feedback covers the app with the frozen screenshot, scrolls through the content one screen at a time, reads each step, and then restores the scroll position. The editor opens at the part that was on screen.
+- SwiftUI only exposes accessibility elements while an assistive client is running. During a capture Feedback turns on accessibility automation, which is the same private switch XCTest and Cash App's AccessibilitySnapshot use, and then restores it. The first capture in a process pauses for about a second while UIKit loads its accessibility support. Later captures take a few milliseconds.
 - Presented sheets, alerts, and open menus are separate layers. Taps on a sheet only select what is inside the sheet, and the items of an open menu can be picked one by one. Whatever a sheet or cover hides completely is left out of the tree, so a full-screen cover exports only its own content.
-- The keyboard is drawn by a system process, so a capture can't contain it. Feetback draws a gray "Keyboard" block in its place, so the bars above it stay where they were, and taps there select the keyboard instead of the content under it.
+- The keyboard is drawn by a system process, so a capture can't contain it. Feedback draws a gray "Keyboard" block in its place, so the bars above it stay where they were, and taps there select the keyboard instead of the content under it.
 
 ### Limits
 

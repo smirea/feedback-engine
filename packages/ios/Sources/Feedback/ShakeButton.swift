@@ -43,7 +43,7 @@ enum ShakeButton {
 
     fileprivate static func tapped() {
         hide()
-        Feetback.present()
+        Feedback.present()
     }
 }
 
