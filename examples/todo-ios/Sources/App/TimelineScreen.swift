@@ -1,4 +1,4 @@
-import Feetback
+import Feedback
 import SwiftUI
 
 /// A `ScrollView` longer than a full-length capture, with a `LazyVStack` that pins its section

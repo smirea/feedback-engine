@@ -2,7 +2,7 @@ import CoreGraphics
 import Foundation
 import SwiftUI
 import Testing
-@testable import Feetback
+@testable import Feedback
 
 private let screen = CGSize(width: 400, height: 800)
 private func source(_ line: Int) -> CodeLocation { CodeLocation(file: "App/Screen.swift", line: line) }

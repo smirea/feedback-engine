@@ -2,7 +2,7 @@
 
 - Language: Swift
 - Package Manager: Swift Package Manager
-- Minimum target: iOS 18. The app links the Feetback package from the repository root (`../..`).
+- Minimum target: iOS 18. The app links the Feedback package from the repository root (`../..`).
 - Keep dependencies rare and intentional
 
 # Development

@@ -1,4 +1,4 @@
-import Feetback
+import Feedback
 import SwiftUI
 
 /// A long plain list with pinned section headers, a bar above it, and tagged views nested in

@@ -2,11 +2,11 @@
 import PackageDescription
 
 let package = Package(
-    name: "Feetback",
+    name: "Feedback",
     platforms: [.iOS(.v17), .macOS(.v14)],
-    products: [.library(name: "Feetback", targets: ["Feetback"])],
+    products: [.library(name: "Feedback", targets: ["Feedback"])],
     targets: [
-        .target(name: "Feetback", path: "packages/ios/Sources/Feetback"),
-        .testTarget(name: "FeetbackTests", dependencies: ["Feetback"], path: "packages/ios/Tests/FeetbackTests"),
+        .target(name: "Feedback", path: "packages/ios/Sources/Feedback"),
+        .testTarget(name: "FeedbackTests", dependencies: ["Feedback"], path: "packages/ios/Tests/FeedbackTests"),
     ]
 )

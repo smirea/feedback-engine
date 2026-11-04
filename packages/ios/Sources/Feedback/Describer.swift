@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 
-/// A value that Feetback describes as `feedbackValue` in its place, at any depth of a component's data.
+/// A value that Feedback describes as `feedbackValue` in its place, at any depth of a component's data.
 ///
 /// Conform your own property wrappers so `.feedback(self)` reports what they hold:
 ///
@@ -14,7 +14,7 @@ public protocol FeedbackRepresentable {
     var feedbackValue: Any { get }
 }
 
-/// The SwiftUI wrappers Feetback reads. `nil` means the value can't be read safely.
+/// The SwiftUI wrappers Feedback reads. `nil` means the value can't be read safely.
 protocol FeedbackUnwrappable {
     var feedbackValue: Any? { get }
 }
