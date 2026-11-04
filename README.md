@@ -88,6 +88,16 @@ extension Observe: FeedbackRepresentable {
 
 Untagged views still appear: buttons, text, images, and headers come from the accessibility tree and attach to the smallest tagged component around them. When two tagged views share a frame, such as a card that wraps another tagged view, they attach to the inner one. A button or `NavigationLink` merges everything inside it into one element, such as `Button "Work, 3"`, so the text and counts inside it can't be picked one by one. A tagged component inside the button still can, and its parent is the button. Tag an inner view when it needs feedback of its own.
 
+### Set up your app's coding agents
+
+[`skills/feetback-accessibility/SKILL.md`](skills/feetback-accessibility/SKILL.md) is the playbook for making screens accessible and precise to point at: built-in accessibility first, Feetback tags only where a tap would otherwise be ambiguous, and a way to check each screen. To have your app's agents follow it, add this to the app's `AGENTS.md` (or `CLAUDE.md`):
+
+```md
+- When you build or change a SwiftUI screen, row, card, or chart, follow Feetback's accessibility skill. Read the latest with `gh api repos/smirea/feedback-engine/contents/skills/feetback-accessibility/SKILL.md -H 'Accept: application/vnd.github.raw'`.
+```
+
+The command reads the skill from `master`, so the app picks up changes without a copy to update. To make it a project skill that Claude Code loads by name, copy the folder to `.claude/skills/feetback-accessibility/` instead, and refresh the copy when the skill changes.
+
 ### Give feedback
 
 1. Shake the device. In the simulator, use **Device › Shake**.

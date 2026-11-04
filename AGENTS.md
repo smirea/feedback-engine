@@ -6,6 +6,7 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
 
 - `Package.swift` sits at the repository root so apps can add the repo as a Swift package. Its sources are in `packages/ios`.
 - `packages/ios/Sources/Feetback`: the pure core (`Model`, `TreeBuilder`, `Report`, `Describer`, `Session`) compiles on macOS and is unit tested. Files that need UIKit are wrapped in `#if canImport(UIKit)`.
+- `skills/feetback-accessibility`: the playbook apps' agents follow to make screens accessible and precise to point at. Update it in the same change when tagging, hit-testing, or element collection changes.
 - `examples/todo-ios`: the demo app. It links the package through a local package reference to `../..`.
 - `packages/svelte` (planned): the web package, producing the same exports.
 
