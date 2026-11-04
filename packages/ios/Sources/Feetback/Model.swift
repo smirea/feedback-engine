@@ -56,6 +56,8 @@ struct Capture: @unchecked Sendable {
     let nodes: [Node]
     let environment: [ContextEntry]
     let context: [ContextEntry]
+    /// The topmost navigation title, or the selected tab's when no bar has one.
+    var screenName: String? = nil
 
     var root: Node { nodes[0] }
 
