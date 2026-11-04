@@ -313,7 +313,7 @@ private func rowScene() -> RawScene {
     let session = Session(capture: capture(rowScene()))
     let milk = CGPoint(x: 50, y: 220)
     session.pick(at: milk)
-    session.level = 1
+    session.step(to: 1)
     session.text = "Row is too tall"
     session.submit()
 
@@ -324,12 +324,12 @@ private func rowScene() -> RawScene {
     session.text = "Row is too tall and grey"
     #expect(session.isTyping)
 
-    session.level = 0
+    session.step(to: 0)
     #expect(session.target.title == "Text \"Milk\"")
     #expect(session.editing == nil)
     #expect(session.text == "Note on the whole screen")
 
-    session.level = 1
+    session.step(to: 1)
     #expect(session.text == "Row is too tall")
     #expect(!session.canSubmit)
 
@@ -338,6 +338,9 @@ private func rowScene() -> RawScene {
     session.pick(at: CGPoint(x: 350, y: 220))
     #expect(session.target.title == "Row")
     session.text = "Row is too short"
+    session.pick(at: milk)
+    #expect(session.target.title == "Row")
+    #expect(session.text == "Row is too short")
     session.submit()
     #expect(session.items.map(\.text) == ["Row is too short"])
     #expect(session.text == "Note on the whole screen")

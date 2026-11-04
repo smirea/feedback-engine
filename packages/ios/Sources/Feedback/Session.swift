@@ -7,9 +7,7 @@ final class Session {
     let capture: Capture
     private(set) var picked: Node.ID = 0
     /// How far up from the picked node the target sits: 0 is the picked node itself.
-    var level = 0 {
-        didSet { revision = nil }
-    }
+    private(set) var level = 0
     /// A new item's text. It survives visits to targets that already have feedback.
     var draft = ""
     /// Unsaved changes to the target's existing feedback, dropped when the target changes.
@@ -56,13 +54,28 @@ final class Session {
         let flagged = Set(items.map(\.target))
         let level = capture.path(from: id).firstIndex { flagged.contains($0.id) && $0.kind != .screen && $0.kind != .layer } ?? 0
         let drillsDown = id == picked && self.level == level
-        select(id)
-        if !drillsDown { self.level = level }
+        retarget {
+            picked = id
+            self.level = drillsDown ? 0 : level
+        }
     }
 
     func select(_ id: Node.ID) {
-        picked = id
-        level = 0
+        retarget {
+            picked = id
+            level = 0
+        }
+    }
+
+    func step(to level: Int) {
+        retarget { self.level = level }
+    }
+
+    /// Unsaved changes stay while the same node remains the target, such as a second tap on it.
+    private func retarget(_ change: () -> Void) {
+        let before = target.id
+        change()
+        if target.id != before { revision = nil }
     }
 
     func submit() {

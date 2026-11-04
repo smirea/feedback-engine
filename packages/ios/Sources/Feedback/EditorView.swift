@@ -379,14 +379,14 @@ private struct Chain: View {
         let path = session.path
         let level = min(session.level, path.count - 1)
         HStack(spacing: 8) {
-            neighbor(level + 1 < path.count ? path[level + 1] : nil, isParent: true) { session.level = level + 1 }
+            neighbor(level + 1 < path.count ? path[level + 1] : nil, isParent: true) { session.step(to: level + 1) }
                 .frame(minWidth: 90, maxWidth: .infinity, alignment: .leading)
             Text(session.target.title)
                 .font(.headline)
                 .foregroundStyle(.yellow)
                 .lineLimit(1)
                 .layoutPriority(1)
-            neighbor(level > 0 ? path[level - 1] : nil, isParent: false) { session.level = level - 1 }
+            neighbor(level > 0 ? path[level - 1] : nil, isParent: false) { session.step(to: level - 1) }
                 .frame(minWidth: 90, maxWidth: .infinity, alignment: .trailing)
         }
     }
