@@ -1,4 +1,4 @@
-import Feetback
+import Feedback
 import SwiftUI
 
 @main
@@ -8,8 +8,8 @@ struct TodoDemoApp: App {
     init() {
         let store = TodoStore.sample()
         _store = State(initialValue: store)
-        Feetback.enable()
-        Feetback.context("TodoStore") { store }
+        Feedback.enable()
+        Feedback.context("TodoStore") { store }
     }
 
     var body: some Scene {

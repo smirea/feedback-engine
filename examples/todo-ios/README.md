@@ -1,6 +1,6 @@
 # TodoDemo
 
-A mock todo app for trying Feetback: lists, a list detail screen, an edit sheet, and settings. Every screen is tagged with `.feedback(self)`. Shake the simulator (**Device › Shake**) on any screen to open the editor. Requires iOS 18, Bun, and Xcode.
+A mock todo app for trying Feedback: lists, a list detail screen, an edit sheet, and settings. Every screen is tagged with `.feedback(self)`. Shake the simulator (**Device › Shake**) on any screen to open the editor. Requires iOS 18, Bun, and Xcode.
 
 ## Run
 
