@@ -4,9 +4,12 @@ import Security
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
-/// Posts feedback to ProcrastiMate as one task: the image export as a task image, the JSON export as
-/// its notes. Uses ProcrastiMate's agent API (`POST /api/tasks`, `PATCH /api/tasks`) and image upload
+/// Posts feedback to ProcrastiMate as one task: the image export as a task image, the JSON export as a
+/// `feedback.json` attachment. Uses ProcrastiMate's agent API (`POST /api/tasks`, `PATCH /api/tasks`) and image upload
 /// (`PUT /api/images`).
 enum Procrastimate {
     /// ProcrastiMate keeps its session here while it is signed in, for the team's other apps.
@@ -272,11 +275,14 @@ struct ProcrastimateSheet: View {
     @State private var loadError: String?
     @State private var postError: String?
     @State private var posting = false
+    @State private var summarizing = false
+    private let taskTitle: TaskTitle
 
     init(session: Session, close: @escaping () -> Void) {
         self.session = session
         self.close = close
-        _name = State(initialValue: [session.capture.screenName ?? session.capture.environment.first { $0.name == "App" }?.value, "Feedback"].compactMap { $0 }.joined(separator: " "))
+        taskTitle = TaskTitle(session.capture, items: session.items)
+        _name = State(initialValue: taskTitle.placeholder)
     }
 
     static func controller(session: Session) -> UIViewController {
@@ -293,7 +299,10 @@ struct ProcrastimateSheet: View {
         NavigationStack {
             Form {
                 Section("Name") {
-                    TextField("Task name", text: $name).submitLabel(.done)
+                    HStack {
+                        TextField("Task name", text: $name).submitLabel(.done)
+                        if summarizing { ProgressView().accessibilityLabel("Naming the task") }
+                    }
                 }
                 Section {
                     row("Inbox", systemImage: "tray", picked: place.projectId == nil) { place = .init() }
@@ -344,6 +353,7 @@ struct ProcrastimateSheet: View {
         .dynamicTypeSize(...EditorView.largestTextSize)
         .interactiveDismissDisabled(posting)
         .task { await load() }
+        .task { await summarize() }
     }
 
     private func row(_ name: String, systemImage: String, picked: Bool, indented: Bool = false, pick: @escaping () -> Void) -> some View {
@@ -376,6 +386,21 @@ struct ProcrastimateSheet: View {
         } catch {
             loadError = error.localizedDescription
         }
+    }
+
+    /// Runs beside the project load and never holds up posting. A name the user has typed stays.
+    private func summarize() async {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26, *), SystemLanguageModel.default.availability == .available else { return }
+        summarizing = true
+        defer { summarizing = false }
+        let model = LanguageModelSession(instructions: TaskTitle.instructions)
+        guard let reply = try? await model.respond(to: taskTitle.prompt).content,
+              let summarized = taskTitle.summarized(reply),
+              name == taskTitle.placeholder
+        else { return }
+        name = summarized
+        #endif
     }
 
     private func post() {

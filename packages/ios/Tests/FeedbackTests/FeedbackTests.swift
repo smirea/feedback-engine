@@ -767,3 +767,24 @@ private indirect enum Chain {
         Tab bar "Tabs"  [x 0, y 1420, 400 × 100]
     """)
 }
+
+@Test func aTaskTitleCountsTheChangesUntilTheModelSummarizesThem() {
+    let scene = RawScene(
+        screen: screen,
+        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
+        components: [component("ListScreen", CGRect(x: 0, y: 100, width: 400, height: 600))],
+        elements: [.init(layer: 0, role: "Button", label: "Mark done", frame: CGRect(x: 20, y: 210, width: 24, height: 24))]
+    )
+    var capture = capture(scene)
+    let button = capture.hitTest(CGPoint(x: 30, y: 220))
+    let one = TaskTitle(capture, items: [FeedbackItem(target: button, text: "Make it\nbigger")])
+    #expect(one.placeholder == "Demo Feedback: 1 change")
+    #expect(one.prompt == "- On Button \"Mark done\": Make it bigger")
+
+    capture.screenName = "Groceries"
+    let two = TaskTitle(capture, items: [FeedbackItem(target: button, text: "Make it bigger"), FeedbackItem(target: 0, text: "Too dark")])
+    #expect(two.placeholder == "Groceries Feedback: 2 changes")
+    #expect(two.prompt == "- On Button \"Mark done\": Make it bigger\n- On Screen: Too dark")
+    #expect(two.summarized("\"Bigger done button, lighter screen.\"\nThat covers both.") == "2 Groceries Feedback: Bigger done button, lighter screen")
+    #expect(two.summarized(" \n") == nil)
+}
