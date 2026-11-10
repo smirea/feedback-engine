@@ -4,7 +4,7 @@ Every platform package exports a capture in one of two formats, each a single fi
 
 ## Capture model
 
-A capture is a screenshot plus a tree of nodes. Node 0 is the whole capture. When the screen's main scroll view has more content than fits, the capture shows that content at full length: the bars above it stay at the top, the bars below it move to the bottom, and the capture is taller than the device screen. A capture that reaches its height limit ends between two rows. The capture records which part was on screen when it was taken. Nodes are numbered depth-first in reading order, so a parent always has a lower number than its children.
+A capture is a screenshot plus a tree of nodes. Node 0 is the whole capture. When the screen's main scroll view has more content than fits, the capture shows that content at full length: the bars above it stay at the top, the bars below it move to the bottom, and the capture is taller than the device screen. The same holds for the main scroll view of a sheet expanded to full height: the sheet's layer grows with the capture, and the screen behind it stays put. A capture that reaches its height limit ends between two rows. The capture records which part was on screen when it was taken. Nodes are numbered depth-first in reading order, so a parent always has a lower number than its children.
 
 | Field | Meaning |
 | --- | --- |

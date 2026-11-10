@@ -64,11 +64,18 @@ enum Capturer {
         }
         let environment = environment(window: reference, scene: scene, navigation: navigation)
 
-        if sources.count == 1, keyboard == nil, let scrollView = mainScrollView(in: sources[0].view, space: space) {
+        // The topmost layer scrolls and the screen under a sheet stays put, like the bars. Only a sheet
+        // expanded edge to edge down to the bottom can grow: one at a smaller detent floats over the
+        // screen, often see-through. A menu or a toast's window would float over the stitched content.
+        let layers = sources.enumerated().map { layer, source in
+            RawScene.Layer(name: source.name, frame: layer == 0 ? bounds : source.view.convert(source.view.bounds, to: space))
+        }
+        let isExpanded = layers.last.map { $0.frame.minX <= 0.5 && $0.frame.maxX >= bounds.maxX - 0.5 && $0.frame.maxY >= bounds.maxY - 0.5 } ?? false
+        if keyboard == nil, isExpanded, !sources.contains(where: \.fitsContent), let scrollView = mainScrollView(in: sources[sources.count - 1].view, space: space) {
             let cover = coverWindow(scene: scene, frame: reference.frame, image: shot)
             defer { cover.isHidden = true }
             let full = await AutomationAccessibility.whileEnabled {
-                await fullLength(scrollView, root: sources[0].view, windows: windows, reference: reference, format: format)
+                await fullLength(scrollView, roots: sources.map(\.view), layers: layers, windows: windows, reference: reference, format: format)
             }
             guard let image = full.image.cgImage else { return nil }
             return Capture(
@@ -142,7 +149,7 @@ enum Capturer {
     }
 
     /// The largest scroll view that covers at least half the screen and has more content than
-    /// fits. Screens with a presented sheet or the keyboard up are captured as they look instead.
+    /// fits.
     private static func mainScrollView(in root: UIView, space: any UICoordinateSpace) -> UIScrollView? {
         let screen = space.bounds
         var best: (view: UIScrollView, area: CGFloat)?
@@ -190,7 +197,8 @@ enum Capturer {
     /// The first step supplies the bars above the content, the last the bars below. A capture
     /// that reaches the limit ends between two rows, scrolled so the last row meets the bottom bars.
     private static func fullLength(
-        _ scrollView: UIScrollView, root: UIView, windows: [UIWindow], reference: UIWindow, format: UIGraphicsImageRendererFormat
+        _ scrollView: UIScrollView, roots: [UIView], layers sceneLayers: [RawScene.Layer], windows: [UIWindow], reference: UIWindow,
+        format: UIGraphicsImageRendererFormat
     ) async -> (image: UIImage, scene: RawScene, visible: CGRect) {
         let space = reference as any UICoordinateSpace
         let bounds = reference.bounds
@@ -277,9 +285,9 @@ enum Capturer {
             }
         }
         func observe(shift: CGFloat, band: ClosedRange<CGFloat>, minimum: Duration = .milliseconds(80)) async -> ScrollStep {
-            let found = await settledElements(in: [root], to: reference, minimum: minimum, scrollView: scrollView)
+            let found = await settledElements(in: roots, to: reference, minimum: minimum, scrollView: scrollView)
             var components: [RawScene.Component] = []
-            collectMarkers(in: root, layer: 0, space: space, into: &components)
+            for (layer, root) in roots.enumerated() { collectMarkers(in: root, layer: layer, space: space, into: &components) }
             var scrolling: [RawScene.Component] = []
             collectMarkers(in: scrollView, layer: 0, space: space, into: &scrolling)
             return ScrollStep(
@@ -411,7 +419,7 @@ enum Capturer {
             lastImage.draw(at: CGPoint(x: 0, y: covered - first.upperBound))
         }
         let visible = CGRect(x: 0, y: min(max(original.y - top, 0), height - bounds.height), width: bounds.width, height: bounds.height)
-        return (image, Stitch.scene(screen: bounds.size, height: height, viewport: first, steps: steps), visible)
+        return (image, Stitch.scene(screen: bounds.size, height: height, viewport: first, layers: sceneLayers, steps: steps), visible)
     }
 
     /// Polls until the element count holds steady. The first capture in a process stalls the main
