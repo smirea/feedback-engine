@@ -8,7 +8,7 @@ function problems(markdown: string) {
 	const found: string[] = [];
 	const seen = new Set<string>();
 	let columns: string[] = [];
-	for (const line of markdown.split('\n')) {
+	for (const line of markdown.split('\n').map(line => line.trim())) {
 		if (!line.startsWith('|')) continue;
 		const cells = line
 			.slice(1, -1)
@@ -18,10 +18,11 @@ function problems(markdown: string) {
 			columns = cells;
 			continue;
 		}
-		if (/^-+$/.test(cells[0]!)) continue;
+		if (/^:?-+:?$/.test(cells[0]!)) continue;
 		const row = Object.fromEntries(columns.map((column, index) => [column, cells[index] ?? '']));
 		const id = row.ID!;
 		if (cells.length !== columns.length) found.push(`${id}: ${cells.length} cells for ${columns.length} columns`);
+		if (!id) found.push(`"${row.Feature}": no id`);
 		if (seen.has(id)) found.push(`${id}: duplicate id`);
 		seen.add(id);
 		if (!row.Feature) found.push(`${id}: no feature`);
@@ -39,12 +40,27 @@ test('every feature has a status on every platform', () => {
 	expect(rows).toBeGreaterThan(0);
 });
 
-test('the check reports a missing status, a duplicate id, and a "no" without a reason', () => {
+test('the check reports a missing status, a duplicate id, a missing id, and a "no" without a reason', () => {
 	const table = [
 		'| ID | Feature | iOS | Web | Notes |',
 		'| --- | --- | --- | --- | --- |',
 		'| T1 | Shake. | shipped | | |',
 		'| T1 | Pill. | shipped | no | |',
+		'| | Timer. | shipped | planned | |',
 	].join('\n');
-	expect(problems(table).found).toEqual(['T1: Web status ""', 'T1: duplicate id', 'T1: a "no" without a reason']);
+	expect(problems(table).found).toEqual([
+		'T1: Web status ""',
+		'T1: duplicate id',
+		'T1: a "no" without a reason',
+		'"Timer.": no id',
+	]);
+});
+
+test('the check reads indented rows and aligned separators', () => {
+	const table = [
+		'  | ID | Feature | iOS | Web | Notes |',
+		'  | :--- | :---: | --- | --- | ---: |',
+		'  | T1 | Shake. | shipped | | |',
+	].join('\n');
+	expect(problems(table)).toEqual({ found: ['T1: Web status ""'], rows: 1 });
 });
