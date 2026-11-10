@@ -5,6 +5,7 @@ import Testing
 @testable import Feedback
 
 private let screen = CGSize(width: 400, height: 800)
+private let screenLayer = RawScene.Layer(name: "Screen", frame: CGRect(origin: .zero, size: screen))
 private func source(_ line: Int) -> CodeLocation { CodeLocation(file: "App/Screen.swift", line: line) }
 
 private func component(_ name: String, _ frame: CGRect, id: UUID = UUID(), parent: UUID? = nil, layer: Int = 0, data: String? = nil) -> RawScene.Component {
@@ -186,7 +187,7 @@ private final class Store {
             elements: [tabBar, back, .init(layer: 0, role: "Header", label: "Groceries", frame: CGRect(x: 100, y: 55, width: 200, height: 30))]
         ),
     ]
-    let capture = capture(Stitch.scene(screen: screen, height: 1400, viewport: 100...720, steps: steps))
+    let capture = capture(Stitch.scene(screen: screen, height: 1400, viewport: 100...720, layers: [screenLayer], steps: steps))
     #expect(outline(capture) == """
     Screen  [x 0, y 0, 400 × 1400]
       ListScreen  [x 0, y 0, 400 × 1400]  App/Screen.swift:1
@@ -683,7 +684,7 @@ private enum Phase {
             elements: [tabBar, filter, text("Exercises", y: 50, role: "Header")]
         ),
     ]
-    let capture = capture(Stitch.scene(screen: screen, height: 1200, viewport: 200...720, steps: steps))
+    let capture = capture(Stitch.scene(screen: screen, height: 1200, viewport: 200...720, layers: [screenLayer], steps: steps))
     #expect(outline(capture) == """
     Screen  [x 0, y 0, 400 × 1200]
       LibraryScreen  [x 0, y 0, 400 × 1200]  App/Screen.swift:1
@@ -700,6 +701,51 @@ private enum Phase {
             Text "Leg Press"  [x 16, y 1060, 100 × 20]
         Tab bar "Tabs"  [x 0, y 1120, 400 × 80]
     """)
+}
+
+/// A sheet over a list screen, with its own list scrolled by 500 points between steps. The screen
+/// shows only above the sheet, and the sheet grows with its content.
+@Test func stitchingASheetKeepsTheScreenBehindItAndStretchesTheSheet() {
+    let screenID = UUID(), sheetID = UUID(), rowA = UUID(), rowB = UUID(), hidden = UUID()
+    let screenComponent = RawScene.Component(id: screenID, parent: nil, layer: 0, name: "ListScreen", source: source(1), frame: CGRect(origin: .zero, size: screen), data: nil)
+    let behind = RawScene.Component(id: hidden, parent: screenID, layer: 0, name: "Row", source: source(9), frame: CGRect(x: 0, y: 300, width: 400, height: 80), data: nil)
+    let sheetComponent = RawScene.Component(id: sheetID, parent: nil, layer: 1, name: "DetailSheet", source: source(60), frame: CGRect(x: 0, y: 60, width: 400, height: 740), data: nil)
+    func row(_ id: UUID, y: CGFloat) -> RawScene.Component {
+        RawScene.Component(id: id, parent: sheetID, layer: 1, name: "Option", source: source(70), frame: CGRect(x: 0, y: y, width: 400, height: 80), data: nil)
+    }
+    func text(_ label: String, y: CGFloat, layer: Int = 1) -> RawScene.Element {
+        .init(layer: layer, role: "Text", label: label, frame: CGRect(x: 16, y: y, width: 100, height: 20))
+    }
+    let chrome = [
+        RawScene.Element(layer: 0, role: "Button", label: "Back", frame: CGRect(x: 0, y: 10, width: 60, height: 40)),
+        text("Milk", y: 320, layer: 0),
+        RawScene.Element(layer: 1, role: "Button", label: "Done", frame: CGRect(x: 320, y: 70, width: 60, height: 40)),
+    ]
+    let steps = [
+        ScrollStep(
+            shift: 0, band: 120...760, components: [screenComponent, behind, sheetComponent, row(rowA, y: 600)], scrolling: [rowA],
+            content: [text("First", y: 630)], elements: chrome
+        ),
+        ScrollStep(
+            shift: 500, band: 120...760, components: [screenComponent, behind, sheetComponent, row(rowA, y: 100), row(rowB, y: 640)], scrolling: [rowA, rowB],
+            content: [text("First", y: 130), text("Last", y: 670)], elements: chrome
+        ),
+    ]
+    let layers = [screenLayer, RawScene.Layer(name: "Sheet", frame: CGRect(x: 0, y: 60, width: 400, height: 740))]
+    let capture = capture(Stitch.scene(screen: screen, height: 1300, viewport: 120...760, layers: layers, steps: steps))
+    #expect(outline(capture) == """
+    Screen  [x 0, y 0, 400 × 1300]
+      ListScreen  [x 0, y 0, 400 × 1300]  App/Screen.swift:1
+        Button "Back"  [x 0, y 10, 60 × 40]
+      Sheet  [x 0, y 60, 400 × 1240]
+        DetailSheet  [x 0, y 60, 400 × 1240]  App/Screen.swift:60
+          Button "Done"  [x 320, y 70, 60 × 40]
+          Option  [x 0, y 600, 400 × 80]  App/Screen.swift:70
+            Text "First"  [x 16, y 630, 100 × 20]
+          Option  [x 0, y 1140, 400 × 80]  App/Screen.swift:70
+            Text "Last"  [x 16, y 1170, 100 × 20]
+    """)
+    #expect(capture.path(from: capture.hitTest(CGPoint(x: 30, y: 1180))).map(\.title) == ["Text \"Last\"", "Option", "DetailSheet", "Sheet", "Screen"])
 }
 
 @Test func aCappedCaptureEndsBetweenRows() {
@@ -765,7 +811,7 @@ private indirect enum Chain {
             elements: bars
         ),
     ]
-    let capture = capture(Stitch.scene(screen: screen, height: 1520, viewport: 100...700, steps: steps))
+    let capture = capture(Stitch.scene(screen: screen, height: 1520, viewport: 100...700, layers: [screenLayer], steps: steps))
     #expect(outline(capture) == """
     Screen  [x 0, y 0, 400 × 1520]
       WeekScreen  [x 0, y 0, 400 × 1520]  App/Screen.swift:1
@@ -791,4 +837,25 @@ private indirect enum Chain {
           Text "B total"  [x 16, y 1400, 100 × 20]
         Tab bar "Tabs"  [x 0, y 1420, 400 × 100]
     """)
+}
+
+@Test func aTaskTitleCountsTheChangesUntilTheModelSummarizesThem() {
+    let scene = RawScene(
+        screen: screen,
+        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
+        components: [component("ListScreen", CGRect(x: 0, y: 100, width: 400, height: 600))],
+        elements: [.init(layer: 0, role: "Button", label: "Mark done", frame: CGRect(x: 20, y: 210, width: 24, height: 24))]
+    )
+    var capture = capture(scene)
+    let button = capture.hitTest(CGPoint(x: 30, y: 220))
+    let one = TaskTitle(capture, items: [FeedbackItem(target: button, text: "Make it\nbigger")])
+    #expect(one.placeholder == "Demo Feedback: 1 change")
+    #expect(one.prompt == "- On Button \"Mark done\": Make it bigger")
+
+    capture.screenName = "Groceries"
+    let two = TaskTitle(capture, items: [FeedbackItem(target: button, text: "Make it bigger"), FeedbackItem(target: 0, text: "Too dark")])
+    #expect(two.placeholder == "Groceries Feedback: 2 changes")
+    #expect(two.prompt == "- On Button \"Mark done\": Make it bigger\n- On Screen: Too dark")
+    #expect(two.summarized("\"Bigger done button, lighter screen.\"\nThat covers both.") == "2 Groceries Feedback: Bigger done button, lighter screen")
+    #expect(two.summarized(" \n") == nil)
 }

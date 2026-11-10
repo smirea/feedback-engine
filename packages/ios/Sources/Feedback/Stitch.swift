@@ -27,8 +27,9 @@ enum Stitch {
     /// buttons: it is read from the first step, and chrome below the content band moves to the
     /// bottom of the canvas. A component of the first step outside the scroll view that spans the
     /// band and ends on screen holds the scroll view, even when its frame changed while scrolling,
-    /// so it stretches with the band.
-    static func scene(screen: CGSize, height: CGFloat, viewport: ClosedRange<CGFloat>, steps: [ScrollStep]) -> RawScene {
+    /// so it stretches with the band. `layers` are read at the first step and stretch or move the
+    /// same way, so a sheet whose list is captured grows with it and keeps covering the screen.
+    static func scene(screen: CGSize, height: CGFloat, viewport: ClosedRange<CGFloat>, layers: [RawScene.Layer], steps: [ScrollStep]) -> RawScene {
         let extra = height - screen.height
         let end = viewport.upperBound + extra
         func spans(_ frame: CGRect) -> Bool {
@@ -77,12 +78,12 @@ enum Stitch {
                 if isChrome ? index > 0 : (isScrolling || index > 0) && outside(element.frame, step.band) { continue }
                 let frame = isChrome ? chrome(element.frame) : element.frame.offsetBy(dx: 0, dy: step.shift)
                 if !isChrome, frame.minY >= end - 0.5 { continue }
-                let key = "\(element.role)|\(element.label)|\([frame.minX, frame.minY, frame.width, frame.height].map { Int($0.rounded()) })"
+                let key = "\(element.layer)|\(element.role)|\(element.label)|\([frame.minX, frame.minY, frame.width, frame.height].map { Int($0.rounded()) })"
                 if keys.insert(key).inserted { elements.append(element.moved(to: frame)) }
             }
         }
-        let size = CGSize(width: screen.width, height: height)
-        return RawScene(screen: size, layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: size))], components: components, elements: elements)
+        let layers = layers.map { RawScene.Layer(name: $0.name, frame: chrome($0.frame)) }
+        return RawScene(screen: CGSize(width: screen.width, height: height), layers: layers, components: components, elements: elements)
     }
 
     /// Where a capture that reaches its height limit should end: the lowest y from `floor` down

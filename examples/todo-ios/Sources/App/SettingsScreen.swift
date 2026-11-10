@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SettingsScreen: View {
     @Environment(TodoStore.self) private var store
+    @State private var showsCatalogSheet = false
 
     var body: some View {
         @Bindable var store = store
@@ -20,6 +21,7 @@ struct SettingsScreen: View {
             Section("Examples") {
                 NavigationLink("Exercise Catalog") { CatalogScreen() }
                 NavigationLink("Weekly Timeline") { TimelineScreen() }
+                Button("Exercise Catalog in a Sheet") { showsCatalogSheet = true }
             }
             Section("About") {
                 LabeledContent("Version", value: Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?")
@@ -27,6 +29,14 @@ struct SettingsScreen: View {
             }
         }
         .navigationTitle("Settings")
+        .sheet(isPresented: $showsCatalogSheet) {
+            NavigationStack {
+                CatalogScreen()
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar { Button("Done") { showsCatalogSheet = false } }
+            }
+            .presentationDetents([.medium, .large])
+        }
         .feedback("SettingsScreen", data: (showCompleted: store.showCompleted, sortOrder: store.sortOrder))
     }
 }
