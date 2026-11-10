@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+@import './theme.css';
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	min-height: 100%;
+	background: var(--app-bg);
+	color: var(--app-text);
+}
+
+button {
+	font: inherit;
+}
+
+@theme inline {
+	--font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'SFMono-Regular', ui-monospace, monospace;
+
+	--color-app: var(--app-bg);
+	--color-app-ink: var(--app-text);
+	--color-muted: var(--app-muted);
+	--color-panel: var(--app-panel);
+	--color-panel-ink: var(--app-panel-text);
+	--color-border: var(--app-border);
+	--color-accent: var(--app-accent);
+	--color-accent-ink: var(--app-accent-ink);
+	--color-error: var(--app-error);
+}
+
+@layer base {
+	:where(html, body, button, input, textarea, select) {
+		font-family: var(--font-sans);
+	}
+
+	:where(pre, code, kbd, samp) {
+		font-family: var(--font-mono);
+	}
+}

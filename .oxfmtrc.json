@@ -1,0 +1,26 @@
+{
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"ignorePatterns": [
+		"node_modules",
+		"dist",
+		"build",
+		"out",
+		".svelte-kit",
+		"generated",
+		"**/generated",
+		"**/*.generated.ts",
+		"**/*.gen.ts",
+		"examples/todo-svelte/env.ts",
+		".build",
+		"DerivedData",
+		"**/*.md"
+	],
+	"printWidth": 120,
+	"useTabs": true,
+	"semi": true,
+	"singleQuote": true,
+	"trailingComma": "all",
+	"arrowParens": "avoid",
+	"jsxSingleQuote": true,
+	"svelte": true
+}

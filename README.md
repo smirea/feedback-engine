@@ -19,7 +19,7 @@ Shake the device, tap any component on the frozen screenshot, and write what sho
 
 Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. Or post the feedback straight to a ProcrastiMate project as a task.
 
-Platform packages live under `packages/`. iOS is available now; a Svelte package is planned and will produce the same report ([spec/report.md](spec/report.md)).
+Platform packages live under `packages/`. iOS is available now. A web package, `@smirea/feedback-engine`, is planned and will produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform, and [docs/web-plan.md](docs/web-plan.md) is the plan for the web package.
 
 ## iOS
 
@@ -140,9 +140,22 @@ cd examples/todo-ios
 ./scripts/run
 ```
 
+`examples/todo-svelte` is the start of the same app for the web, a SvelteKit SPA with the Lists screen. Run it from the repository root with:
+
+```sh
+bun install
+bun run dev
+```
+
 ## Development
 
 ```sh
 swift build   # compiles the package for macOS
 swift test    # tree building, hit-testing, stitching, JSON export, and value description tests
+```
+
+```sh
+bun run lint        # oxlint and oxfmt
+bun run typecheck   # svelte-check for the example app, then the repository's TypeScript
+bun test            # the checks on spec/features.md
 ```

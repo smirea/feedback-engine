@@ -1,0 +1,25 @@
+{
+	"name": "todo-svelte",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "bun --env-file=../../.env --env-file=../../.env.local --bun vite build",
+		"check": "bun --env-file=../../.env --env-file=../../.env.local svelte-kit sync && bun --env-file=../../.env --env-file=../../.env.local svelte-check-native --tsconfig ./tsconfig.json",
+		"dev": "bun --env-file=../../.env --env-file=../../.env.local --bun vite",
+		"preview": "bun --env-file=../../.env --env-file=../../.env.local --bun vite preview"
+	},
+	"dependencies": {
+		"@sveltejs/adapter-static": "^4.0.0",
+		"@sveltejs/kit": "^3.0.1",
+		"@sveltejs/vite-plugin-svelte": "^7.3.1",
+		"svelte": "^5.57.2",
+		"vite": "^8.3.4",
+		"zod": "^4.6.6"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "^4.3.3",
+		"svelte-check-native": "^1.10.0",
+		"tailwindcss": "^4.3.3",
+		"typescript": "^6.0.3"
+	}
+}
