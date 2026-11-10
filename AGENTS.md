@@ -10,7 +10,7 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
 - `packages/ios/Sources/Feedback`: the pure core (`Model`, `TreeBuilder`, `Report`, `Describer`, `Session`) compiles on macOS and is unit tested. Files that need UIKit are wrapped in `#if canImport(UIKit)`.
 - `skills/feedback-accessibility`: the playbook apps' agents follow to make screens accessible and precise to point at. Update it in the same change when tagging, hit-testing, or element collection changes.
 - `examples/todo-ios`: the demo app. It links the package through a local package reference to `../..`.
-- `package.json` sits at the repository root for the same reason: apps install `github:smirea/feedback-engine`, and its `exports` map points into `packages/web/src`. The root is also the Bun workspace for `examples/*`.
+- `package.json` sits at the repository root for the same reason: apps will install `github:smirea/feedback-engine`. It has no `exports` map yet. Phase 1 of `docs/web-plan.md` adds one that points into `packages/web/src`. The root is also the Bun workspace for `examples/*`.
 - `packages/web` (planned): the web package `@smirea/feedback-engine`, one entry point per framework, producing the same exports. `docs/web-plan.md` has its shape and the order of the work.
 - `examples/todo-svelte`: the web demo app, a SvelteKit SPA that mirrors `examples/todo-ios`.
 

@@ -70,7 +70,7 @@ A throwaway package and a copy of `examples/todo-svelte` ran under Playwright 1.
 
 ## What works, what changes, and what does not
 
-**Carries over unchanged.** The export format, the tree rules, hit-testing, similar nodes, the session rules of the editor, the image layout, the task name, `taps.py`, and the limits on component data. These are pure logic, and the TypeScript core ports them against the same expected values as the Swift tests.
+**Carries over unchanged.** The export format, the tree rules, hit-testing, similar nodes, the session rules of the editor, `@` references, the image layout, the task name, `taps.py`, and the limits on component data. These are pure logic, and the TypeScript core ports them against the same expected values as the Swift tests.
 
 **Works better on the web.**
 

@@ -72,11 +72,13 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | ID | Feature | iOS | Web | Notes |
 | --- | --- | --- | --- | --- |
 | R1 | Nodes are numbered depth-first in reading order, so a parent has a lower number than its children. | shipped | planned | Web: the TypeScript core ports `TreeBuilder`. |
-| R2 | An element's parent is the smallest component that holds its centre and three quarters of its area. | shipped | planned | Web: DOM ancestry gives the parent directly. `report.md` needs to say that a real hierarchy wins over geometry. |
+| R2 | An element's parent is the smallest component that holds its centre and three quarters of its area, or else the smallest that holds its centre. | shipped | planned | Web: DOM ancestry gives the parent directly. `report.md` needs to say that a real hierarchy wins over geometry. |
 | R3 | Hit-testing picks the smallest node under the point, on the topmost layer that covers it. | shipped | planned | |
 | R4 | A tagged component inside a button or link is a child of that button or link. | shipped | planned | Web: true by DOM ancestry. |
 | R5 | The same part in sibling components is found, such as the same button in every row. | shipped | planned | Web: the TypeScript core ports `Capture.similar`. |
 | R6 | Frames are clipped to the capture. | shipped | planned | |
+| R7 | A button, a link, or a switch is one element with its content merged into its label, so the text inside it cannot be picked by itself. A tagged component inside it still can. | shipped | planned | iOS: the accessibility tree merges them. Web: an untagged descendant of an element with the role button, link, or switch is not a node. |
+| R8 | Only leaf elements become nodes. A container is walked through, even when it has a label. | shipped | planned | Web: landmark, list, and group roles are walked through. |
 
 ## Editor
 
@@ -95,6 +97,8 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | E11 | While the editor is open, assistive technology and UI automation see only the editor. | shipped | planned | iOS: hides the app's windows from accessibility. Web: a modal dialog in the top layer makes the page inert. |
 | E12 | The editor's text stops growing at the largest standard text size. | shipped | no | Web: browsers zoom the whole page, so the screenshot scales with the text. |
 | E13 | Hovering shows which node a click would select. | no | planned | iOS: a touch screen has no hover. |
+| E14 | Typing `@` in the feedback text references another element. A tap picks it, arrows move to its parent or child, and **Insert** writes a token such as `@1_Dialog`. | shipped | planned | Web: the TypeScript core ports the reference rules of `Session`. |
+| E15 | A referenced element keeps its number for the whole capture, and its box gets an `@N` tag. | shipped | planned | |
 
 ## Export and sharing
 
@@ -109,6 +113,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | X7 | The export goes to any system share target, such as Messages, Notes, or Files. | shipped | planned | Web: `navigator.share` with files where the browser has it, and a file download elsewhere. |
 | X8 | Each export is written to a file an agent can read without the share sheet. | shipped | planned | iOS: `tmp/feedback.*` in the app's container. Web: the last export is readable from the page, for Playwright. |
 | X9 | An item counts as shared once a share completes. | shipped | planned | |
+| X10 | The exports carry the references. The image draws a box for each referenced node and highlights each token in its color. The JSON lists them under `references`. | shipped | planned | |
 
 ## ProcrastiMate
 
@@ -127,6 +132,6 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | ID | Feature | iOS | Web | Notes |
 | --- | --- | --- | --- | --- |
 | A1 | A skill tells an app's agents how to make screens accessible and precise to point at. | shipped | planned | iOS: `skills/feedback-accessibility`, written for SwiftUI. Web: the same rule and the same checks, with a section for Svelte and ARIA. |
-| A2 | A script replays every tap on an exported tree and reports the taps that fall through. | shipped | planned | `scripts/taps.py` reads `feedback.json`, so it runs on a web export unchanged once the web exports one. |
-| A3 | An example app exercises every feature. | shipped | planned | iOS: `examples/todo-ios`. Web: `examples/todo-svelte`, which has the Lists screen so far. |
+| A2 | A script replays every tap on an exported tree and reports the taps that fall through. | shipped | planned | `skills/feedback-accessibility/scripts/taps.py` reads `feedback.json`, so it runs on a web export unchanged once the web exports one. |
+| A3 | An example app with every screen tagged is there to try Feedback on. | shipped | planned | iOS: `examples/todo-ios`. It is not in ProcrastiMate's keychain group, so a post needs another app. Web: `examples/todo-svelte`, which has the Lists screen so far. |
 | A4 | An agent can trigger a capture and read the export without a person. | shipped | planned | iOS: `simctl` shake and the app's container. Web: Playwright presses the shortcut and reads the export from the page. |
