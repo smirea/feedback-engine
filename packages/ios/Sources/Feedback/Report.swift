@@ -10,19 +10,25 @@ enum Report {
 }
 
 extension Report {
-    static func json(_ capture: Capture, items: [FeedbackItem], pretty: Bool = true) -> String {
+    static func json(_ capture: Capture, _ annotations: Annotations, pretty: Bool = true) -> String {
         let document = JSONDocument(
             app: capture.environment.first { $0.name == "App" }?.value ?? "App",
             captured: capture.date,
             size: .init(width: rounded(capture.screen.width), height: rounded(capture.screen.height)),
             visible: .init(capture.visible),
             environment: capture.environment.map { .init(name: $0.name, value: $0.value) },
-            items: items.enumerated().map { index, item in
-                let target = capture.nodes[item.target]
-                return .init(
-                    number: index + 1, text: item.text, target: item.target, title: target.title,
+            items: annotations.items.enumerated().map { index, item in
+                .init(
+                    number: index + 1, text: item.text, target: item.target, title: capture.nodes[item.target].title,
                     path: capture.path(from: item.target).reversed().map(\.id),
                     code: capture.nearestComponent(from: item.target)?.source?.description
+                )
+            },
+            references: annotations.used.map { reference in
+                .init(
+                    number: reference.number, token: reference.token, target: reference.target, title: capture.nodes[reference.target].title,
+                    path: capture.path(from: reference.target).reversed().map(\.id),
+                    code: capture.nearestComponent(from: reference.target)?.source?.description
                 )
             },
             context: capture.context.map { .init(name: $0.name, value: $0.value) },
@@ -74,6 +80,15 @@ private struct JSONDocument: Encodable {
         let code: String?
     }
 
+    struct Reference: Encodable {
+        let number: Int
+        let token: String
+        let target: Int
+        let title: String
+        let path: [Int]
+        let code: String?
+    }
+
     struct TreeNode: Encodable {
         let id: Int
         let parent: Int?
@@ -109,6 +124,7 @@ private struct JSONDocument: Encodable {
     let visible: Rect
     let environment: [Entry]
     let items: [Item]
+    let references: [Reference]
     let context: [Entry]
     let nodes: [TreeNode]
 }

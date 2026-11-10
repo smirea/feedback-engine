@@ -146,3 +146,86 @@ struct FeedbackItem: Identifiable, Hashable, Sendable {
         self.text = text
     }
 }
+
+/// A node that feedback text points at with a token such as `@1_Dialog`.
+struct Reference: Hashable, Sendable {
+    let number: Int
+    let target: Node.ID
+    let token: String
+
+    var tag: String { "@\(number)" }
+}
+
+/// Everything a share exports besides the capture. Items and references take colors from one
+/// palette, in the order their nodes were first flagged or referenced, so a node keeps one color
+/// whichever came first.
+struct Annotations: Sendable {
+    private(set) var items: [FeedbackItem] = []
+    private(set) var references: [Reference] = []
+    private var marked: [Node.ID] = []
+
+    func colorIndex(of node: Node.ID) -> Int { marked.firstIndex(of: node) ?? marked.count }
+
+    /// Updates the target's item, or adds one.
+    mutating func submit(_ text: String, on target: Node.ID) {
+        if let index = items.firstIndex(where: { $0.target == target }) {
+            items[index].text = text
+        } else {
+            items.append(FeedbackItem(target: target, text: text))
+            mark(target)
+        }
+    }
+
+    mutating func remove(_ id: FeedbackItem.ID) {
+        items.removeAll { $0.id == id }
+    }
+
+    /// The node's reference. A node referenced again gets the same one.
+    mutating func reference(_ node: Node) -> Reference {
+        if let reference = references.first(where: { $0.target == node.id }) { return reference }
+        let words = node.name.split { !($0.isLetter || $0.isNumber) }.joined(separator: "_")
+        let number = references.count + 1
+        let reference = Reference(number: number, target: node.id, token: "@\(number)_\(words.isEmpty ? "Node" : words)")
+        references.append(reference)
+        mark(node.id)
+        return reference
+    }
+
+    private mutating func mark(_ node: Node.ID) {
+        if !marked.contains(node) { marked.append(node) }
+    }
+
+    /// The references some item's text names, by number.
+    var used: [Reference] { references(in: items.map(\.text)) }
+
+    func references(in texts: [String]) -> [Reference] {
+        let tokens = Set(texts.flatMap { segments($0).compactMap(\.reference?.token) })
+        return references.filter { tokens.contains($0.token) }
+    }
+
+    /// The text split into plain runs and reference tokens. A token followed by more letters is
+    /// plain text, since it names nothing.
+    func segments(_ text: String) -> [(text: String, reference: Reference?)] {
+        var segments: [(text: String, reference: Reference?)] = []
+        func plain(_ text: Substring) {
+            guard !text.isEmpty else { return }
+            if let last = segments.last, last.reference == nil {
+                segments[segments.count - 1].text += text
+            } else {
+                segments.append((String(text), nil))
+            }
+        }
+        var rest = text[...]
+        while let match = rest.firstMatch(of: /@\d+_\w+/) {
+            if let reference = references.first(where: { $0.token == match.output }) {
+                plain(rest[..<match.range.lowerBound])
+                segments.append((reference.token, reference))
+            } else {
+                plain(rest[..<match.range.upperBound])
+            }
+            rest = rest[match.range.upperBound...]
+        }
+        plain(rest)
+        return segments
+    }
+}

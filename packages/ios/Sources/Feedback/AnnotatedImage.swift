@@ -71,7 +71,8 @@ enum CardLayout {
 import UIKit
 
 /// The image export: the screenshot with numbered boxes, each item's text and code location in a
-/// card beside it, and the capture's environment, so the one file is enough on its own.
+/// card beside it, a tagged box for each referenced node, and the capture's environment, so the
+/// one file is enough on its own.
 enum AnnotatedImage {
     private static let column = CardLayout.column
     private static let badge = CardLayout.badge
@@ -82,10 +83,10 @@ enum AnnotatedImage {
     private static let secondary = UIColor(white: 0.42, alpha: 1)
     private static let primary = UIColor(white: 0.08, alpha: 1)
 
-    static func render(_ capture: Capture, items: [FeedbackItem]) -> UIImage {
+    static func render(_ capture: Capture, _ annotations: Annotations) -> UIImage {
         let environment = environmentText(capture)
         let environmentHeight = measure(environment, width: column)
-        let cards = items.enumerated().map { index, item in
+        let cards = annotations.items.enumerated().map { index, item in
             let node = capture.nodes[item.target]
             let text = NSMutableAttributedString(string: node.title + "\n", attributes: [
                 .font: UIFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: secondary,
@@ -95,8 +96,18 @@ enum AnnotatedImage {
                     .font: UIFont.monospacedSystemFont(ofSize: 10.5, weight: .regular), .foregroundColor: secondary,
                 ]))
             }
-            text.append(NSAttributedString(string: item.text, attributes: [.font: UIFont.systemFont(ofSize: 14), .foregroundColor: primary]))
-            return (number: index + 1, color: Palette.uiColor(index), text: text, height: max(measure(text, width: textWidth), badge) + padding * 2, frame: node.frame)
+            for segment in annotations.segments(item.text) {
+                if let reference = segment.reference {
+                    let color = Palette.uiColor(annotations.colorIndex(of: reference.target))
+                    text.append(NSAttributedString(string: "\u{00A0}\(segment.text)\u{00A0}", attributes: [
+                        .font: UIFont.systemFont(ofSize: 14, weight: .semibold), .foregroundColor: UIColor.white, .backgroundColor: color,
+                    ]))
+                } else {
+                    text.append(NSAttributedString(string: segment.text, attributes: [.font: UIFont.systemFont(ofSize: 14), .foregroundColor: primary]))
+                }
+            }
+            let color = Palette.uiColor(annotations.colorIndex(of: item.target))
+            return (number: index + 1, color: color, text: text, height: max(measure(text, width: textWidth), badge) + padding * 2, frame: node.frame)
         }
         let layout = CardLayout.place(targets: cards.map(\.frame), heights: cards.map(\.height), screen: capture.screen, environmentHeight: environmentHeight)
         let shot = layout.shot
@@ -142,6 +153,20 @@ enum AnnotatedImage {
                 drawBadge(card.number, color: card.color, center: corner)
             }
 
+            let flagged = Set(annotations.items.map(\.target))
+            for reference in annotations.used {
+                let color = Palette.uiColor(annotations.colorIndex(of: reference.target))
+                let target = capture.nodes[reference.target].frame.offsetBy(dx: shot.minX, dy: shot.minY)
+                if !flagged.contains(reference.target) {
+                    let box = UIBezierPath(roundedRect: target.insetBy(dx: -1, dy: -1), cornerRadius: 4)
+                    box.lineWidth = 1.5
+                    box.setLineDash([6, 4], count: 2, phase: 0)
+                    color.withAlphaComponent(0.9).setStroke()
+                    box.stroke()
+                }
+                drawTag(reference.tag, color: color, corner: CGPoint(x: target.maxX, y: target.minY), within: shot)
+            }
+
             for (card, placement) in zip(cards, layout.cards) {
                 let rect = CGRect(origin: placement.origin, size: CGSize(width: column, height: card.height))
                 let background = UIBezierPath(roundedRect: rect, cornerRadius: 10)
@@ -183,6 +208,25 @@ enum AnnotatedImage {
 
     private static func measure(_ text: NSAttributedString, width: CGFloat) -> CGFloat {
         ceil(text.boundingRect(with: CGSize(width: width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin], context: nil).height)
+    }
+
+    /// A reference's `@N`, in a square centered on the box's top-right corner.
+    private static func drawTag(_ tag: String, color: UIColor, corner: CGPoint, within shot: CGRect) {
+        let label = NSAttributedString(string: tag, attributes: [.font: UIFont.systemFont(ofSize: 11, weight: .bold), .foregroundColor: UIColor.white])
+        let size = label.size()
+        let width = max(size.width + 8, badge)
+        let center = CGPoint(
+            x: min(max(corner.x, shot.minX + width / 2 + 2), shot.maxX - width / 2 - 2),
+            y: min(max(corner.y, shot.minY + badge / 2 + 2), shot.maxY - badge / 2 - 2)
+        )
+        let rect = CGRect(x: center.x - width / 2, y: center.y - badge / 2, width: width, height: badge)
+        color.setFill()
+        UIBezierPath(roundedRect: rect, cornerRadius: 3).fill()
+        UIColor.white.setStroke()
+        let ring = UIBezierPath(roundedRect: rect, cornerRadius: 3)
+        ring.lineWidth = 1.5
+        ring.stroke()
+        label.draw(at: CGPoint(x: center.x - size.width / 2, y: center.y - size.height / 2))
     }
 
     private static func drawBadge(_ number: Int, color: UIColor, center: CGPoint) {

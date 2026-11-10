@@ -213,7 +213,9 @@ private final class Store {
     )
     let capture = capture(scene)
     let button = capture.hitTest(CGPoint(x: 30, y: 220))
-    let json = Report.json(capture, items: [FeedbackItem(target: button, text: "Make it bigger")])
+    var annotations = Annotations()
+    annotations.submit("Make it bigger", on: button)
+    let json = Report.json(capture, annotations)
     let document = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
     #expect(document["app"] as? String == "Demo")
     #expect(document["items"] as? NSArray == [
@@ -345,6 +347,75 @@ private func rowScene() -> RawScene {
     session.submit()
     #expect(session.items.map(\.text) == ["Row is too short"])
     #expect(session.text == "Note on the whole screen")
+}
+
+@MainActor @Test func typingAtPicksANodeToReferenceWithoutMovingTheTarget() throws {
+    let session = Session(capture: capture(rowScene()))
+    let delete = CGPoint(x: 350, y: 220)
+    session.pick(at: CGPoint(x: 50, y: 220))
+    session.text = "Too close to @"
+    #expect(session.isReferencing)
+    #expect(session.referenceTarget == nil)
+
+    session.pick(at: delete)
+    #expect(session.target.title == "Text \"Milk\"")
+    #expect(session.referenceTarget?.title == "Button \"Delete\"")
+    session.stepReference(to: 1)
+    #expect(session.referenceTarget?.title == "Row")
+    session.stepReference(to: 0)
+    session.insertReference()
+    #expect(session.text == "Too close to @1_Button ")
+    #expect(!session.isReferencing)
+
+    session.text += "and @"
+    session.pick(at: CGPoint(x: 100, y: 255))
+    session.insertReference()
+    session.text += "below @"
+    session.pick(at: delete)
+    session.insertReference()
+    #expect(session.text == "Too close to @1_Button and @2_Row below @1_Button ")
+    session.text += "x"
+    session.pick(at: delete)
+    #expect(session.target.title == "Button \"Delete\"")
+
+    session.pick(at: CGPoint(x: 50, y: 220))
+    session.text = "email@"
+    #expect(!session.isReferencing)
+}
+
+@MainActor @Test func referencesShareThePaletteWithItemsInTheOrderTheirNodesWereFirstUsed() throws {
+    let session = Session(capture: capture(rowScene()))
+    session.pick(at: CGPoint(x: 50, y: 220))
+    session.text = "Align with @"
+    session.pick(at: CGPoint(x: 350, y: 220))
+    session.insertReference()
+    session.submit()
+    session.pick(at: CGPoint(x: 350, y: 220))
+    session.text = "Smaller"
+    session.submit()
+    let milk = session.items[0].target, delete = session.items[1].target
+    #expect([milk, delete].map(session.colorIndex) == [1, 0])
+    #expect(session.annotations.segments(session.items[0].text).map { [$0.text, $0.reference?.tag ?? ""] } == [
+        ["Align with ", ""], ["@1_Button", "@1"],
+    ])
+
+    let document = try #require(JSONSerialization.jsonObject(with: Data(session.json.utf8)) as? [String: Any])
+    #expect(document["references"] as? NSArray == [
+        ["number": 1, "token": "@1_Button", "target": 3, "title": "Button \"Delete\"", "path": [0, 1, 3], "code": "App/Screen.swift:200"],
+    ])
+}
+
+@Test func onlyExactTokensOfKnownReferencesAreReferences() {
+    let scene = rowScene()
+    let capture = capture(scene)
+    var annotations = Annotations()
+    let row = annotations.reference(capture.nodes[1])
+    let again = annotations.reference(capture.nodes[1])
+    #expect(row == again)
+    #expect(annotations.segments("@1_Row, @1_Rows and @2_Row").map { [$0.text, $0.reference?.token ?? ""] } == [
+        ["@1_Row", "@1_Row"], [", @1_Rows and @2_Row", ""],
+    ])
+    #expect(annotations.used.isEmpty)
 }
 
 private struct ChartValues: DynamicProperty {
@@ -531,7 +602,7 @@ private enum Phase {
         ]
     )
     let capture = capture(scene)
-    let document = try #require(JSONSerialization.jsonObject(with: Data(Report.json(capture, items: []).utf8)) as? [String: Any])
+    let document = try #require(JSONSerialization.jsonObject(with: Data(Report.json(capture, Annotations()).utf8)) as? [String: Any])
     #expect((document["nodes"] as? [[String: Any]])?.map { "\($0["kind"]!) \($0["name"]!)" } == [
         "screen Screen", "layer Full-screen cover", "component Summary", "element Button",
     ])

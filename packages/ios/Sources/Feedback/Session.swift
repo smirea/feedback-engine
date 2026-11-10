@@ -14,7 +14,11 @@ final class Session {
     private var revision: String?
     /// A short confirmation the editor shows over the screenshot, such as a finished post.
     var toast: Toast?
-    private(set) var items: [FeedbackItem] = []
+    private(set) var annotations = Annotations()
+    var items: [FeedbackItem] { annotations.items }
+    /// What a tap picks while the text ends in `@`, and how far up from it the reference sits.
+    private var referencePick: Node.ID?
+    private(set) var referenceLevel = 0
     /// Every item that was in a completed share.
     var shared: Set<FeedbackItem> = []
     /// Closing asks first when it would lose these, or a draft.
@@ -26,14 +30,51 @@ final class Session {
 
     var path: [Node] { capture.path(from: picked) }
     var target: Node { path[min(level, path.count - 1)] }
-    var similar: [Node.ID] { target.kind == .screen ? [] : capture.similar(to: target.id) }
+    var similar: [Node.ID] { target.kind == .screen || isReferencing ? [] : capture.similar(to: target.id) }
 
     /// The item on the target itself. Its parent's or child's feedback belongs to that level.
     var editing: FeedbackItem? { items.first { $0.target == target.id } }
 
     var text: String {
         get { editing.map { revision ?? $0.text } ?? draft }
-        set { if editing != nil { revision = newValue } else { draft = newValue } }
+        set {
+            if editing != nil { revision = newValue } else { draft = newValue }
+            if !isReferencing { referencePick = nil }
+        }
+    }
+
+    /// Typing `@` at the start of a word makes the next tap pick a node to reference instead of
+    /// moving the target. Typing anything else leaves the mode.
+    var isReferencing: Bool {
+        let text = text
+        guard text.last == "@" else { return false }
+        return text.dropLast().last.map(\.isWhitespace) ?? true
+    }
+
+    var referencePath: [Node] {
+        guard isReferencing, let referencePick else { return [] }
+        return capture.path(from: referencePick)
+    }
+
+    var referenceTarget: Node? {
+        let path = referencePath
+        return path.isEmpty ? nil : path[min(referenceLevel, path.count - 1)]
+    }
+
+    /// The references the items and the text being typed name, so their boxes show while typing.
+    var visibleReferences: [Reference] { annotations.references(in: items.map(\.text) + [text]) }
+
+    func colorIndex(of node: Node.ID) -> Int { annotations.colorIndex(of: node) }
+
+    func stepReference(to level: Int) {
+        referenceLevel = level
+    }
+
+    /// Replaces the `@` with the reference target's token.
+    func insertReference() {
+        guard let node = referenceTarget else { return }
+        let reference = annotations.reference(node)
+        text = String(text.dropLast()) + reference.token + " "
     }
 
     var canSubmit: Bool {
@@ -51,6 +92,11 @@ final class Session {
     /// Screens and layers cover everything, so their feedback never captures a tap.
     func pick(at point: CGPoint) {
         let id = capture.hitTest(point)
+        if isReferencing {
+            referencePick = id
+            referenceLevel = 0
+            return
+        }
         let flagged = Set(items.map(\.target))
         let level = capture.path(from: id).firstIndex { flagged.contains($0.id) && $0.kind != .screen && $0.kind != .layer } ?? 0
         let drillsDown = id == picked && self.level == level
@@ -76,28 +122,25 @@ final class Session {
         let before = target.id
         change()
         if target.id != before { revision = nil }
+        if !isReferencing { referencePick = nil }
     }
 
     func submit() {
         let text = trimmed(text)
         guard !text.isEmpty else { return }
-        if let index = items.firstIndex(where: { $0.target == target.id }) {
-            items[index].text = text
-        } else {
-            items.append(FeedbackItem(target: target.id, text: text))
-            draft = ""
-        }
+        if editing == nil { draft = "" }
+        annotations.submit(text, on: target.id)
         select(0)
     }
 
     private func trimmed(_ text: String) -> String { text.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     func remove(_ id: FeedbackItem.ID) {
-        items.removeAll { $0.id == id }
+        annotations.remove(id)
     }
 
-    var json: String { Report.json(capture, items: items) }
-    var compactJSON: String { Report.json(capture, items: items, pretty: false) }
+    var json: String { Report.json(capture, annotations) }
+    var compactJSON: String { Report.json(capture, annotations, pretty: false) }
 }
 
 /// Tapping a toast with a link opens it, such as the task a post created.
