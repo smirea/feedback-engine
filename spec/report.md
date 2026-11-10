@@ -31,9 +31,13 @@ A component's `name` is its type name without generic arguments, such as `Dashbo
 - Values in `context` use the same format with 6 levels of nesting and up to 8,000 characters.
 - Closures, framework internals such as environment values, and values made only of those are left out.
 
+## References
+
+Item text can name other nodes with reference tokens such as `@1_Dialog`: `@`, the reference's number, `_`, and the node's `name` with each run of characters other than letters and digits replaced by one `_`. Numbers count up from 1 across the whole capture, and a node referenced again keeps its first token. A token followed directly by more letters or digits is plain text. Items and references take colors from one palette, in the order their nodes were first given an item or a reference, so a node that has both shows one color.
+
 ## Image export
 
-The screenshot sits between two columns. Each item's target has a dashed box with no fill and a numbered badge, matching the item numbers in the JSON export. Each item's target title, the nearest component's `file:line`, and the text go in a card in the left column, as level with the target as the cards above it allow, with a line from the card to the nearest side of the box. A card moves to the right column only when that makes its line at least 80 points shorter, as for a target at the right edge. The app name and the environment entries go in the right column, in the first gap from the top that is tall enough for them. A tall capture is drawn at a lower scale, so the image stays under about 40 million pixels.
+The screenshot sits between two columns. Each item's target has a dashed box with no fill and a numbered round badge, matching the item numbers in the JSON export. Each node an item's text references has a box in its color too, with its `@N` in a square tag on the box's top-right corner. In the cards, each reference token is drawn in white on its color, with a space of that color before and after it. Each item's target title, the nearest component's `file:line`, and the text go in a card in the left column, as level with the target as the cards above it allow, with a line from the card to the nearest side of the box. A card moves to the right column only when that makes its line at least 80 points shorter, as for a target at the right edge. The app name and the environment entries go in the right column, in the first gap from the top that is tall enough for them. A tall capture is drawn at a lower scale, so the image stays under about 40 million pixels.
 
 ## JSON export
 
@@ -47,6 +51,7 @@ The JSON export carries everything the capture knows except the image, as one ob
 | `visible` | `x`, `y`, `width`, `height` of the part that was on screen |
 | `environment`, `context` | Arrays of `name` and `value`, in the order the app registered them |
 | `items` | `number`, `text`, `target` (node id), `title`, `path` (node ids from the screen down to the target), and `code`, the nearest component's `file:line` when there is one |
+| `references` | Each reference some item's text uses, by number: `number`, `token`, and the same `target`, `title`, `path`, and `code` as an item |
 | `nodes` | Every node in id order: `id`, `parent`, `layer`, `kind`, `name`, `label`, `frame`, `source`, and `data`. Keys without a value are left out. |
 
 ## Sharing

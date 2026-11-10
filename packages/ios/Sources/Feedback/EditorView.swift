@@ -157,10 +157,16 @@ private struct ScreenshotCanvas: View {
                 Box(frame: capture.nodes[id].frame, scale: scale, zoom: zoom, color: .yellow.opacity(0.5), lineWidth: 1, fill: .yellow.opacity(0.08))
             }
             ForEach(Array(session.items.enumerated()), id: \.element.id) { index, item in
-                Box(frame: capture.nodes[item.target].frame, scale: scale, zoom: zoom, color: Palette.color(index), number: index + 1)
+                Box(frame: capture.nodes[item.target].frame, scale: scale, zoom: zoom, color: Palette.color(session.colorIndex(of: item.target)), number: index + 1)
+            }
+            ForEach(session.visibleReferences, id: \.self) { reference in
+                Box(frame: capture.nodes[reference.target].frame, scale: scale, zoom: zoom, color: Palette.color(session.colorIndex(of: reference.target)), tag: reference.tag)
             }
             if target.kind != .screen {
                 Box(frame: target.frame, scale: scale, zoom: zoom, color: .yellow, lineWidth: 2)
+            }
+            if let reference = session.referenceTarget {
+                Box(frame: reference.frame, scale: scale, zoom: zoom, color: .cyan, lineWidth: 2, fill: .cyan.opacity(0.12))
             }
         }
         .frame(width: size.width, height: size.height)
@@ -282,6 +288,7 @@ private struct Box: View {
     var zoom: CGFloat = 1
     let color: Color
     var number: Int?
+    var tag: String?
     var lineWidth: CGFloat = 1.5
     var fill: Color = .clear
 
@@ -299,6 +306,19 @@ private struct Box: View {
                         .background(color, in: Circle())
                         .scaleEffect(1 / zoom, anchor: .topLeading)
                         .offset(x: -6 / zoom, y: -6 / zoom)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                if let tag {
+                    Text(tag)
+                        .font(.caption2.bold())
+                        .foregroundStyle(.white)
+                        .fixedSize()
+                        .padding(.horizontal, 3)
+                        .frame(minWidth: 16, minHeight: 16)
+                        .background(color, in: RoundedRectangle(cornerRadius: 3))
+                        .scaleEffect(1 / zoom, anchor: .topTrailing)
+                        .offset(x: 6 / zoom, y: -6 / zoom)
                 }
             }
             .offset(x: frame.minX * scale, y: frame.minY * scale)
@@ -336,13 +356,16 @@ private struct TargetPanel: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(3, reservesSpace: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
+            if session.isReferencing {
+                ReferencePicker(session: session)
+            }
             HStack(alignment: .bottom, spacing: 8) {
                 if let editing = session.editing, let index = session.items.firstIndex(of: editing) {
                     Text("\(index + 1)")
                         .font(.caption.bold())
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
-                        .background(Palette.color(index), in: Circle())
+                        .background(Palette.color(session.colorIndex(of: editing.target)), in: Circle())
                         .padding(.bottom, 8)
                         .accessibilityLabel("Editing item \(index + 1)")
                 }
@@ -367,6 +390,45 @@ private struct TargetPanel: View {
         }
         .padding(16)
         .background(Color(white: 0.12))
+    }
+}
+
+/// Shown while the text ends in `@`: a hint until a tap picks a node, then that node with buttons to
+/// move up or down its path and to insert it.
+private struct ReferencePicker: View {
+    let session: Session
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if let node = session.referenceTarget {
+                let path = session.referencePath
+                let level = min(session.referenceLevel, path.count - 1)
+                Button("Select parent", systemImage: "chevron.up") { session.stepReference(to: level + 1) }
+                    .labelStyle(.iconOnly)
+                    .disabled(level + 1 >= path.count)
+                Button("Select child", systemImage: "chevron.down") { session.stepReference(to: level - 1) }
+                    .labelStyle(.iconOnly)
+                    .disabled(level == 0)
+                Text(node.title)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.cyan)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Button("Insert") { session.insertReference() }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .tint(.cyan)
+                    .font(.subheadline.weight(.semibold))
+            } else {
+                Label("Tap an element to reference it", systemImage: "at")
+                    .font(.subheadline)
+                    .foregroundStyle(.cyan)
+                Spacer(minLength: 0)
+            }
+        }
+        .buttonStyle(.bordered)
+        .buttonBorderShape(.circle)
+        .frame(minHeight: 34)
     }
 }
 
@@ -434,6 +496,19 @@ private struct ItemsSheet: View {
     let share: (ShareTarget) -> Void
     @Environment(\.dismiss) private var dismiss
 
+    private func styled(_ text: String) -> AttributedString {
+        session.annotations.segments(text).reduce(into: AttributedString()) { result, segment in
+            if let reference = segment.reference {
+                var token = AttributedString("\u{00A0}\(segment.text)\u{00A0}")
+                token.backgroundColor = Palette.color(session.colorIndex(of: reference.target))
+                token.foregroundColor = .white
+                result += token
+            } else {
+                result += AttributedString(segment.text)
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -448,10 +523,10 @@ private struct ItemsSheet: View {
                                 .font(.caption.bold())
                                 .foregroundStyle(.white)
                                 .frame(width: 22, height: 22)
-                                .background(Palette.color(index), in: Circle())
+                                .background(Palette.color(session.colorIndex(of: item.target)), in: Circle())
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(target.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                Text(item.text)
+                                Text(styled(item.text))
                             }
                             Spacer()
                             Button("Remove", systemImage: "trash", role: .destructive) { session.remove(item.id) }

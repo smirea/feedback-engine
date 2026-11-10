@@ -387,7 +387,7 @@ struct ProcrastimateSheet: View {
         let section = project?.sections.first { $0.id == place.sectionId }
         let title = title
         let report = Data(session.compactJSON.utf8)
-        let image = AnnotatedImage.render(session.capture, items: items).cgImage
+        let image = AnnotatedImage.render(session.capture, session.annotations).cgImage
         Task {
             do {
                 guard let image else { throw Procrastimate.Failure.imageTooLarge }

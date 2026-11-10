@@ -85,7 +85,7 @@ public enum Feedback {
         var files: [(name: String, data: Data)] = []
         var pasteboard: [[String: Any]] = []
         if target != .json {
-            let png = AnnotatedImage.render(session.capture, items: session.items).pngData() ?? Data()
+            let png = AnnotatedImage.render(session.capture, session.annotations).pngData() ?? Data()
             files.append(("feedback.png", png))
             pasteboard.append([UTType.png.identifier: png])
         }
