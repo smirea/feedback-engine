@@ -1,0 +1,22 @@
+{
+	"compilerOptions": {
+		"allowImportingTsExtensions": true,
+		"lib": ["ESNext", "DOM"],
+		"module": "Preserve",
+		"moduleDetection": "force",
+		"moduleResolution": "bundler",
+		"noEmit": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitOverride": true,
+		"noPropertyAccessFromIndexSignature": false,
+		"noUnusedLocals": false,
+		"noUnusedParameters": false,
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ESNext",
+		"types": ["bun"],
+		"verbatimModuleSyntax": true
+	},
+	// The example app checks itself. The root covers the repo scripts, the spec, and the web package. TypeScript's wildcards skip dot folders, so those are listed by name.
+	"include": ["packages", "spec", "scripts", ".github/scripts"]
+}

@@ -1,7 +1,20 @@
+# Swift
 .build
 .swiftpm
 DerivedData
 xcuserdata/
 Config/LocalSecrets.xcconfig
+
+# Bun
+node_modules
+dist
+build
+.svelte-kit
+*.tgz
+*.tsbuildinfo
+
+# dotenv environment variable files
+.env.local
+.env.override
 
 .DS_Store
