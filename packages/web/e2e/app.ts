@@ -262,12 +262,23 @@ export async function captureImage(page: Page) {
 	return Buffer.from(data.split(',')[1]!, 'base64');
 }
 
-/** The share of pixels that differ between a region of the capture and the browser's own screenshot of the window. */
-export function difference(capture: Buffer, window: Buffer, top: number) {
+/**
+ * The share of pixels that differ between the capture and the browser's own screenshot of the window, which sits `top`
+ * pixels down the capture. `within` narrows both to one rectangle of the window, in pixels.
+ */
+export function difference(
+	capture: Buffer,
+	window: Buffer,
+	top: number,
+	within?: { x: number; y: number; width: number; height: number },
+) {
 	const whole = PNG.sync.read(capture);
 	const real = PNG.sync.read(window);
-	const region = new PNG({ width: real.width, height: real.height });
-	PNG.bitblt(whole, region, 0, top, real.width, real.height, 0, 0);
-	const changed = pixelmatch(region.data, real.data, undefined, real.width, real.height, { threshold: 0.1 });
-	return changed / (real.width * real.height);
+	const area = within ?? { x: 0, y: 0, width: real.width, height: real.height };
+	const drawn = new PNG({ width: area.width, height: area.height });
+	const seen = new PNG({ width: area.width, height: area.height });
+	PNG.bitblt(whole, drawn, area.x, top + area.y, area.width, area.height, 0, 0);
+	PNG.bitblt(real, seen, area.x, area.y, area.width, area.height, 0, 0);
+	const changed = pixelmatch(drawn.data, seen.data, undefined, area.width, area.height, { threshold: 0.1 });
+	return changed / (area.width * area.height);
 }

@@ -81,6 +81,8 @@ async function draw(size: Size, scale: number, visible: Frame, fixed: FixedRoot[
 			// A layer inside this root is drawn by its own turn.
 			filter: node => node === root.element || !roots.has(node),
 			style: {
+				// A copy of a popover is not open, and a closed popover is `display: none`.
+				display: getComputedStyle(root.element).display,
 				position: 'static',
 				inset: 'auto',
 				margin: '0',

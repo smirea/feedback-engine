@@ -662,15 +662,15 @@
 	.canvas {
 		position: relative;
 		margin: 0 auto;
-		border-radius: 10px;
-		overflow: hidden;
 		cursor: crosshair;
 	}
 
+	/* The picture is clipped, not the boxes over it, so a number badge on a box at the edge stays whole. */
 	.canvas :global(canvas) {
 		display: block;
 		width: 100%;
 		height: 100%;
+		border-radius: 10px;
 	}
 
 	.box {

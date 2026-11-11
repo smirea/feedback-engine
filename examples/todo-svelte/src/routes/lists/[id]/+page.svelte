@@ -1,13 +1,14 @@
 <script lang="ts">
 	import { feedback } from '@smirea/feedback-engine/svelte';
 	import { page } from '$app/state';
-	import { remaining, store, type TodoItem } from '../../../lib/store.svelte';
+	import { remaining, store, type SortOrder, type TodoItem } from '../../../lib/store.svelte';
 	import TodoDetailDialog from '../../../lib/TodoDetailDialog.svelte';
 	import TodoRow from '../../../lib/TodoRow.svelte';
 
 	type Filter = 'All' | 'Open' | 'Done';
 	const filters: Filter[] = ['All', 'Open', 'Done'];
 	const ranks = { high: 0, medium: 1, low: 2, none: 3 };
+	const orders: SortOrder[] = ['manual', 'due date', 'priority'];
 
 	const list = $derived(store.list(page.params.id ?? ''));
 	let filter = $state<Filter>('All');
@@ -39,14 +40,17 @@
 	<main class="screen" {@attach feedback('ListDetailScreen', () => ({ listID: list.id, filter, editing }))}>
 		<header class="bar">
 			<h1>{list.name}</h1>
-			<button type="button" class="button" onclick={() => list.items.forEach(item => (item.isDone = true))}
-				>Mark All Done</button
-			>
+			<span class="tools">
+				<button type="button" class="button" popovertarget="sort-menu">Sort</button>
+				<button type="button" class="button" onclick={() => list.items.forEach(item => (item.isDone = true))}>
+					Mark All Done
+				</button>
+			</span>
 		</header>
 
 		<section class="progress card" {@attach feedback('ProgressHeader', () => ({ done, total: list.items.length }))}>
 			<strong class="percent">{list.items.length ? Math.round((done / list.items.length) * 100) : 0}%</strong>
-			<span>
+			<span class="counts">
 				<strong>{done} of {list.items.length} done</strong><br />
 				<span class="muted">{remaining(list) === 0 ? 'All clear' : `${remaining(list)} to go`}</span>
 			</span>
@@ -70,6 +74,26 @@
 			<button type="submit" class="button primary" disabled={!newTitle.trim()}>Add</button>
 		</form>
 	</main>
+
+	<div
+		id="sort-menu"
+		class="menu"
+		popover
+		role="menu"
+		aria-label="Sort"
+		{@attach feedback('SortMenu', () => ({ sortOrder: store.sortOrder }))}
+	>
+		{#each orders as order (order)}
+			<button
+				type="button"
+				role="menuitemradio"
+				aria-checked={store.sortOrder === order}
+				onclick={() => (store.sortOrder = order)}
+			>
+				{order}
+			</button>
+		{/each}
+	</div>
 
 	{#if editing}
 		{@const item = editing}
@@ -102,14 +126,51 @@
 		border-top: 0;
 	}
 
+	.counts {
+		flex: 1;
+	}
+
 	.percent {
 		display: grid;
+		flex: none;
 		place-items: center;
 		width: 3.5rem;
 		height: 3.5rem;
 		border: 3px solid var(--app-accent);
 		border-radius: 50%;
 		font-size: 0.875rem;
+	}
+
+	.tools {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.menu {
+		inset: 5rem 1rem auto auto;
+		border: 1px solid var(--app-border);
+		border-radius: 0.5rem;
+		padding: 0.25rem;
+		background: var(--app-panel);
+		color: var(--app-panel-text);
+	}
+
+	.menu button {
+		display: block;
+		width: 100%;
+		border: 0;
+		border-radius: 0.375rem;
+		padding: 0.5rem 1rem;
+		background: none;
+		color: inherit;
+		font: inherit;
+		text-align: left;
+		text-transform: capitalize;
+		cursor: pointer;
+	}
+
+	.menu [aria-checked='true'] {
+		color: var(--app-accent);
 	}
 
 	.filter {
