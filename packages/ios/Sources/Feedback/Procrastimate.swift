@@ -4,9 +4,6 @@ import Security
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
 
 /// Posts feedback to ProcrastiMate as one task: the image export as a task image, the JSON export as a
 /// `feedback.json` attachment. Uses ProcrastiMate's agent API (`POST /api/tasks`, `PATCH /api/tasks`) and image upload
@@ -193,6 +190,11 @@ enum Procrastimate {
             }
         }
 
+        func rename(id: String, title: String) async throws {
+            struct Edit: Encodable { let title: String }
+            _ = try await send("PATCH", "api/tasks", query: ["id": id], json: Edit(title: title))
+        }
+
         private func send(_ method: String, _ path: String, query: [String: String] = [:], json: some Encodable) async throws -> Data {
             try await send(method, path, query: query, body: JSONEncoder().encode(json), type: "application/json")
         }
@@ -292,6 +294,9 @@ struct ProcrastimateSheet: View {
     @State private var saveProblem: Problem?
     @State private var saving = false
     @State private var summarizing = false
+    /// The model's work, which outlives the sheet once **Add** hands it to the outbox.
+    @State private var summary: Task<String?, Never>?
+    @State private var handedOff = false
     private let outbox = Outbox.shared
     private let taskTitle: TaskTitle
 
@@ -321,7 +326,7 @@ struct ProcrastimateSheet: View {
                     Group {
                         if let saveProblem { ProblemSection(problem: saveProblem) }
                         if let loadProblem { ProblemSection(problem: loadProblem) }
-                        ForEach(outbox.posts) { post in
+                        ForEach(outbox.unsent) { post in
                             PendingSection(post: post, step: outbox.sending?.id == post.id ? outbox.sending?.step : nil)
                         }
                     }
@@ -383,6 +388,7 @@ struct ProcrastimateSheet: View {
         .interactiveDismissDisabled(saving)
         .task { await load() }
         .task { await summarize() }
+        .onDisappear { if !handedOff { summary?.cancel() } }
     }
 
     private func row(_ name: String, systemImage: String, picked: Bool, indented: Bool = false, pick: @escaping () -> Void) -> some View {
@@ -422,17 +428,12 @@ struct ProcrastimateSheet: View {
 
     /// Runs beside the project load and never holds up posting. A name the user has typed stays.
     private func summarize() async {
-        #if canImport(FoundationModels)
-        guard #available(iOS 26, *), SystemLanguageModel.default.availability == .available else { return }
+        guard let task = taskTitle.summary() else { return }
+        summary = task
         summarizing = true
-        defer { summarizing = false }
-        let model = LanguageModelSession(instructions: TaskTitle.instructions)
-        guard let reply = try? await model.respond(to: taskTitle.prompt).content,
-              let summarized = taskTitle.summarized(reply),
-              name == taskTitle.placeholder
-        else { return }
-        name = summarized
-        #endif
+        let summarized = await task.value
+        summarizing = false
+        if let summarized, name == taskTitle.placeholder { name = summarized }
     }
 
     private var environment: [Problem.Fact] {
@@ -450,6 +451,8 @@ struct ProcrastimateSheet: View {
         let section = project?.sections.first { $0.id == place.sectionId }
         let destination = [project?.name ?? "Inbox", section?.name].compactMap { $0 }.joined(separator: " / ")
         let title = title
+        // Added before the model answered and under its placeholder: the outbox waits for the answer.
+        let naming = summarizing && title == taskTitle.placeholder ? summary : nil
         let report = Data(session.compactJSON.utf8)
         let environment = environment
         let image = AnnotatedImage.render(session.capture, session.annotations).cgImage
@@ -465,6 +468,7 @@ struct ProcrastimateSheet: View {
                 let post = PendingPost(
                     id: UUID().uuidString.lowercased(),
                     title: title,
+                    naming: naming == nil ? nil : taskTitle,
                     place: place,
                     destination: destination,
                     image: .init(id: encoded.id, width: encoded.width, height: encoded.height),
@@ -477,6 +481,10 @@ struct ProcrastimateSheet: View {
                     ] + environment
                 )
                 try outbox.add(post, full: encoded.full, thumb: encoded.thumb, report: report)
+                if let naming {
+                    outbox.name(post.id, with: naming)
+                    handedOff = true
+                }
                 Procrastimate.lastProject = project?.id
                 session.shared.formUnion(items)
                 session.toast = Toast(text: "Sending to \(destination) in ProcrastiMate…")

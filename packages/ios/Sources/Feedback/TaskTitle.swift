@@ -1,8 +1,11 @@
 import Foundation
+#if canImport(FoundationModels)
+import FoundationModels
+#endif
 
 /// A ProcrastiMate task's name: `<screen> Feedback: N changes` at first, then
 /// `N <screen> Feedback: <summary>` once the on-device model has summarized the items.
-struct TaskTitle: Sendable {
+struct TaskTitle: Codable, Equatable, Sendable {
     let subject: String
     let count: Int
     let prompt: String
@@ -32,5 +35,20 @@ struct TaskTitle: Sendable {
             .trimmingCharacters(in: .whitespaces.union(CharacterSet(charactersIn: "\"'“”‘’`*")))
             .trimmingCharacters(in: CharacterSet(charactersIn: ".").union(.whitespaces))
         return summary.isEmpty ? nil : "\(count) \(subject): \(summary)"
+    }
+
+    /// The on-device model's name, or nil without Apple Intelligence or a usable reply. A task of its
+    /// own, so a sheet that closes before the model answers hands it to the outbox instead of losing it.
+    func summary() -> Task<String?, Never>? {
+        #if canImport(FoundationModels)
+        guard #available(iOS 26, macOS 26, *), SystemLanguageModel.default.availability == .available else { return nil }
+        return Task.detached(priority: .userInitiated) {
+            let model = LanguageModelSession(instructions: TaskTitle.instructions)
+            guard let reply = try? await model.respond(to: prompt).content else { return nil }
+            return summarized(reply)
+        }
+        #else
+        return nil
+        #endif
     }
 }
