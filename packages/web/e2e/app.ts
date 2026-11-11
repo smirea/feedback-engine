@@ -36,6 +36,8 @@ export const procrastimate = {
 		attachments?: unknown[];
 	}[],
 	unauthorized: 0,
+	/** The next image upload's answer instead of storing it, as a proxy in front of ProcrastiMate would refuse it. */
+	refuseUpload: undefined as { status: number; body: string } | undefined,
 };
 
 const procrastimateEnv = {
@@ -65,6 +67,11 @@ function serveProcrastimate(port: number) {
 						{ id: 's1', projectId: 'p1', name: 'Bugs', order: 1, createdAt: 1 },
 					],
 				});
+			}
+			if (request.method === 'PUT' && pathname === '/api/images' && procrastimate.refuseUpload) {
+				const { status, body } = procrastimate.refuseUpload;
+				procrastimate.refuseUpload = undefined;
+				return new Response(body, { status, headers: { 'Content-Type': 'text/html' } });
 			}
 			if (request.method === 'PUT' && pathname === '/api/images') {
 				const bytes = (await request.arrayBuffer()).byteLength;

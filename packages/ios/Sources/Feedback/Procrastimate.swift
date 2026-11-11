@@ -81,9 +81,19 @@ enum Procrastimate {
         let name: String
     }
 
+    /// An image is `{id, width, height}` and a file `{id, name, type, bytes}`; the server tells them apart by shape.
+    struct Attachment: Codable, Hashable, Sendable {
+        let id: String
+        var width: Int?
+        var height: Int?
+        var name: String?
+        var type: String?
+        var bytes: Int?
+    }
+
     /// Where a task goes: the Inbox when `projectId` is nil, and the project's top, above its
     /// sections, when `sectionId` is.
-    struct Place: Hashable, Sendable {
+    struct Place: Codable, Hashable, Sendable {
         var projectId: String?
         var sectionId: String?
     }
@@ -166,39 +176,21 @@ enum Procrastimate {
             }
         }
 
-        /// Uploads the attachments before the task that lists them, as ProcrastiMate's own clients do,
-        /// so the task never names bytes the server cannot serve. Returns the task's id.
-        func post(title: String, place: Place, image: TaskImage, report: Data) async throws -> String {
-            guard report.count <= Procrastimate.fileMaxBytes else { throw Failure.reportTooLarge }
-            for (size, data) in [("full", image.full), ("thumb", image.thumb)] {
-                _ = try await send("PUT", "api/images", query: ["id": image.id, "size": size], body: data, type: "image/jpeg")
-            }
-            // ProcrastiMate stores a file in parts that each fit one database row.
-            let reportID = UUID().uuidString.lowercased()
-            for (index, start) in stride(from: 0, to: report.count, by: Procrastimate.filePartBytes).enumerated() {
-                let part = report.subdata(in: start..<min(start + Procrastimate.filePartBytes, report.count))
-                _ = try await send("PUT", "api/images", query: ["id": reportID, "size": "part\(index)"], body: part, type: "application/octet-stream")
-            }
-            struct NewTask: Encodable { let title: String; let projectId: String?; let sectionId: String? }
+        /// Stores one image size or file part. ProcrastiMate keeps the first bytes stored under an
+        /// id, so sending them again is safe.
+        func put(id: String, key: String, data: Data, type: String) async throws {
+            _ = try await send("PUT", "api/images", query: ["id": id, "size": key], body: data, type: type)
+        }
+
+        /// Creates the task with its attachments in one write. The id is the client's, so a retry
+        /// whose first answer was lost returns that task instead of adding a second one.
+        func create(id: String, title: String, place: Place, attachments: [Attachment]) async throws {
+            struct NewTask: Encodable { let id: String; let title: String; let projectId: String?; let sectionId: String?; let attachments: [Attachment] }
             struct Task: Decodable { let id: String }
-            let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(title: title, projectId: place.projectId, sectionId: place.sectionId)))
-            // An image ref is `{id, width, height}` and a file ref `{id, name, type, bytes}`; the server
-            // tells them apart by shape.
-            struct Ref: Encodable { let id: String; var width: Int?; var height: Int?; var name: String?; var type: String?; var bytes: Int? }
-            struct Edit: Encodable { let attachments: [Ref] }
-            let edit = Edit(attachments: [
-                Ref(id: image.id, width: image.width, height: image.height),
-                Ref(id: reportID, name: "feedback.json", type: "application/json", bytes: report.count),
-            ])
-            // The agent API cannot create a task with attachments, so a failed attach would leave a
-            // task without them, and the retry would add a second one.
-            do {
-                _ = try await send("PATCH", "api/tasks", query: ["id": task.id], json: edit)
-            } catch {
-                _ = try? await send("DELETE", "api/tasks", query: ["id": task.id])
-                throw error
+            let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(id: id, title: title, projectId: place.projectId, sectionId: place.sectionId, attachments: attachments)))
+            guard task.id == id else {
+                throw Problem(message: "ProcrastiMate made a task under another id, so a retry would add a second one.", facts: [.init(label: "Task", value: "\(task.id), sent \(id)")])
             }
-            return task.id
         }
 
         private func send(_ method: String, _ path: String, query: [String: String] = [:], json: some Encodable) async throws -> Data {
@@ -208,24 +200,40 @@ enum Procrastimate {
         private func send(_ method: String, _ path: String, query: [String: String] = [:], body: Data? = nil, type: String? = nil) async throws -> Data {
             var url = apiURL.appending(path: path)
             if !query.isEmpty { url.append(queryItems: query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }) }
-            var request = URLRequest(url: url, timeoutInterval: 30)
+            var request = URLRequest(url: url, timeoutInterval: 60)
             request.httpMethod = method
             request.httpBody = body
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             request.setValue("Feedback", forHTTPHeaderField: "User-Agent")
             if let type { request.setValue(type, forHTTPHeaderField: "Content-Type") }
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let status = (response as? HTTPURLResponse)?.statusCode else { throw Failure.unreadable }
-            if status == 401 { throw Failure.signedOut }
+            let data: Data
+            let response: URLResponse
+            do {
+                (data, response) = try await URLSession.shared.data(for: request)
+            } catch {
+                throw Problem.request(method, url, status: nil, body: nil, error: error)
+            }
+            guard let status = (response as? HTTPURLResponse)?.statusCode else {
+                throw Problem.request(method, url, status: nil, body: data, error: Failure.unreadable)
+            }
+            if status == 401 { throw Problem.request(method, url, status: status, body: data, error: Failure.signedOut) }
             guard (200..<300).contains(status) else {
                 struct Body: Decodable { let message: String? }
-                throw Failure.server(status: status, message: (try? JSONDecoder().decode(Body.self, from: data))?.message)
+                let message = (try? JSONDecoder().decode(Body.self, from: data))?.message
+                throw Problem.request(method, url, status: status, body: data, error: Failure.server(status: status, message: message))
             }
             return data
         }
 
         private func decode<T: Decodable>(_ data: Data) throws -> T {
-            do { return try JSONDecoder().decode(T.self, from: data) } catch { throw Failure.unreadable }
+            do {
+                return try JSONDecoder().decode(T.self, from: data)
+            } catch {
+                throw Problem(message: Failure.unreadable.localizedDescription, facts: [
+                    Problem.Fact(label: "Response", value: String(decoding: data.prefix(2000), as: UTF8.self)),
+                    Problem.Fact(label: "Error", value: String(reflecting: error)),
+                ])
+            }
         }
     }
 
@@ -272,7 +280,7 @@ enum Procrastimate {
     }
 }
 
-/// Picks the project and the task's name, then posts.
+/// Picks the project and the task's name, then hands the post to the outbox and closes.
 struct ProcrastimateSheet: View {
     let session: Session
     let close: () -> Void
@@ -280,10 +288,11 @@ struct ProcrastimateSheet: View {
     @State private var place = Procrastimate.Place(projectId: Procrastimate.lastProject)
     @State private var name: String
     @State private var loading = true
-    @State private var loadError: String?
-    @State private var postError: String?
-    @State private var posting = false
+    @State private var loadProblem: Problem?
+    @State private var saveProblem: Problem?
+    @State private var saving = false
     @State private var summarizing = false
+    private let outbox = Outbox.shared
     private let taskTitle: TaskTitle
 
     init(session: Session, close: @escaping () -> Void) {
@@ -305,43 +314,55 @@ struct ProcrastimateSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Name") {
-                    HStack {
-                        TextField("Task name", text: $name).submitLabel(.done)
-                        if summarizing { ProgressView().accessibilityLabel("Naming the task") }
-                    }
-                }
-                Section {
-                    row("Inbox", systemImage: "tray", picked: place.projectId == nil) { place = .init() }
-                    ForEach(projects) { project in
-                        let open = project.id == place.projectId && !project.sections.isEmpty
-                        row(project.name, systemImage: project.systemImage, picked: project.id == place.projectId && !open) {
-                            place = .init(projectId: project.id)
+            ScrollViewReader { scroll in
+                Form {
+                    // Above the project list, which can be longer than the sheet: an error under it
+                    // went unseen, and a failed post looked like a spinner that stopped.
+                    Group {
+                        if let saveProblem { ProblemSection(problem: saveProblem) }
+                        if let loadProblem { ProblemSection(problem: loadProblem) }
+                        ForEach(outbox.posts) { post in
+                            PendingSection(post: post, step: outbox.sending?.id == post.id ? outbox.sending?.step : nil)
                         }
-                        // The picked project lists its sections under it, as ProcrastiMate's own menus
-                        // do: its top first, as `No section`.
-                        if open {
-                            row("No section", systemImage: project.systemImage, picked: place.sectionId == nil, indented: true) {
+                    }
+                    .id("status")
+                    Section("Name") {
+                        HStack {
+                            TextField("Task name", text: $name).submitLabel(.done)
+                            if summarizing { ProgressView().accessibilityLabel("Naming the task") }
+                        }
+                    }
+                    Section {
+                        row("Inbox", systemImage: "tray", picked: place.projectId == nil) { place = .init() }
+                        ForEach(projects) { project in
+                            let open = project.id == place.projectId && !project.sections.isEmpty
+                            row(project.name, systemImage: project.systemImage, picked: project.id == place.projectId && !open) {
                                 place = .init(projectId: project.id)
                             }
-                            ForEach(project.sections) { section in
-                                row(section.name, systemImage: "rectangle.split.1x2", picked: place.sectionId == section.id, indented: true) {
-                                    place = .init(projectId: project.id, sectionId: section.id)
+                            // The picked project lists its sections under it, as ProcrastiMate's own menus
+                            // do: its top first, as `No section`.
+                            if open {
+                                row("No section", systemImage: project.systemImage, picked: place.sectionId == nil, indented: true) {
+                                    place = .init(projectId: project.id)
+                                }
+                                ForEach(project.sections) { section in
+                                    row(section.name, systemImage: "rectangle.split.1x2", picked: place.sectionId == section.id, indented: true) {
+                                        place = .init(projectId: project.id, sectionId: section.id)
+                                    }
                                 }
                             }
                         }
+                    } header: {
+                        HStack {
+                            Text("Project")
+                            if loading { ProgressView().controlSize(.mini) }
+                        }
                     }
-                } header: {
-                    HStack {
-                        Text("Project")
-                        if loading { ProgressView().controlSize(.mini) }
-                    }
-                } footer: {
-                    if let loadError { Text(loadError).foregroundStyle(.red) }
                 }
-                if let postError {
-                    Section { Text(postError).foregroundStyle(.red) }
+                .onChange(of: saveProblem) {
+                    guard let saveProblem else { return }
+                    withAnimation { scroll.scrollTo("status", anchor: .top) }
+                    UIAccessibility.post(notification: .announcement, argument: saveProblem.message)
                 }
             }
             .navigationTitle("Add to ProcrastiMate")
@@ -349,17 +370,17 @@ struct ProcrastimateSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: close) }
                 ToolbarItem(placement: .confirmationAction) {
-                    if posting {
+                    if saving {
                         ProgressView()
                     } else {
-                        Button("Add", action: post).disabled(title.isEmpty)
+                        Button("Add", action: save).disabled(title.isEmpty)
                     }
                 }
             }
-            .disabled(posting)
+            .disabled(saving)
         }
         .dynamicTypeSize(...EditorView.largestTextSize)
-        .interactiveDismissDisabled(posting)
+        .interactiveDismissDisabled(saving)
         .task { await load() }
         .task { await summarize() }
     }
@@ -392,7 +413,10 @@ struct ProcrastimateSheet: View {
                 }
             }
         } catch {
-            loadError = error.localizedDescription
+            let problem = Problem(error)
+            // Offline, the cached projects are enough to post, and the outbox sends later.
+            guard !problem.retryable || projects.isEmpty else { return }
+            loadProblem = problem.with(before: [.init(label: "Step", value: "Loading the projects")], after: environment)
         }
     }
 
@@ -411,33 +435,131 @@ struct ProcrastimateSheet: View {
         #endif
     }
 
-    private func post() {
-        posting = true
-        postError = nil
+    private var environment: [Problem.Fact] {
+        session.capture.environment.map { Problem.Fact(label: $0.name, value: $0.value) }
+    }
+
+    /// Everything that needs no connection: the session, the image, and the files on disk. The
+    /// outbox does the rest, so the sheet closes at once even offline.
+    private func save() {
+        saving = true
+        saveProblem = nil
         let items = session.items
         let place = place
         let project = place.projectId.flatMap { id in projects.first { $0.id == id } }
         let section = project?.sections.first { $0.id == place.sectionId }
+        let destination = [project?.name ?? "Inbox", section?.name].compactMap { $0 }.joined(separator: " / ")
         let title = title
         let report = Data(session.compactJSON.utf8)
+        let environment = environment
         let image = AnnotatedImage.render(session.capture, session.annotations).cgImage
         Task {
+            var step = "Reading ProcrastiMate's session"
             do {
+                _ = try Procrastimate.Client()
+                guard report.count <= Procrastimate.fileMaxBytes else { throw Procrastimate.Failure.reportTooLarge }
                 guard let image else { throw Procrastimate.Failure.imageTooLarge }
-                let client = try Procrastimate.Client()
+                step = "Encoding the image"
                 let encoded = try await Task.detached(priority: .userInitiated) { try Procrastimate.TaskImage(image) }.value
-                let id = try await client.post(title: title, place: place, image: encoded, report: report)
+                step = "Saving to the outbox"
+                let post = PendingPost(
+                    id: UUID().uuidString.lowercased(),
+                    title: title,
+                    place: place,
+                    destination: destination,
+                    image: .init(id: encoded.id, width: encoded.width, height: encoded.height),
+                    report: .init(id: UUID().uuidString.lowercased(), name: "feedback.json", type: "application/json", bytes: report.count),
+                    createdAt: .now,
+                    context: [
+                        .init(label: "Place", value: [project.map { "\($0.name) (\($0.id))" } ?? "Inbox", section.map { "\($0.name) (\($0.id))" }].compactMap { $0 }.joined(separator: " / ")),
+                        .init(label: "Image", value: "\(image.width) × \(image.height) px, sent as \(encoded.width) × \(encoded.height) JPEG of \(encoded.full.count) bytes, thumbnail \(encoded.thumb.count) bytes"),
+                        .init(label: "Report", value: "\(report.count) bytes"),
+                    ] + environment
+                )
+                try outbox.add(post, full: encoded.full, thumb: encoded.thumb, report: report)
                 Procrastimate.lastProject = project?.id
                 session.shared.formUnion(items)
-                let destination = [project?.name ?? "Inbox", section?.name].compactMap { $0 }.joined(separator: " / ")
-                // ProcrastiMate opens `procrastimate://task/<id>` on the task, as it does Notouroboros's links.
-                session.toast = Toast(text: "Added to \(destination) in ProcrastiMate", link: URL(string: "procrastimate://task/\(id)"))
+                session.toast = Toast(text: "Sending to \(destination) in ProcrastiMate…")
                 close()
             } catch {
-                postError = error.localizedDescription
-                posting = false
+                saveProblem = Problem(error).with(before: [.init(label: "Step", value: step)], after: environment)
+                saving = false
             }
         }
+    }
+}
+
+/// A post in the outbox: what it is, where it stands, and its last failure.
+private struct PendingSection: View {
+    let post: PendingPost
+    /// What the outbox is doing with it right now.
+    let step: String?
+
+    var body: some View {
+        Section {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(post.title).lineLimit(2)
+                Text(post.destination).font(.footnote).foregroundStyle(.secondary)
+            }
+            if let step {
+                Label { Text("\(step)…") } icon: { ProgressView() }
+            } else if let problem = post.problem {
+                ProblemRows(problem: problem)
+                if problem.retryable {
+                    Label("Sends by itself when it can. Tried \(post.attempts) \(post.attempts == 1 ? "time" : "times").", systemImage: "clock.arrow.circlepath")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if step == nil {
+                Button("Retry Now", systemImage: "arrow.clockwise") { Outbox.shared.retryNow(post.id) }
+                Button("Discard", systemImage: "trash", role: .destructive) { Outbox.shared.discard(post.id) }
+            }
+        } header: {
+            Text("Waiting to send")
+        }
+    }
+}
+
+/// A failure on its own, in a section of its own.
+private struct ProblemSection: View {
+    let problem: Problem
+
+    var body: some View {
+        Section { ProblemRows(problem: problem) }
+    }
+}
+
+/// A failure's message, with its facts under **Details** and a button that copies both.
+private struct ProblemRows: View {
+    let problem: Problem
+    @State private var expanded = false
+    @State private var copied = false
+
+    var body: some View {
+        Label {
+            Text(problem.message)
+        } icon: {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
+        }
+        if !problem.facts.isEmpty {
+            DisclosureGroup("Details", isExpanded: $expanded) {
+                Text(problem.details)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        Button(copied ? "Copied" : "Copy Error", systemImage: copied ? "checkmark" : "doc.on.doc") {
+            UIPasteboard.general.string = problem.text
+            copied = true
+        }
+        .task(id: copied) {
+            guard copied else { return }
+            try? await Task.sleep(for: .seconds(2))
+            copied = false
+        }
+        .onChange(of: problem) { (expanded, copied) = (false, false) }
     }
 }
 #endif

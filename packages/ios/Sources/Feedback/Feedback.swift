@@ -26,9 +26,12 @@ public enum Feedback {
 
     /// Turns on shake-to-feedback: shaking shows a button that captures the screen and opens
     /// the editor.
-    /// Call it once at launch, for example in `App.init`.
+    /// Call it once at launch, for example in `App.init`. It also sends ProcrastiMate posts an
+    /// earlier run left in the outbox.
     public static func enable() {
         isShakeEnabled = true
+        // On the next turn: `App.init` can run before the app can start background work.
+        Task { @MainActor in Outbox.shared.start() }
     }
 
     /// Registers app state to attach to every capture, read when the capture is taken.
@@ -40,6 +43,7 @@ public enum Feedback {
 
     /// Captures the active screen and opens the editor. Does nothing while the editor is open.
     public static func present() {
+        Outbox.shared.start()
         guard case .idle = state, let scene = activeScene else { return }
         ShakeButton.hide()
         state = .capturing
@@ -65,6 +69,19 @@ public enum Feedback {
         // visible for the editor's own text field.
         let hidden = scene.windows.filter { $0 !== window && !Capturer.isSystemWindow($0) }.map { ($0, $0.accessibilityElementsHidden) }
         hidden.forEach { $0.0.accessibilityElementsHidden = true }
+        Outbox.shared.onEvent = { [weak session] event in
+            switch event {
+            case .sent(let post):
+                // ProcrastiMate opens `procrastimate://task/<id>` on the task, as it does Notouroboros's links.
+                session?.toast = Toast(text: "Added to \(post.destination) in ProcrastiMate", link: URL(string: "procrastimate://task/\(post.id)"))
+            case .waiting(let post) where post.attempts == 1:
+                session?.toast = Toast(text: "Saved. It goes to ProcrastiMate once the connection is back.")
+            case .waiting:
+                break
+            case .failed:
+                session?.toast = Toast(text: "Couldn't add to ProcrastiMate. Share › ProcrastiMate says why.")
+            }
+        }
         window.makeKeyAndVisible()
         state = .editing(Editing(overlay: window, previousKey: previousKey, responder: responder, accessibilityHidden: hidden))
         UIAccessibility.post(notification: .screenChanged, argument: window)
@@ -135,6 +152,7 @@ public enum Feedback {
     }
 
     static func dismiss() {
+        Outbox.shared.onEvent = nil
         if case .editing(let editing) = state {
             editing.overlay.isHidden = true
             for (window, wasHidden) in editing.accessibilityHidden { window.accessibilityElementsHidden = wasHidden }
