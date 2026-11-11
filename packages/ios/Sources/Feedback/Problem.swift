@@ -13,11 +13,14 @@ struct Problem: LocalizedError, Sendable, Equatable, Codable {
     /// Whether trying again later can fix it: no connection, a timeout, a server error, or a
     /// session that ProcrastiMate may renew once it is opened.
     let retryable: Bool
+    /// The HTTP status of a request that got an answer.
+    var status: Int?
 
-    init(message: String, facts: [Fact] = [], retryable: Bool = false) {
+    init(message: String, facts: [Fact] = [], retryable: Bool = false, status: Int? = nil) {
         self.message = message
         self.facts = facts
         self.retryable = retryable
+        self.status = status
     }
 
     /// Keeps a `Problem`'s own facts. Any other error gets its full description, which for an
@@ -41,12 +44,12 @@ struct Problem: LocalizedError, Sendable, Equatable, Codable {
         }
         facts.append(Fact(label: "Error", value: String(reflecting: error)))
         let retryable = status.map { $0 == 401 || $0 == 408 || $0 == 429 || $0 >= 500 } ?? (error is URLError)
-        return Problem(message: error.localizedDescription, facts: facts, retryable: retryable)
+        return Problem(message: error.localizedDescription, facts: facts, retryable: retryable, status: status)
     }
 
     /// `before` and `after` around the problem's own facts.
     func with(before: [Fact] = [], after: [Fact] = []) -> Problem {
-        Problem(message: message, facts: before + facts + after, retryable: retryable)
+        Problem(message: message, facts: before + facts + after, retryable: retryable, status: status)
     }
 
     var errorDescription: String? { message }

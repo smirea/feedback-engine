@@ -49,6 +49,8 @@ final class Outbox {
     @ObservationIgnored private var started = false
     @ObservationIgnored private var draining = false
     @ObservationIgnored private var retry: Task<Void, Never>?
+    @ObservationIgnored private var run: Task<Void, Never>?
+    @ObservationIgnored private var background = UIBackgroundTaskIdentifier.invalid
     @ObservationIgnored private let monitor = NWPathMonitor()
 
     private let directory = URL.applicationSupportDirectory.appending(path: "Feedback/Outbox", directoryHint: .isDirectory)
@@ -71,6 +73,7 @@ final class Outbox {
     }
 
     func add(_ post: PendingPost, full: Data, thumb: Data, report: Data) throws {
+        start()
         let folder = folder(post.id)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try full.write(to: folder.appending(path: "full.jpg"))
@@ -97,16 +100,22 @@ final class Outbox {
         guard started, !draining else { return }
         draining = true
         retry?.cancel()
-        let background = UIApplication.shared.beginBackgroundTask(withName: "Feedback outbox")
-        Task {
+        // Out of background time, the request in flight is cancelled and kept for the next run.
+        background = UIApplication.shared.beginBackgroundTask(withName: "Feedback outbox") {
+            MainActor.assumeIsolated {
+                Outbox.shared.run?.cancel()
+                Outbox.shared.endBackground()
+            }
+        }
+        run = Task {
             defer {
                 draining = false
                 sending = nil
-                UIApplication.shared.endBackgroundTask(background)
+                endBackground()
             }
             // Reads `posts` on every turn, so a post added while one is sending goes in this run.
             var tried: Set<String> = []
-            while let post = posts.first(where: { !tried.contains($0.id) && $0.problem?.retryable != false }) {
+            while !Task.isCancelled, let post = posts.first(where: { !tried.contains($0.id) && $0.problem?.retryable != false }) {
                 tried.insert(post.id)
                 guard let problem = await send(post), problem.retryable else { continue }
                 let attempts = posts.first { $0.id == post.id }?.attempts ?? 1
@@ -121,6 +130,12 @@ final class Outbox {
                 return
             }
         }
+    }
+
+    private func endBackground() {
+        guard background != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(background)
+        background = .invalid
     }
 
     /// Returns the failure, or nil once the post landed and left the outbox.
@@ -155,6 +170,10 @@ final class Outbox {
             try await client.create(id: post.id, title: post.title, place: post.place, attachments: [post.image, post.report])
             discard(post.id)
             onEvent?(.sent(post))
+            return nil
+        } catch let problem as Problem where problem.status == 410 {
+            // An earlier attempt made the task, and it was deleted before this retry heard back.
+            discard(post.id)
             return nil
         } catch {
             let attempt = (posts.first { $0.id == post.id }?.attempts ?? 0) + 1

@@ -43,6 +43,7 @@ public enum Feedback {
 
     /// Captures the active screen and opens the editor. Does nothing while the editor is open.
     public static func present() {
+        Outbox.shared.start()
         guard case .idle = state, let scene = activeScene else { return }
         ShakeButton.hide()
         state = .capturing

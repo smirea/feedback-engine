@@ -1017,6 +1017,7 @@ private struct Fixture: Decodable {
         """))
     #expect(posted.text == "\(posted.message)\n\n\(posted.details)")
     #expect(!posted.retryable)
+    #expect(posted.status == 413)
     #expect([401, 408, 429, 500, 502].allSatisfy { Problem.request("PUT", url, status: $0, body: nil, error: CocoaError(.fileNoSuchFile)).retryable })
     #expect([400, 403, 404, 413].allSatisfy { !Problem.request("PUT", url, status: $0, body: nil, error: CocoaError(.fileNoSuchFile)).retryable })
 
