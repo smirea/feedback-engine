@@ -839,7 +839,7 @@ private indirect enum Chain {
     """)
 }
 
-@Test func aTaskTitleCountsTheChangesUntilTheModelSummarizesThem() {
+@Test func aTaskTitleCountsTheChangesUntilTheModelSummarizesThem() throws {
     let scene = RawScene(
         screen: screen,
         layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
@@ -858,6 +858,7 @@ private indirect enum Chain {
     #expect(two.prompt == "- On Button \"Mark done\": Make it bigger\n- On Screen: Too dark")
     #expect(two.summarized("\"Bigger done button, lighter screen.\"\nThat covers both.") == "2 Groceries Feedback: Bigger done button, lighter screen")
     #expect(two.summarized(" \n") == nil)
+    #expect(try JSONDecoder().decode(TaskTitle.self, from: JSONEncoder().encode(two)) == two)
 }
 
 /// `spec/fixtures/capture.json`: one built tree with the answers every platform must give for it.

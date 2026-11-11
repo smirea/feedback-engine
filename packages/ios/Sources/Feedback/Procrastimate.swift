@@ -4,9 +4,6 @@ import Security
 import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
-#if canImport(FoundationModels)
-import FoundationModels
-#endif
 
 /// Posts feedback to ProcrastiMate as one task: the image export as a task image, the JSON export as a
 /// `feedback.json` attachment. Uses ProcrastiMate's agent API (`POST /api/tasks`, `PATCH /api/tasks`) and image upload
@@ -183,14 +180,21 @@ enum Procrastimate {
         }
 
         /// Creates the task with its attachments in one write. The id is the client's, so a retry
-        /// whose first answer was lost returns that task instead of adding a second one.
-        func create(id: String, title: String, place: Place, attachments: [Attachment]) async throws {
+        /// whose first answer was lost returns that task instead of adding a second one. Returns the
+        /// task's title, which is the first attempt's for such a retry, not this one's.
+        func create(id: String, title: String, place: Place, attachments: [Attachment]) async throws -> String {
             struct NewTask: Encodable { let id: String; let title: String; let projectId: String?; let sectionId: String?; let attachments: [Attachment] }
-            struct Task: Decodable { let id: String }
+            struct Task: Decodable { let id: String; let title: String }
             let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(id: id, title: title, projectId: place.projectId, sectionId: place.sectionId, attachments: attachments)))
             guard task.id == id else {
                 throw Problem(message: "ProcrastiMate made a task under another id, so a retry would add a second one.", facts: [.init(label: "Task", value: "\(task.id), sent \(id)")])
             }
+            return task.title
+        }
+
+        func rename(id: String, title: String) async throws {
+            struct Edit: Encodable { let title: String }
+            _ = try await send("PATCH", "api/tasks", query: ["id": id], json: Edit(title: title))
         }
 
         private func send(_ method: String, _ path: String, query: [String: String] = [:], json: some Encodable) async throws -> Data {
@@ -292,6 +296,9 @@ struct ProcrastimateSheet: View {
     @State private var saveProblem: Problem?
     @State private var saving = false
     @State private var summarizing = false
+    /// The model's work, which outlives the sheet once **Add** hands it to the outbox.
+    @State private var summary: Task<String?, Never>?
+    @State private var handedOff = false
     private let outbox = Outbox.shared
     private let taskTitle: TaskTitle
 
@@ -321,7 +328,7 @@ struct ProcrastimateSheet: View {
                     Group {
                         if let saveProblem { ProblemSection(problem: saveProblem) }
                         if let loadProblem { ProblemSection(problem: loadProblem) }
-                        ForEach(outbox.posts) { post in
+                        ForEach(outbox.unsent) { post in
                             PendingSection(post: post, step: outbox.sending?.id == post.id ? outbox.sending?.step : nil)
                         }
                     }
@@ -383,6 +390,7 @@ struct ProcrastimateSheet: View {
         .interactiveDismissDisabled(saving)
         .task { await load() }
         .task { await summarize() }
+        .onDisappear { if !handedOff { summary?.cancel() } }
     }
 
     private func row(_ name: String, systemImage: String, picked: Bool, indented: Bool = false, pick: @escaping () -> Void) -> some View {
@@ -422,17 +430,12 @@ struct ProcrastimateSheet: View {
 
     /// Runs beside the project load and never holds up posting. A name the user has typed stays.
     private func summarize() async {
-        #if canImport(FoundationModels)
-        guard #available(iOS 26, *), SystemLanguageModel.default.availability == .available else { return }
+        guard let task = taskTitle.summary() else { return }
+        summary = task
         summarizing = true
-        defer { summarizing = false }
-        let model = LanguageModelSession(instructions: TaskTitle.instructions)
-        guard let reply = try? await model.respond(to: taskTitle.prompt).content,
-              let summarized = taskTitle.summarized(reply),
-              name == taskTitle.placeholder
-        else { return }
-        name = summarized
-        #endif
+        let summarized = await task.value
+        summarizing = false
+        if let summarized, name == taskTitle.placeholder { name = summarized }
     }
 
     private var environment: [Problem.Fact] {
@@ -450,6 +453,8 @@ struct ProcrastimateSheet: View {
         let section = project?.sections.first { $0.id == place.sectionId }
         let destination = [project?.name ?? "Inbox", section?.name].compactMap { $0 }.joined(separator: " / ")
         let title = title
+        // Added before the model answered and under its placeholder: the outbox waits for the answer.
+        let naming = summarizing && title == taskTitle.placeholder ? summary : nil
         let report = Data(session.compactJSON.utf8)
         let environment = environment
         let image = AnnotatedImage.render(session.capture, session.annotations).cgImage
@@ -465,6 +470,7 @@ struct ProcrastimateSheet: View {
                 let post = PendingPost(
                     id: UUID().uuidString.lowercased(),
                     title: title,
+                    naming: naming == nil ? nil : taskTitle,
                     place: place,
                     destination: destination,
                     image: .init(id: encoded.id, width: encoded.width, height: encoded.height),
@@ -477,6 +483,10 @@ struct ProcrastimateSheet: View {
                     ] + environment
                 )
                 try outbox.add(post, full: encoded.full, thumb: encoded.thumb, report: report)
+                if let naming {
+                    outbox.name(post.id, with: naming)
+                    handedOff = true
+                }
                 Procrastimate.lastProject = project?.id
                 session.shared.formUnion(items)
                 session.toast = Toast(text: "Sending to \(destination) in ProcrastiMate…")
