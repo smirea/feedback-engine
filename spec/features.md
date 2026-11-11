@@ -67,7 +67,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | C12 | The app attaches its own state to every capture. | shipped | shipped | iOS: `Feedback.context(name) { value }`. Web: `context(name, () => value)`. The function runs when a capture is taken. |
 | C13 | Rows that a lazy container has not created are missing. | shipped | shipped | The same limit holds for virtualized lists on the web. |
 | C14 | Scrolling during a capture is real, so code that reacts to it runs. | shipped | shipped | Web: the window jumps to its origin and back inside one task, so nothing is painted, and scroll listeners run. |
-| C15 | A modal's dimmed backdrop and the state of form fields are in the screenshot. | shipped | shipped | iOS: they are pixels like any other. Web: a re-draw of the DOM loses both, so the capture paints the backdrop and writes each field's state into the copy. A placeholder is drawn in the field's text color. |
+| C15 | A modal's dimmed backdrop, an open popover, and the state of form fields are in the screenshot. | shipped | shipped | iOS: they are pixels like any other. Web: a re-draw of the DOM loses all three, so the capture paints the backdrop, keeps the copy of an open popover displayed, and writes each field's state into the copy. A placeholder is drawn in the field's text color. |
 
 ## Tree
 
@@ -90,7 +90,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | E2 | The same part in sibling components is outlined faintly. | shipped | shipped | |
 | E3 | The screenshot scrolls to reach content that was off screen, and zooms up to 4×, also while typing. | shipped | shipped | iOS: pinch. Web: Ctrl with the wheel, which is also what a trackpad pinch sends. A touch-screen pinch is written and not tested, because Playwright cannot pinch. |
 | E4 | The selection sits between its parent and its child. Tapping either moves the selection. | shipped | shipped | |
-| E5 | The user types feedback and submits it. Each item gets a numbered box. | shipped | shipped | Web: Enter submits, and Shift with Enter adds a line. |
+| E5 | The user types feedback and submits it. Each item gets a numbered box. | shipped | shipped | Web: Enter submits, and Shift with Enter adds a line. The number badge of a box at the screenshot's edge is drawn whole, outside the picture's rounded corners. |
 | E6 | A tap inside a numbered box brings back that item's feedback for editing. A second tap drills down. | shipped | shipped | |
 | E7 | Feedback belongs to one level of the hierarchy. | shipped | shipped | |
 | E8 | A list shows the items, lets the user remove them, and shows the context that will be attached. | shipped | shipped | |
