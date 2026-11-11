@@ -1,6 +1,7 @@
 <svelte:options css="injected" />
 
 <script lang="ts">
+	import Button from './Button.svelte';
 	import Editor from './Editor.svelte';
 	import type { Engine } from './engine.ts';
 	import Pill from './Pill.svelte';
@@ -17,6 +18,9 @@
 	});
 </script>
 
+{#if engine.options.button && !shown.screen}
+	<Button onpress={() => void engine.present()} />
+{/if}
 {#if shown.pill}
 	<Pill remaining={shown.remaining} onpress={() => void engine.present()} />
 {/if}

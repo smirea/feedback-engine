@@ -39,9 +39,10 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 	}
 	current?.destroy();
 
-	// Written by `feedbackProcrastimate()` when it has a token. The cast keeps the name in one piece, which Vite
-	// replaces as text, and needs no `import.meta.env` type from the app that compiles this file.
-	const proxy = (import.meta as unknown as { env: Record<string, string | undefined> }).env.FEEDBACK_PROCRASTIMATE;
+	// Written by `feedbackProcrastimate()` when it has a token. Vite replaces the whole member expression, so it stays in
+	// one piece. Webpack has no `import.meta.env`. The cast needs no `import.meta.env` type from the app.
+	type Meta = { env?: Record<string, string | undefined> };
+	const proxy = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE;
 	const engine = new Engine({
 		...options,
 		procrastimate: options.procrastimate ?? (proxy ? { url: proxy } : undefined),

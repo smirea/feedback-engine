@@ -1,13 +1,26 @@
 import { realpathSync } from 'node:fs';
 import { relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseSync } from 'oxc-parser';
 import { compile } from 'svelte/compiler';
-import * as vite from 'vite';
 
 const entry = '@smirea/feedback-engine/react';
 /** The same name as `sourceAttribute` in `dom/tags.ts`. Node cannot import that file from `node_modules`, so a test compares the two. */
 export const sourceAttribute = 'data-feedback-source';
-const packageSource = realpathSync(fileURLToPath(new URL('..', import.meta.url))) + sep;
+/** The package's own source folder. Only its Svelte files are compiled, and its modules are never registered. */
+export const packageSource = realpathSync(fileURLToPath(new URL('..', import.meta.url))) + sep;
+
+/**
+ * Compiles one of the editor's Svelte files to JavaScript, with its styles in the code, for a React app's bundler.
+ *
+ * @param {string} code
+ * @param {string} file
+ * @param {'client' | 'server'} generate
+ */
+export function compileEditor(code, file, generate) {
+	const { js } = compile(code, { filename: file, css: 'injected', generate });
+	return js;
+}
 
 const wrappers = new Set(['TSAsExpression', 'TSSatisfiesExpression', 'TSNonNullExpression', 'ParenthesizedExpression']);
 const values = new Set(['ArrowFunctionExpression', 'FunctionExpression', 'ClassExpression', 'CallExpression']);
@@ -43,8 +56,10 @@ const named = (/** @type {any} */ id) => id?.type === 'Identifier' && /^[A-Z]/.t
  * @returns {string | undefined} The new source, or `undefined` when nothing changed or the module does not parse.
  */
 export function addReact(code, file, options = {}) {
-	const { program, errors } = vite.parseSync(file, code);
+	const { program, errors } = parseSync(file, code);
 	if (errors.length) return;
+	// A server functions module may export only async functions, and a registration call is not one.
+	if (program.body[0]?.type === 'ExpressionStatement' && program.body[0].directive === 'use server') return;
 
 	const lineStarts = [0];
 	for (let index = code.indexOf('\n'); index !== -1; index = code.indexOf('\n', index + 1)) lineStarts.push(index + 1);
@@ -122,8 +137,6 @@ export function addReact(code, file, options = {}) {
  * @param {{ elementSources?: boolean }} [options] `elementSources` defaults to the dev server only, and never in tests.
  */
 export function feedbackEngineReact(options = {}) {
-	if (typeof vite.parseSync !== 'function')
-		throw new Error('feedbackEngineReact() needs Vite 8 or later: earlier versions cannot parse JSX for a plugin.');
 	let root = process.cwd();
 	let elementSources = false;
 	return {
@@ -147,11 +160,7 @@ export function feedbackEngineReact(options = {}) {
 				const file = id.split('?')[0];
 				if (file.endsWith('.svelte')) {
 					if (!file.startsWith(packageSource)) return;
-					const { js } = compile(code, {
-						filename: file,
-						css: 'injected',
-						generate: transformOptions?.ssr ? 'server' : 'client',
-					});
+					const js = compileEditor(code, file, transformOptions?.ssr ? 'server' : 'client');
 					return { code: js.code, map: js.map };
 				}
 				if (file.includes('/node_modules/') || file.startsWith(packageSource)) return;

@@ -1,0 +1,15 @@
+{
+	"name": "consumer-next",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@smirea/feedback-engine": "file:./feedback-engine.tgz",
+		"@types/node": "^24.0.0",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"next": "16.4.6",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"typescript": "^6.0.3"
+	}
+}

@@ -7,6 +7,7 @@
 		"agents",
 		"annotation",
 		"feedback",
+		"nextjs",
 		"react",
 		"screenshot",
 		"svelte",
@@ -36,6 +37,10 @@
 			"types": "./packages/web/src/vite/index.d.ts",
 			"default": "./packages/web/src/vite/index.js"
 		},
+		"./next": {
+			"types": "./packages/web/src/next/index.d.ts",
+			"default": "./packages/web/src/next/index.js"
+		},
 		"./core": "./packages/web/src/core/index.ts"
 	},
 	"scripts": {
@@ -55,7 +60,8 @@
 	},
 	"dependencies": {
 		"dom-accessibility-api": "^0.7.1",
-		"modern-screenshot": "^4.7.0"
+		"modern-screenshot": "^4.7.0",
+		"oxc-parser": "^0.158.0"
 	},
 	"devDependencies": {
 		"@types/bun": "^1.4.4",

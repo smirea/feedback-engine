@@ -138,7 +138,7 @@ Do this after changing a screen, against the dev server, with realistic data:
 
 ## React
 
-The app has `feedbackEngineReact()` in its Vite config, before the React plugin. That plugin is what finds the components and gives each one its name and `file:line`.
+The app has `feedbackEngineReact()` in its Vite config, before the React plugin, or its `next.config` is wrapped in `withFeedbackEngine()`. That is what finds the components and gives each one its name and `file:line`. In a Next.js app, only client components are found. A server component is not a node, and the elements it draws are.
 
 ### Accessibility (do this first)
 

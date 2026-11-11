@@ -132,7 +132,7 @@ While the editor is open, VoiceOver and UI automation see only the editor. Its t
 
 ## Web
 
-`@smirea/feedback-engine` has one entry point per framework, `/svelte` and `/react`, and both need Vite. The package ships TypeScript and Svelte source, and your app's Vite compiles it. The editor is the same in both: Svelte components in a shadow root. A React app needs no Svelte setup, because the package's Vite plugin compiles the editor.
+`@smirea/feedback-engine` has one entry point per framework, `/svelte` and `/react`. A Svelte app builds with Vite. A React app builds with Vite or with [Next.js](#nextjs). The package ships TypeScript and Svelte source, and your app's bundler compiles it. The editor is the same in both: Svelte components in a shadow root. A React app needs no Svelte setup, because the package's Vite plugin or Next.js config compiles the editor.
 
 ```sh
 bun add github:smirea/feedback-engine
@@ -164,7 +164,8 @@ Requires Svelte 5.29 or later.
 - `setupFeedbackEngine()` turns on the trigger. Alt+Meta+click on anything, which is Option+Command+click on a Mac, captures the page and opens the editor with what you clicked selected. The app never gets that click, so a link does not navigate, and a disabled button can be clicked too. Pass `shortcut: 'Ctrl+Shift+Click'` for another chord, or `shortcut: false` for none. On a server the call returns an engine that does nothing, so a layout needs no guard.
 - A chord that ends in a key, such as `shortcut: 'Alt+Shift+F'`, drops an **Add Feedback** pill in at the top center instead, and clicking the pill captures the page. Left alone, the pill leaves after 5 seconds, and it leaves at once when the tab goes to the background.
 - `feedback.context(name, () => value)` attaches app state to every JSON export. The function runs when a capture is taken.
-- `feedback.countdown()` is the trigger for a phone, which has no modifier keys, and where a shake does not work yet. Call it from an entry in one of your app's menus, such as Settings. The pill shows **Feedback in 5** and counts down, so you have 5 seconds to leave the menu and open the screen you mean. Then it captures. Tapping the pill captures at once, and `countdown(10)` gives more time.
+- `button: true` shows a round Feedback button in the bottom right corner of every screen. It is the trigger for a phone, which has no modifier keys, and for an app opened from the home screen. Tapping it captures the page. Drag it to move it up or down, or to the other side. It stays where you leave it.
+- `feedback.countdown()` is the other trigger for a phone, where a shake does not work yet. Call it from an entry in one of your app's menus, such as Settings. The pill shows **Feedback in 5** and counts down, so you have 5 seconds to leave the menu and open the screen you mean. Then it captures. Tapping the pill captures at once, and `countdown(10)` gives more time.
 - `feedback.present()` captures at once, with no countdown. It suits a control that is on the screen you want to capture.
 - To keep Feedback out of production, call it behind `import.meta.env.DEV` with a dynamic import. The production bundle then has the tags and none of the editor.
 
@@ -237,7 +238,7 @@ The plugin does three things:
 
 - It registers every component in your `.jsx` and `.tsx` files with its name and `file:line`. React knows a component only by its function's name, which a minified build replaces.
 - It compiles the editor's Svelte files. Without the plugin, the build stops at the first one. Svelte is a peer dependency, which `bun add` and `npm install` add by themselves.
-- On the dev server, it writes each HTML element's `file:line` into a `data-feedback-source` attribute, because React 19 no longer records it. `feedbackEngineReact({ elementSources: false })` turns that off, and test runs never get it.
+- On the dev server, it writes each HTML element's `file:line` into a `data-feedback-source` attribute, because React 19 no longer records it. `feedbackEngineReact({ elementSources: false })` turns that off, and test runs never get it. `elementSources: true` writes it into a production build too, for a deployed preview where people give feedback.
 
 #### Components need no tags
 
@@ -276,6 +277,49 @@ export function TodoDetailDialog({ item }: { item: TodoItem }) {
 ```
 
 The data function runs when a capture is taken, never while rendering. On an element that already has a ref, call both from one ref function.
+
+### Next.js
+
+Requires Next.js 16 and React 19. Turbopack, the default, and webpack (`--webpack`) both work. Wrap your config:
+
+```ts
+// next.config.ts
+import { withFeedbackEngine } from '@smirea/feedback-engine/next';
+
+export default withFeedbackEngine({
+	// your config
+});
+```
+
+`withFeedbackEngine()` does what the [React plugin](#react) does: it registers your components, compiles the editor, and writes each HTML element's `file:line` into `data-feedback-source` in `next dev`. It also adds the package to `transpilePackages`, and keeps your own `turbopack.rules` and `webpack` function.
+
+Turn Feedback on from a client component in your root layout:
+
+```tsx
+// app/Feedback.tsx
+'use client';
+
+import { setupFeedbackEngine } from '@smirea/feedback-engine/react';
+import { useEffect } from 'react';
+
+export function Feedback() {
+	useEffect(() => setupFeedbackEngine({ app: 'My App', button: true }).destroy, []);
+	return null;
+}
+```
+
+```tsx
+// app/layout.tsx
+<body>
+	{children}
+	<Feedback />
+</body>
+```
+
+- Client components are in the capture under their own names, as in a Vite app. A server component leaves no component in the page, so it is not a node. The elements it draws are, each with its own `file:line`.
+- On a deployed preview, such as a Vercel preview link, pass `withFeedbackEngine(config, { elementSources: true })` so a production build keeps every element's `file:line`. Components keep theirs in every build without it. The attribute puts your file paths in the page's HTML, so leave it off a public production deploy, for example with `elementSources: process.env.VERCEL_ENV === 'preview'`.
+- To keep Feedback off a production deploy, render `<Feedback />` only where you want it, for example behind `process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production'`.
+- `feedbackProcrastimate()` is a Vite plugin, so a Next.js app has no ProcrastiMate entry unless you pass `procrastimate: { url }` for a proxy of your own.
 
 ### Component data and untagged content
 
@@ -329,9 +373,9 @@ The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows
 - A very tall page is drawn at a lower scale, so the capture fits a 16 megapixel canvas.
 - A scroll container inside the page shows what was on screen in it.
 - A minified production build shows a class's minified name in component data, such as `a(count: 2)`.
-- Element locations for untagged content exist only in development builds. Components keep theirs in every build.
-- React: a capture reads fields that are internal to React, the ones React's own developer tools read. If React renames them, components found without a tag are missing, and tagged regions and elements still appear. A bundler other than Vite is not supported.
-- A shake does not trigger Feedback on phones, where `countdown()` from a menu stands in for it, and the task name is not summarized by an on-device model. [spec/features.md](spec/features.md) lists both as planned.
+- Element locations for untagged content exist only in development builds, unless a React app turns on `elementSources`. Components keep theirs in every build.
+- React: a capture reads fields that are internal to React, the ones React's own developer tools read. If React renames them, components found without a tag are missing, and tagged regions and elements still appear. Bundlers other than Vite and Next.js are not supported.
+- A shake does not trigger Feedback on phones, where `button: true` or `countdown()` from a menu stands in for it, and the task name is not summarized by an on-device model. [spec/features.md](spec/features.md) lists both as planned.
 
 ### Drive it from a script
 
@@ -365,7 +409,7 @@ Both run from a fresh clone. The tracked `.env` has every default, and no accoun
 
 ## Development
 
-You need [Bun](https://bun.sh) 1.4 or later for the web side, and Xcode with Swift 6 for iOS.
+You need [Bun](https://bun.sh) 1.4 or later and Node.js 22 or later for the web side, and Xcode 27 with Swift 6 for iOS.
 
 ```sh
 bun install
@@ -381,7 +425,7 @@ swift test    # tree building, hit-testing, stitching, JSON export, and value de
 bun run lint        # oxlint and oxfmt
 bun run typecheck   # each example app, svelte-check for the web package, then the repository's TypeScript
 bun test            # the web core, the Vite plugin, the shared fixture, and the checks on spec/features.md
-bun run test:web    # both example apps in Chromium and WebKit, on a dev server and a production build
+bun run test:web    # both example apps in Chromium and WebKit, on a dev server and a production build, then a Svelte, a React, and a Next.js app that install the packed package
 ```
 
 `bun run test:web` needs Playwright's browsers once:

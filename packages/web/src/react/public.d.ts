@@ -14,6 +14,11 @@ export type FeedbackOptions = {
 	 */
 	shortcut?: string | false;
 	/**
+	 * Shows a round Feedback button on every screen, for a phone or an app opened from the home screen, which have no
+	 * keyboard. Pressing it captures the page. Drag it to move it to another height or the other side.
+	 */
+	button?: boolean;
+	/**
 	 * Adds ProcrastiMate to the Share menu. Leave it out behind `feedbackProcrastimate()` from the Vite entry point,
 	 * which adds the entry by itself when it has a token. Set it for a proxy of your own.
 	 */

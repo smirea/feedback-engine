@@ -22,15 +22,32 @@ afterAll(async () => {
 function run(command: string[], cwd: string) {
 	const result = Bun.spawnSync(command, {
 		cwd,
-		env: { ...process.env, NODE_ENV: undefined },
+		env: { ...process.env, NODE_ENV: undefined, NEXT_TELEMETRY_DISABLED: '1' },
 		stdout: 'pipe',
 		stderr: 'pipe',
 	});
 	if (result.exitCode !== 0) throw new Error(`${command.join(' ')} failed:\n${result.stdout}${result.stderr}`);
 }
 
-/** Copies a fixture out of the repository, installs the packed package into it, builds it, and opens its dev server. */
-async function consume(fixture: string, port: number, check?: string[]) {
+const vite = {
+	build: ['node', 'node_modules/vite/bin/vite.js', 'build'],
+	serve: (port: number) => [
+		'node',
+		'node_modules/vite/bin/vite.js',
+		'--host',
+		'127.0.0.1',
+		'--port',
+		String(port),
+		'--strictPort',
+	],
+};
+
+/** Copies a fixture out of the repository, installs the packed package into it, builds it, and opens its server. */
+async function consume(
+	fixture: string,
+	port: number,
+	{ check, build, serve }: { check?: string[]; build: string[]; serve: (port: number) => string[] } = vite,
+) {
 	const app = mkdtempSync(join(tmpdir(), `feedback-${fixture}-`));
 	cpSync(join(import.meta.dir, fixture), app, { recursive: true });
 	run(['bun', 'pm', 'pack', '--destination', app], root);
@@ -43,18 +60,15 @@ async function consume(fixture: string, port: number, check?: string[]) {
 	);
 	run(['bun', 'install'], app);
 	if (check) run(check, app);
-	run(['node', 'node_modules/vite/bin/vite.js', 'build'], app);
+	run(build, app);
 
 	const state = { log: '', errors: [] as string[] };
-	const server = spawn(
-		'node',
-		['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', String(port), '--strictPort'],
-		{
-			cwd: app,
-			env: { ...process.env, NODE_ENV: undefined },
-			stdio: 'pipe',
-		},
-	);
+	const [command, ...args] = serve(port);
+	const server = spawn(command!, args, {
+		cwd: app,
+		env: { ...process.env, NODE_ENV: undefined, NEXT_TELEMETRY_DISABLED: '1' },
+		stdio: 'pipe',
+	});
 	servers.push(server);
 	server.stdout!.on('data', chunk => (state.log += chunk));
 	server.stderr!.on('data', chunk => (state.log += chunk));
@@ -129,11 +143,10 @@ test('a Svelte app that installs the packed package builds, serves, and exports 
 
 test('a React 18 app that installs the packed package type-checks, builds, serves, and exports feedback', async () => {
 	// The app's compiler options are stricter than the package's, so this fails if the app compiles the package's source.
-	const { page, state } = await consume('consumer-react', env.UI_PORT + 8, [
-		'node',
-		'node_modules/typescript/bin/tsc',
-		'--noEmit',
-	]);
+	const { page, state } = await consume('consumer-react', env.UI_PORT + 8, {
+		...vite,
+		check: ['node', 'node_modules/typescript/bin/tsc', '--noEmit'],
+	});
 	await page.getByRole('heading', { name: 'Consumer' }).waitFor();
 	const report = await exported(page, () =>
 		page.getByRole('heading', { name: 'Consumer' }).click({ modifiers: ['Alt', 'Meta'] }),
@@ -169,3 +182,39 @@ test('a React 18 app that installs the packed package type-checks, builds, serve
 	expect(state.log).not.toContain('Error');
 	expect(state.errors).toEqual([]);
 }, 180_000);
+
+test('a Next.js app that installs the packed package builds with Turbopack, serves, and exports feedback from a phone', async () => {
+	const next = 'node_modules/next/dist/bin/next';
+	const { page, state } = await consume('consumer-next', env.UI_PORT + 9, {
+		build: ['node', next, 'build'],
+		serve: port => ['node', next, 'start', '--hostname', '127.0.0.1', '--port', String(port)],
+	});
+	await page.setViewportSize({ width: 390, height: 844 });
+	await page.getByRole('heading', { name: 'Consumer' }).waitFor();
+	// A phone has no modifier keys, so this app shows the button.
+	const report = await exported(page, () => page.getByRole('button', { name: 'Feedback', exact: true }).click());
+	expect(report.tree).toEqual([
+		['Screen', undefined, undefined],
+		['  App', 'app/App.tsx:49', 'count: 4'],
+		['    Theme', 'app/App.tsx:45', undefined],
+		['      Header "Consumer"', 'app/App.tsx:54', undefined],
+		['      Card', 'app/App.tsx:7', 'title: Counter\nicon: <Icon>'],
+		['        Button "Count 4"', 'app/App.tsx:56', undefined],
+		['      Field', 'app/App.tsx:16', 'label: Name'],
+		['        Text field "Name"', 'app/App.tsx:17', undefined],
+		['      Pair', 'app/App.tsx:20', 'first: One\nsecond: Two'],
+		['        Text "One"', 'app/App.tsx:22', undefined],
+		['        Text "Two"', 'app/App.tsx:23', undefined],
+		['      Legend', 'app/App.tsx:27', 'note: Legend'],
+		['        Text "Legend"', 'app/App.tsx:29', undefined],
+		['      Footer', 'app/App.tsx:61', undefined],
+		['        Text "Footer"', 'app/App.tsx:61', undefined],
+		// Drawn by a server component, which leaves no component in the page. A production build keeps the element's line, because the app asks for it.
+		['  Text "Served"', 'app/page.tsx:8', undefined],
+		['  Toast', 'app/App.tsx:37', 'message: Saved'],
+		['    Text "Saved"', 'app/App.tsx:41', undefined],
+	]);
+	expect(report.app).toBe('Consumer');
+	expect(state.log).not.toContain('Error');
+	expect(state.errors).toEqual([]);
+}, 240_000);

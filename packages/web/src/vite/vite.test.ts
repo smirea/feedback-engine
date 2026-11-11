@@ -115,6 +115,10 @@ test('a module with nothing to register is left alone, and so is one that does n
 	expect(addReact('export function Broken() { return <div>; }', 'src/Broken.tsx')).toBeUndefined();
 });
 
+test('a server functions module is left alone, since it may export only async functions', () => {
+	expect(addReact("'use server';\nexport async function Save() {}", 'app/actions.tsx')).toBeUndefined();
+});
+
 test('registering never throws on a value that is not a component', () => {
 	const registered = addReact("const Label = 'ten';\nconst Sum = add(1, 2);\nfunction Row() {}", 'src/values.jsx')!;
 	const run = new Function('add', `${registered}; return Row;`);
