@@ -1,10 +1,14 @@
 export type ListColor = 'blue' | 'green' | 'orange' | 'purple';
+export type Priority = 'none' | 'low' | 'medium' | 'high';
+export type SortOrder = 'manual' | 'due date' | 'priority';
 
 export type TodoItem = {
 	id: string;
 	title: string;
+	notes: string;
 	isDone: boolean;
-	due?: Date;
+	due?: string;
+	priority: Priority;
 };
 
 export type TodoList = {
@@ -15,40 +19,108 @@ export type TodoList = {
 };
 
 const colors: ListColor[] = ['blue', 'green', 'orange', 'purple'];
+const day = 86_400_000;
 
 export const remaining = (list: TodoList) => list.items.filter(item => !item.isDone).length;
 
-const item = (title: string, isDone = false, due?: Date): TodoItem => ({ id: crypto.randomUUID(), title, isDone, due });
+const dateIn = (days: number) => new Date(Date.now() + days * day).toISOString().slice(0, 10);
 
-const list = (name: string, color: ListColor, items: TodoItem[]): TodoList => ({
+const item = (title: string, fields: Partial<TodoItem> = {}): TodoItem => ({
 	id: crypto.randomUUID(),
-	name,
-	color,
-	items,
+	title,
+	notes: '',
+	isDone: false,
+	priority: 'none',
+	...fields,
 });
 
 export class TodoStore {
 	lists = $state<TodoList[]>([]);
+	showCompleted = $state(true);
+	sortOrder = $state<SortOrder>('manual');
 
 	constructor(lists: TodoList[]) {
 		this.lists = lists;
 	}
 
+	list(id: string) {
+		return this.lists.find(list => list.id === id);
+	}
+
+	add(title: string, listId: string) {
+		this.list(listId)?.items.push(item(title));
+	}
+
+	update(changed: TodoItem, listId: string) {
+		const list = this.list(listId);
+		const index = list?.items.findIndex(existing => existing.id === changed.id) ?? -1;
+		if (list && index !== -1) list.items[index] = changed;
+	}
+
+	delete(itemId: string, listId: string) {
+		const list = this.list(listId);
+		if (list) list.items = list.items.filter(existing => existing.id !== itemId);
+	}
+
 	addList(name: string) {
-		this.lists.push({ id: crypto.randomUUID(), name, color: colors[this.lists.length % colors.length]!, items: [] });
+		const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-') || crypto.randomUUID();
+		this.lists.push({
+			id: this.list(id) ? crypto.randomUUID() : id,
+			name,
+			color: colors[this.lists.length % colors.length]!,
+			items: [],
+		});
 	}
 
 	static sample() {
-		const today = new Date();
+		const groceries = [
+			'Eggs',
+			'Spinach',
+			'Greek yogurt',
+			'Lemons',
+			'Rice',
+			'Black beans',
+			'Tortillas',
+			'Avocados',
+			'Cheddar',
+			'Tomatoes',
+			'Garlic',
+			'Pasta',
+			'Parmesan',
+			'Apples',
+		];
 		return new TodoStore([
-			list('Groceries', 'green', [item('Oat milk', false, today), item('Sourdough'), item('Coffee beans', true)]),
-			list('Work', 'blue', [
-				item('Send the invoice', false, today),
-				item('Review the pull request'),
-				item('Book the flights'),
-			]),
-			list('Home', 'orange', [item('Water the plants', true), item('Fix the bike light')]),
-			list('Reading', 'purple', []),
+			{
+				id: 'groceries',
+				name: 'Groceries',
+				color: 'green',
+				items: [
+					item('Oat milk', { priority: 'high' }),
+					item('Sourdough bread', { isDone: true }),
+					item('Bananas', { notes: 'Not too ripe', due: dateIn(1) }),
+					item('Coffee beans', { due: dateIn(2), priority: 'medium' }),
+					item('Olive oil', { isDone: true }),
+					...groceries.map(title => item(title)),
+				],
+			},
+			{
+				id: 'work',
+				name: 'Work',
+				color: 'blue',
+				items: [
+					item('Review Q4 roadmap', { due: dateIn(0), priority: 'high' }),
+					item('Reply to design feedback', { notes: 'Mention the spacing issue' }),
+					item('Book flights for offsite', { due: dateIn(5), priority: 'low' }),
+				],
+			},
+			{
+				id: 'home',
+				name: 'Home',
+				color: 'orange',
+				items: [item('Fix leaky faucet', { priority: 'medium' }), item('Water plants', { isDone: true })],
+			},
 		]);
 	}
 }
+
+export const store = TodoStore.sample();

@@ -91,3 +91,8 @@ export class Annotations {
 		return segments;
 	}
 }
+
+/** The colors items and references take, in order. They are iOS's system colors, so both platforms' exports match. */
+export const palette = ['#FF3B30', '#007AFF', '#34C759', '#FF9500', '#AF52DE', '#FF2D55', '#30B0C7', '#5856D6'];
+
+export const paletteColor = (index: number) => palette[index % palette.length]!;

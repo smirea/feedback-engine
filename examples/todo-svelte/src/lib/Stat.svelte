@@ -1,8 +1,9 @@
 <script lang="ts">
+	import { feedback } from '@smirea/feedback-engine/svelte';
 	let { value, label }: { value: number; label: string } = $props();
 </script>
 
-<div class="stat">
+<div class="stat" {@attach feedback()}>
 	<span class="value">{value}</span>
 	<span class="label">{label}</span>
 </div>

@@ -1,0 +1,464 @@
+import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { PNG } from 'pngjs';
+import {
+	canvas,
+	captureImage,
+	difference,
+	editor,
+	exportReport,
+	field,
+	lastExport,
+	modes,
+	open,
+	outline,
+	present,
+	procrastimate,
+	root,
+	startServers,
+	stopServers,
+	tap,
+	type EngineName,
+} from './app.ts';
+
+beforeAll(startServers, 120_000);
+afterAll(stopServers);
+
+const engineNames: EngineName[] = ['chromium', 'webkit'];
+const selected = (page: Parameters<typeof editor>[0]) => page.locator('.selected').innerText();
+
+for (const mode of modes) {
+	for (const engine of engineNames) {
+		describe(`${mode} build in ${engine}`, () => {
+			test('the Lists screen exports its components, elements, and context', async () => {
+				const { page, context, errors } = await open(engine, mode, '/');
+				await present(page);
+				const report = await exportReport(page);
+
+				expect(outline(report)).toEqual([
+					'Screen',
+					'  ListsScreen  src/routes/+page.svelte:23',
+					'    Header "Lists"',
+					'    Button "New List"',
+					'    SummaryCard  src/lib/SummaryCard.svelte:15',
+					'      Stat  src/lib/Stat.svelte:6',
+					'        Text "21"',
+					'        Text "Open"',
+					'      Stat  src/lib/Stat.svelte:6',
+					'        Text "1"',
+					'        Text "Due today"',
+					'      Stat  src/lib/Stat.svelte:6',
+					'        Text "3"',
+					'        Text "Lists"',
+					'    Header "My Lists"',
+					'    Link "Groceries 17"',
+					'      ListRow  src/lib/ListRow.svelte:10',
+					'    Link "Work 3"',
+					'      ListRow  src/lib/ListRow.svelte:10',
+					'    Link "Home 1"',
+					'      ListRow  src/lib/ListRow.svelte:10',
+					'  TabBar  src/lib/TabBar.svelte:13',
+					'    Link "Lists"',
+					'    Link "Settings"',
+				]);
+				const node = (title: string) =>
+					report.nodes.find(candidate => `${candidate.name} "${candidate.label}"` === title)!;
+				// Svelte records every element's location in development builds only.
+				expect(node('Button "New List"').source).toBe(mode === 'dev' ? 'src/routes/+page.svelte:26' : undefined);
+				expect(report.nodes.find(candidate => candidate.name === 'ListRow')!.data).toBe(
+					'name: Groceries\nremaining: 17\ntotal: 19',
+				);
+				expect(report.nodes.filter(candidate => candidate.name === 'Stat').map(stat => stat.data)).toEqual([
+					'value: 21\nlabel: Open',
+					'value: 1\nlabel: Due today',
+					'value: 3\nlabel: Lists',
+				]);
+
+				expect(report.app).toBe('Todo');
+				expect(report.environment.map(entry => entry.name)).toEqual([
+					'App',
+					'Location',
+					'Version',
+					'Device',
+					'Display',
+					'Captured',
+					'Locale',
+				]);
+				expect(report.environment.slice(1, 3)).toEqual([
+					{ name: 'Location', value: '/' },
+					{ name: 'Version', value: '1.0' },
+				]);
+				expect(report.context.map(entry => entry.name)).toEqual(['TodoStore']);
+				// A production build minifies the class's name.
+				expect(report.context[0]!.value).toMatch(
+					mode === 'dev'
+						? /^TodoStore\(lists: \[\{id: "groceries", name: "Groceries", /
+						: /^\w+\(lists: \[\{id: "groceries", name: "Groceries", /,
+				);
+				expect(report.items).toEqual([{ number: 1, text: 'Looks off', target: 0, title: 'Screen', path: [0] }]);
+
+				const file = join(mkdtempSync(join(tmpdir(), 'feedback-')), 'feedback.json');
+				writeFileSync(file, JSON.stringify(report));
+				const taps = Bun.spawnSync(['python3', join(root, 'skills/feedback-accessibility/scripts/taps.py'), file]);
+				expect(taps.stdout.toString()).toStartWith('Fall-through: ');
+				expect(taps.exitCode).toBe(0);
+				expect(errors).toEqual([]);
+				await context.close();
+			});
+
+			test('a scrolled page is captured at full length, with fixed content where it was on screen', async () => {
+				const { page, context, errors } = await open(engine, mode, '/timeline');
+				await page.evaluate(() => scrollTo(0, 1500));
+				const window = await page.screenshot();
+				await present(page);
+				expect(await page.evaluate(() => scrollY)).toBe(1500);
+
+				expect(difference(await captureImage(page), window, 1500 * 2)).toBeLessThan(0.001);
+				const report = await exportReport(page);
+				expect(report.size.width).toBe(390);
+				expect(report.size.height).toBeGreaterThan(5000);
+				expect(report.visible).toEqual({ x: 0, y: 1500, width: 390, height: 700 });
+
+				const tabs = report.nodes.find(candidate => candidate.name === 'TabBar')!;
+				expect(tabs.frame.y + tabs.frame.height).toBe(2200);
+				const days = report.nodes.filter(candidate => candidate.name === 'DayHeader');
+				expect(days.map(day => day.data)).toEqual(
+					['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(
+						day => `day: ${day}\ncount: 9`,
+					),
+				);
+				expect(days.every((day, index) => index === 0 || day.frame.y > days[index - 1]!.frame.y + 600)).toBe(true);
+				expect(report.nodes.filter(candidate => candidate.name === 'TimelineRow').length).toBe(63);
+				expect(errors).toEqual([]);
+				await context.close();
+			});
+
+			test('a modal dialog is a layer over the page, and what it covers is left out', async () => {
+				const { page, context, errors } = await open(engine, mode, '/lists/groceries');
+				await page.evaluate(() => scrollTo(0, 300));
+				await page.getByRole('button', { name: 'Bananas' }).click();
+				await page.getByRole('heading', { name: 'Details' }).waitFor();
+				await page.locator(':focus').blur();
+				const window = await page.screenshot();
+				await present(page);
+
+				expect(difference(await captureImage(page), window, 300 * 2)).toBeLessThan(0.02);
+				const report = await exportReport(page);
+				const due = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+				expect(outline(report, 1)).toEqual([
+					'  Dialog',
+					'    TodoDetailDialog  src/lib/TodoDetailDialog.svelte:24',
+					'      Header "Details"',
+					'      Text field "Title, Bananas"',
+					'      Text field "Notes, Not too ripe"',
+					'      Text "Due date"',
+					'        Checkbox "Due date, on"',
+					`      Text "Due"`,
+					`        Text field "Due, ${due}"`,
+					'      Text "Priority"',
+					'        Combo box "Priority, none"',
+					'      Button "Delete Todo"',
+					'      Button "Cancel"',
+					'      Button "Save"',
+				]);
+				const dialog = report.nodes.find(candidate => candidate.kind === 'layer')!.frame;
+				const inside = (frame: typeof dialog) =>
+					frame.x >= dialog.x &&
+					frame.y >= dialog.y &&
+					frame.x + frame.width <= dialog.x + dialog.width &&
+					frame.y + frame.height <= dialog.y + dialog.height;
+				expect(
+					report.nodes.filter(
+						candidate => candidate.layer === 0 && candidate.kind !== 'screen' && inside(candidate.frame),
+					),
+				).toEqual([]);
+				expect(report.nodes.some(candidate => candidate.label === 'Mark All Done')).toBe(true);
+
+				await tap(page, dialog.x + 40, dialog.y + 30);
+				expect(await selected(page)).toBe('Header "Details"');
+				expect(errors).toEqual([]);
+				await context.close();
+			});
+		});
+	}
+}
+
+for (const [name, viewport] of [
+	['desktop', { width: 1280, height: 800 }],
+	['phone', { width: 390, height: 700 }],
+] as const) {
+	for (const engine of engineNames) {
+		test(`giving feedback at ${name} width in ${engine}`, async () => {
+			const { page, context, errors } = await open(engine, 'dev', '/', viewport);
+			const report = async () => JSON.parse((await lastExport(page))[0]!.bytes.toString());
+
+			await page.keyboard.press('Alt+Shift+F');
+			await page.getByRole('button', { name: 'Add Feedback' }).click();
+			await editor(page).waitFor();
+			expect(await page.getByText('Click the screenshot to pick a component.').count()).toBe(1);
+			expect(await page.getByRole('button', { name: 'Share' }).isDisabled()).toBe(true);
+			// The editor is a modal dialog in the top layer, so the page under it takes no clicks and assistive technology skips it.
+			const covered = () =>
+				page.evaluate(
+					() => document.elementFromPoint(innerWidth / 2, 40)?.hasAttribute('data-feedback-engine') ?? false,
+				);
+			expect(await covered()).toBe(true);
+
+			const left = (viewport.width - Math.min(viewport.width, 640)) / 2;
+			const groceries = { x: left + 100, y: 270 };
+			await tap(page, groceries.x, groceries.y);
+			expect(await selected(page)).toBe('ListRow');
+			expect(await page.locator('.source').innerText()).toBe('src/lib/ListRow.svelte:10');
+			expect(await page.locator('.similar-count').innerText()).toBe('2 similar');
+			expect(await page.locator('.data').innerText()).toBe('name: Groceries\nremaining: 17\ntotal: 19');
+			expect(await page.locator('.box.similar').count()).toBe(2);
+
+			await page.getByRole('button', { name: /^Select parent/ }).click();
+			expect(await selected(page)).toBe('Link "Groceries 17"');
+			await page.getByRole('button', { name: /^Select child/ }).click();
+			expect(await selected(page)).toBe('ListRow');
+
+			await field(page).fill('Row is too tall');
+			await page.getByRole('button', { name: 'Add feedback' }).click();
+			expect(await page.locator('.box.item .number').allInnerTexts()).toEqual(['1']);
+
+			await tap(page, left + 40, 60);
+			expect(await selected(page)).toBe('Header "Lists"');
+			await field(page).fill('Smaller, like @');
+			expect(await page.getByText('Click an element to reference it').count()).toBe(1);
+			await tap(page, groceries.x, groceries.y);
+			expect(await selected(page)).toBe('Header "Lists"');
+			await page.getByRole('button', { name: 'Insert' }).click();
+			expect(await field(page).inputValue()).toBe('Smaller, like @1_ListRow ');
+			await field(page).press('Enter');
+			expect(await page.locator('.box.item .tag').allInnerTexts()).toEqual(['@1']);
+
+			await tap(page, groceries.x, groceries.y);
+			expect(await field(page).inputValue()).toBe('Row is too tall');
+			await field(page).fill('Row is too tall on phones');
+			await page.getByRole('button', { name: 'Save feedback' }).click();
+
+			await page.getByRole('button', { name: 'Feedback list, 2 items' }).click();
+			const list = page.getByRole('dialog', { name: 'Feedback list' });
+			expect(await list.locator('li strong').allInnerTexts()).toEqual(['ListRow', 'Header "Lists"']);
+			expect(await list.locator('.token').allInnerTexts()).toEqual(['@1_ListRow']);
+			expect(await list.locator('summary').allInnerTexts()).toEqual([
+				'App',
+				'Location',
+				'Version',
+				'Device',
+				'Display',
+				'Captured',
+				'Locale',
+				'TodoStore',
+			]);
+			await list.getByRole('button', { name: 'Done' }).click();
+
+			await page.getByRole('button', { name: 'Close' }).click();
+			const confirm = page.getByRole('alertdialog', { name: 'Discard feedback?' });
+			expect(await confirm.locator('p').innerText()).toBe("Closing discards 2 items you haven't shared.");
+			await confirm.getByRole('button', { name: 'Keep Editing' }).click();
+
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'Image and JSON (ZIP)' }).click();
+			await page.getByRole('dialog', { name: 'Share Image and JSON (ZIP)' }).waitFor();
+			const [archive] = await lastExport(page);
+			expect(archive!.name).toBe('feedback.zip');
+			const folder = mkdtempSync(join(tmpdir(), 'feedback-'));
+			writeFileSync(join(folder, 'feedback.zip'), archive!.bytes);
+			expect(Bun.spawnSync(['unzip', '-o', 'feedback.zip'], { cwd: folder }).exitCode).toBe(0);
+			const zipped = JSON.parse(await Bun.file(join(folder, 'feedback/feedback.json')).text());
+			expect(
+				zipped.items.map((item: { text: string; title: string; code: string }) => [item.title, item.text, item.code]),
+			).toEqual([
+				['ListRow', 'Row is too tall on phones', 'src/lib/ListRow.svelte:10'],
+				['Header "Lists"', 'Smaller, like @1_ListRow', 'src/routes/+page.svelte:25'],
+			]);
+			expect(
+				zipped.references.map((reference: { token: string; title: string }) => [reference.token, reference.title]),
+			).toEqual([['@1_ListRow', 'ListRow']]);
+			const image = PNG.sync.read(Buffer.from(await Bun.file(join(folder, 'feedback/feedback.png')).arrayBuffer()));
+			// Two card columns, two gutters, and two margins around the capture, at the capture's 2x scale.
+			expect(image.width).toBe((24 + 280 + 36 + viewport.width + 36 + 280 + 24) * 2);
+			expect(image.height).toBe((24 + zipped.size.height + 24) * 2);
+
+			if (engine === 'chromium') {
+				await page.getByRole('button', { name: 'Copy Feedback' }).click();
+				expect(await page.locator('.toast').innerText()).toBe('✓ Copied');
+				const clipboard = await page.evaluate(async () =>
+					(await navigator.clipboard.read()).map(item => [...item.types].toSorted()),
+				);
+				expect(clipboard).toEqual([['image/png', 'text/plain']]);
+				expect(JSON.parse(await page.evaluate(() => navigator.clipboard.readText())).items.length).toBe(2);
+			} else {
+				const download = page.waitForEvent('download');
+				await page.getByRole('button', { name: 'Save File' }).click();
+				expect((await download).suggestedFilename()).toBe('feedback.zip');
+			}
+
+			await page.getByRole('button', { name: 'Feedback list, 2 items' }).click();
+			await list.getByRole('button', { name: 'Remove item 1' }).click();
+			await list.getByRole('button', { name: 'Done' }).click();
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'JSON', exact: true }).click();
+			await page.getByRole('dialog', { name: 'Share JSON' }).waitFor();
+			expect((await report()).items.map((item: { text: string }) => item.text)).toEqual(['Smaller, like @1_ListRow']);
+			await page.getByRole('dialog', { name: 'Share JSON' }).getByRole('button', { name: 'Cancel' }).click();
+
+			await page.getByRole('button', { name: 'Close' }).click();
+			await editor(page).waitFor({ state: 'detached' });
+			expect(await covered()).toBe(false);
+			expect(errors).toEqual([]);
+			await context.close();
+		});
+	}
+}
+
+test('the pill leaves by itself after five seconds, and the shortcut restarts the timer', async () => {
+	const { page, context } = await open('chromium', 'dev', '/');
+	const pill = page.getByRole('button', { name: 'Add Feedback' });
+	await page.keyboard.press('Alt+Shift+F');
+	await pill.waitFor();
+	await page.waitForTimeout(3000);
+	await page.keyboard.press('Alt+Shift+F');
+	await page.waitForTimeout(3000);
+	expect(await pill.count()).toBe(1);
+	await page.waitForTimeout(2500);
+	expect(await pill.count()).toBe(0);
+	await context.close();
+}, 30_000);
+
+test('hovering shows which node a click would select', async () => {
+	const { page, context } = await open('chromium', 'dev', '/', { width: 1280, height: 800 });
+	await present(page);
+	const box = (await canvas(page).boundingBox())!;
+	await page.mouse.move(box.x + box.width / 2, box.y + (270 / 1280) * box.width);
+	expect(await page.locator('.box.hover').count()).toBe(1);
+	await context.close();
+});
+
+test('the screenshot zooms up to four times around the pointer', async () => {
+	const { page, context } = await open('chromium', 'dev', '/', { width: 1280, height: 800 });
+	await present(page);
+	const before = (await canvas(page).boundingBox())!;
+	await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
+	await page.keyboard.down('Control');
+	for (let step = 0; step < 30; step++) await page.mouse.wheel(0, -100);
+	await page.keyboard.up('Control');
+	const after = (await canvas(page).boundingBox())!;
+	expect(after.width / before.width).toBeCloseTo(4, 5);
+	await tap(page, 320 + 100, 270);
+	expect(await page.locator('.selected').innerText()).toBe('ListRow');
+	await context.close();
+});
+
+test('closing gives focus back to the field that had it', async () => {
+	const { page, context } = await open('chromium', 'dev', '/lists/groceries');
+	await page.getByRole('textbox', { name: 'New todo' }).fill('Kiwi');
+	await page.keyboard.press('Alt+Shift+F');
+	await page.getByRole('button', { name: 'Add Feedback' }).click();
+	await editor(page).waitFor();
+	await page.getByRole('button', { name: 'Close' }).click();
+	await editor(page).waitFor({ state: 'detached' });
+	expect(await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))).toBe('New todo');
+	await context.close();
+});
+
+test('leaving the page clears the pill at once', async () => {
+	const { page, context } = await open('chromium', 'dev', '/');
+	await page.keyboard.press('Alt+Shift+F');
+	await page.getByRole('button', { name: 'Add Feedback' }).waitFor();
+	await page.evaluate(() => {
+		Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+		document.dispatchEvent(new Event('visibilitychange'));
+	});
+	await page.getByRole('button', { name: 'Add Feedback' }).waitFor({ state: 'detached', timeout: 1000 });
+	await context.close();
+});
+
+test('posting to ProcrastiMate creates one task with the image and the JSON attached', async () => {
+	const { page, context, errors } = await open('chromium', 'dev', '/');
+	await present(page);
+	await tap(page, 100, 270);
+	await field(page).fill('Row is too tall');
+	await field(page).press('Enter');
+	await page.getByRole('button', { name: 'Share' }).click();
+	await page.getByRole('menuitem', { name: 'ProcrastiMate' }).click();
+
+	const sheet = page.getByRole('form', { name: 'Add to ProcrastiMate' });
+	const name = sheet.getByRole('textbox', { name: 'Task name' });
+	expect(await name.inputValue()).toBe('Lists Feedback: 1 change');
+	await sheet.getByRole('option', { name: 'Todo app' }).waitFor();
+	expect(await sheet.getByRole('option').allInnerTexts()).toEqual(['Inbox\n✓', 'Todo app', 'Later']);
+	await sheet.getByRole('option', { name: 'Todo app' }).click();
+	expect(await sheet.getByRole('option').allInnerTexts()).toEqual([
+		'Inbox',
+		'Todo app',
+		'No section\n✓',
+		'Bugs',
+		'Polish',
+		'Later',
+	]);
+	await sheet.getByRole('option', { name: 'Bugs' }).click();
+	await name.fill('Shorter rows');
+	await sheet.getByRole('button', { name: 'Add' }).click();
+
+	const toast = page.locator('.toast');
+	await toast.waitFor();
+	expect(await toast.innerText()).toBe('✓ Added to Todo app / Bugs in ProcrastiMate ↗');
+	expect(procrastimate.unauthorized).toBe(0);
+	expect(procrastimate.tasks.length).toBe(1);
+	const [task] = procrastimate.tasks;
+	expect({ title: task!.title, projectId: task!.projectId, sectionId: task!.sectionId }).toEqual({
+		title: 'Shorter rows',
+		projectId: 'p1',
+		sectionId: 's1',
+	});
+	const [image, report] = task!.attachments as {
+		id: string;
+		width?: number;
+		height?: number;
+		name?: string;
+		type?: string;
+		bytes?: number;
+	}[];
+	// The image export is 1,070 points wide at 2x, and the upload fits its width to 2,048 pixels.
+	expect(image!.width).toBe(2048);
+	expect(procrastimate.uploads.get(`${image!.id}/full`)!.type).toBe('image/jpeg');
+	expect(procrastimate.uploads.get(`${image!.id}/full`)!.bytes).toBeLessThanOrEqual(1_500_000);
+	expect(procrastimate.uploads.get(`${image!.id}/thumb`)!.bytes).toBeLessThanOrEqual(200_000);
+	expect({ name: report!.name, type: report!.type }).toEqual({ name: 'feedback.json', type: 'application/json' });
+	expect(procrastimate.uploads.get(`${report!.id}/part0`)).toEqual({
+		type: 'application/octet-stream',
+		bytes: report!.bytes!,
+	});
+
+	const popup = context.waitForEvent('page');
+	await toast.getByRole('button').click();
+	expect((await popup).url()).toBe('https://procrastimate.stf.lol/inbox?task=task-1');
+
+	await page.getByRole('button', { name: 'Close' }).click();
+	await editor(page).waitFor({ state: 'detached' });
+	expect(errors).toEqual([]);
+	await context.close();
+});
+
+test('a scroll container inside the page shows only what was on screen in it', async () => {
+	const { page, context } = await open('chromium', 'dev', '/catalog');
+	await page.locator('.featured').evaluate(node => node.scrollTo({ left: 150 }));
+	await present(page);
+	const report = await exportReport(page);
+	const carousel = report.nodes.find(node => node.name === 'Featured')!;
+	const plans = report.nodes.filter(node => node.parent === carousel.id);
+	// The carousel is 358 points wide and each plan 112 with an 8 point gap, so 150 points in, plans 2 to 5 show.
+	expect(plans.map(plan => plan.label)).toEqual(['Plan 2', 'Plan 3', 'Plan 4', 'Plan 5']);
+	expect(plans.map(plan => [plan.frame.x, plan.frame.width])).toEqual([
+		[16, 82],
+		[106, 112],
+		[226, 112],
+		[346, 28],
+	]);
+	await context.close();
+});

@@ -2,7 +2,6 @@ import { expect, test } from 'bun:test';
 import {
 	Annotations,
 	buildTree,
-	cut,
 	describe,
 	hitTest,
 	reportJSON,
@@ -115,12 +114,6 @@ test('children of a node that is left out move to the nearest node that stays, a
 	expect(outline(result)).toEqual(['0 - L0 Screen @0,0', '1 0 L0 Page @0,0', '2 1 L0 Text "Kept" @0,100']);
 	expect(result.nodes[1]!.frame).toEqual(frame(0, 0, 400, 800));
 	expect(result.nodes[2]!.frame).toEqual(frame(0, 100, 80, 20));
-});
-
-test('a capped capture ends between rows', () => {
-	const rows = [0, 1, 2, 3].map(index => frame(0, index * 100, 400, 90));
-	expect(cut(350, 100, rows)).toBe(300);
-	expect(cut(350, 100, [frame(0, 0, 400, 1000)])).toBeUndefined();
 });
 
 test('the JSON export holds the items and the whole tree with sorted keys', () => {

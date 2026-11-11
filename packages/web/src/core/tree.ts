@@ -115,17 +115,3 @@ export function buildTree(scene: RawScene): Node[] {
 	visit(0, null);
 	return nodes;
 }
-
-/**
- * Where a capture that reaches its height limit should end: the lowest y from `floor` down to `limit` that no frame
- * crosses, so the last row is whole. `undefined` when frames cover the whole range.
- */
-export function cut(limit: number, floor: number, frames: Frame[]): number | undefined {
-	const candidates = [
-		limit,
-		...frames.flatMap(frame => [frame.y, frame.y + frame.height]).filter(y => y > floor && y < limit),
-	];
-	return candidates
-		.toSorted((a, b) => b - a)
-		.find(y => !frames.some(frame => frame.y < y - 0.5 && frame.y + frame.height > y + 0.5));
-}
