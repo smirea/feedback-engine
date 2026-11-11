@@ -135,7 +135,16 @@ jobs:
           key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('bun.lock', 'bun.lockb') }}
       - name: Install browsers
         if: needs.changes.outputs.bun == 'true'
-        run: bunx playwright install --with-deps chromium webkit
+        # The runner's resolver has failed on Ubuntu's mirrors for whole jobs while other hosts resolved. apt then
+        # retries every package until the job's time limit. A public resolver stands in, and if that fails too the
+        # step stops at once.
+        run: |
+          if ! getent hosts archive.ubuntu.com security.ubuntu.com; then
+            sudo rm -f /etc/resolv.conf
+            printf 'nameserver 1.1.1.1\nnameserver 8.8.8.8\n' | sudo tee /etc/resolv.conf
+            getent hosts archive.ubuntu.com security.ubuntu.com
+          fi
+          bunx playwright install --with-deps chromium webkit
       - name: Browser tests
         if: needs.changes.outputs.bun == 'true'
         run: bun run test:web

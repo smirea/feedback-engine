@@ -5,6 +5,9 @@ export { addReact, feedbackEngineReact, sourceAttribute } from './react.js';
 
 const entry = '@smirea/feedback-engine/svelte';
 
+/** What `setupFeedbackEngine()` reads for the proxy's path. `editor/setup.ts` spells the same name. */
+const procrastimateDefine = 'import.meta.env.FEEDBACK_PROCRASTIMATE';
+
 /**
  * The name a tag gets without one: the file's, as `.feedback(self)` uses the type's on iOS. A SvelteKit route file is
  * named after its folder, so `routes/lists/[id]/+page.svelte` is `ListsIdPage`.
@@ -146,7 +149,11 @@ export function feedbackEngine(options = {}) {
 /**
  * A Vite plugin that lets the page post to ProcrastiMate. A browser on another origin cannot call ProcrastiMate, and a
  * token in the page would be public, so the dev and preview servers forward `path` to ProcrastiMate and add the
- * token there. Without a token the path answers 501, and the post says why.
+ * token there.
+ *
+ * The token is the switch. With one, the plugin tells the page where the proxy is, and the Share menu lists
+ * ProcrastiMate. Without one the page is told nothing, so the entry is not there. A page that names the path itself
+ * then gets a 501 that says why.
  *
  * @param {{ url?: string, token?: string, path?: string }} [options]
  */
@@ -185,6 +192,9 @@ export function feedbackProcrastimate(options = {}) {
 	};
 	return {
 		name: 'feedback-engine-procrastimate',
+		config() {
+			return { define: { [procrastimateDefine]: JSON.stringify(options.token ? path : '') } };
+		},
 		/** @param {import('vite').ViteDevServer} server */
 		configureServer(server) {
 			server.middlewares.use(handler);

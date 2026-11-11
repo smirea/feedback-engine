@@ -481,7 +481,7 @@ private struct ShareMenu: View {
 
     var body: some View {
         Menu {
-            ForEach(ShareTarget.allCases, id: \.self) { target in
+            ForEach(ShareTarget.available, id: \.self) { target in
                 Button(target.title, systemImage: target.systemImage) { share(target) }
             }
         } label: {

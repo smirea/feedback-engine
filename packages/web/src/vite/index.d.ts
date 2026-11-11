@@ -12,10 +12,14 @@ export function feedbackEngine(options?: {
 	root?: string;
 }): { name: string; markup(input: { content: string; filename?: string }): { code: string } | undefined };
 
-/** A Vite plugin that forwards `path` on the dev and preview servers to ProcrastiMate and adds the token there. */
+/**
+ * A Vite plugin that forwards `path` on the dev and preview servers to ProcrastiMate and adds the token there. With a
+ * token, the Share menu lists ProcrastiMate. Without one it does not.
+ */
 export function feedbackProcrastimate(options?: {
 	/** ProcrastiMate's origin. Defaults to `https://procrastimate.stf.lol`. */
 	url?: string;
+	/** A ProcrastiMate API token. Pass `process.env.PROCRASTIMATE_TOKEN`, so the entry shows only where it is set. */
 	token?: string;
 	/** Defaults to `/__feedback/procrastimate`. */
 	path?: string;

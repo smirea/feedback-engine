@@ -4,7 +4,7 @@
 
 Actions are pinned to commit SHAs. Dependabot checks for action updates weekly. A failure in change detection fails the task jobs too.
 
-Bun tasks run the root `lint:ci` and `typecheck`, `test`, and `build` scripts. The web task runs `test:web`, which drives `examples/todo-svelte` and `examples/todo-react` with Playwright in Chromium and WebKit, and two separate apps, one Svelte and one React, that install the packed package. It caches the browsers by lockfile. Keep CI checks read-only. `.bun-version` and `packageManager` pin Bun. Update them together. Commit `bun.lock` after changing dependencies. CI caches package downloads, then always installs with `--frozen-lockfile`.
+Bun tasks run the root `lint:ci` and `typecheck`, `test`, and `build` scripts. The web task runs `test:web`, which drives `examples/todo-svelte` and `examples/todo-react` with Playwright in Chromium and WebKit, and two separate apps, one Svelte and one React, that install the packed package. It caches the browsers by lockfile. Their system libraries come from Ubuntu's mirrors on every run. When the runner cannot resolve those mirrors, the step switches to a public resolver, or stops at once if that fails too. Keep CI checks read-only. `.bun-version` and `packageManager` pin Bun. Update them together. Commit `bun.lock` after changing dependencies. CI caches package downloads, then always installs with `--frozen-lockfile`.
 
 CI regenerates the ignored `.env.local` from the tracked `.env` defaults with the pinned env-manager. Keep the defaults harmless and complete enough for CI. Never commit `.env.local`.
 

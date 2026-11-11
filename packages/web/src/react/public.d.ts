@@ -13,7 +13,10 @@ export type FeedbackOptions = {
 	 * pill. `false` turns it off.
 	 */
 	shortcut?: string | false;
-	/** Adds ProcrastiMate to the Share menu. */
+	/**
+	 * Adds ProcrastiMate to the Share menu. Leave it out behind `feedbackProcrastimate()` from the Vite entry point,
+	 * which adds the entry by itself when it has a token. Set it for a proxy of your own.
+	 */
 	procrastimate?: {
 		/** Where ProcrastiMate's API answers: the Vite plugin's proxy path, or a server that allows this origin. */
 		url: string;
