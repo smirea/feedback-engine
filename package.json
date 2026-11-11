@@ -11,6 +11,10 @@
 	],
 	"type": "module",
 	"exports": {
+		"./react": {
+			"types": "./packages/web/src/react/public.d.ts",
+			"default": "./packages/web/src/react/index.ts"
+		},
 		"./svelte": {
 			"svelte": "./packages/web/src/svelte/index.ts",
 			"default": "./packages/web/src/svelte/index.ts"
@@ -22,15 +26,17 @@
 		"./core": "./packages/web/src/core/index.ts"
 	},
 	"scripts": {
-		"build": "bun --filter todo-svelte build",
+		"build": "bun --filter 'todo-*' build",
 		"dev": "bun --filter todo-svelte dev --host 127.0.0.1",
+		"dev:react": "bun --filter todo-react dev --host 127.0.0.1",
 		"env:generate": "env-manager gen --local",
 		"lint": "oxlint --fix && oxfmt --write .",
 		"lint:ci": "oxlint && oxfmt --check .",
 		"postinstall": "lefthook install",
 		"preview": "bun --filter todo-svelte preview --host 127.0.0.1",
+		"preview:react": "bun --filter todo-react preview --host 127.0.0.1",
 		"test": "bun test --pass-with-no-tests",
-		"typecheck": "bun --filter todo-svelte check && svelte-check-native --tsconfig ./packages/web/tsconfig.json && bun check",
+		"typecheck": "bun --filter 'todo-*' check && svelte-check-native --tsconfig ./packages/web/tsconfig.json && bun check",
 		"test:web": "bun test --timeout 120000 ./packages/web/e2e/feedback.e2e.ts ./packages/web/e2e/consumer.e2e.ts"
 	},
 	"dependencies": {
@@ -50,7 +56,9 @@
 		"pngjs": "^7.0.0",
 		"svelte": "^5.57.3",
 		"svelte-check-native": "^1.11.1",
-		"typescript": "^7.0.2"
+		"typescript": "^7.0.2",
+		"vite": "^8.3.4",
+		"zod": "^4.6.6"
 	},
 	"peerDependencies": {
 		"svelte": "^5.29.0"

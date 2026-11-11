@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """Replays Feedback's tap selection over a JSON export and reports where taps fall through.
 
-Usage: taps.py <feedback.json> [--step 8]
+Usage: taps.py <feedback.json> [--step 8] [--wrapper App]...
 
 A tap "falls through" when it selects the screen, a layer, or a component that is the root of
 its screen or layer, such as the screen view's own `.feedback(self)`. The report lists the
 fall-through share, the bands of the capture where most of a row falls through, and the
 elements that sit directly under a root, which are the usual candidates for a missing tag.
+
+React finds every component, so a component that wraps the whole app, such as `App`, sits
+above each screen's own component. Name it with --wrapper, and the components directly under
+it count as roots in its place.
 """
 import json
 import sys
@@ -45,8 +49,13 @@ def main():
         return min(candidates, key=lambda n: (area(n), -depth[n["id"]]))
 
     by_id = {n["id"]: n for n in nodes}
+    wrappers = {args[i + 1] for i, arg in enumerate(args[:-1]) if arg == "--wrapper"}
     roots = {0} | {n["id"] for n in nodes if n["kind"] == "layer"}
-    roots |= {n["id"] for n in nodes if n["kind"] == "component" and n.get("parent") in roots}
+    under = set(roots)
+    while under:
+        found = {n["id"] for n in nodes if n["kind"] == "component" and n.get("parent") in under} - roots
+        roots |= found
+        under = {i for i in found if by_id[i]["name"] in wrappers}
 
     def title(node):
         label = node.get("label")

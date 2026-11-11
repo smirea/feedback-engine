@@ -1,6 +1,8 @@
 import { basename, relative, sep } from 'node:path';
 import { parse } from 'svelte/compiler';
 
+export { addReact, feedbackEngineReact, sourceAttribute } from './react.js';
+
 const entry = '@smirea/feedback-engine/svelte';
 
 /**

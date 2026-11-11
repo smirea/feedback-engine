@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <title>Feedback Engine</title>
+  <g stroke-width="12" stroke-linejoin="miter">
+    <path stroke="#E5484D" d="M38 28h104l16 16v44l-16 16H86l-36 26v-26H38L22 88V44Z"/>
+    <path stroke="#0649DC" d="M114 134h104l16 16v44l-16 16h-12v26l-36-26h-56l-16-16v-44Z"/>
+  </g>
+</svg>

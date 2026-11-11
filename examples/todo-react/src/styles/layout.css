@@ -1,0 +1,156 @@
+@import 'tailwindcss';
+@import './theme.css';
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body {
+	margin: 0;
+	padding: 0;
+	min-height: 100%;
+	background: var(--app-bg);
+	color: var(--app-text);
+}
+
+button {
+	font: inherit;
+}
+
+@theme inline {
+	--font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
+	--font-mono: 'SFMono-Regular', ui-monospace, monospace;
+
+	--color-app: var(--app-bg);
+	--color-app-ink: var(--app-text);
+	--color-muted: var(--app-muted);
+	--color-panel: var(--app-panel);
+	--color-panel-ink: var(--app-panel-text);
+	--color-border: var(--app-border);
+	--color-accent: var(--app-accent);
+	--color-accent-ink: var(--app-accent-ink);
+	--color-error: var(--app-error);
+}
+
+@layer base {
+	:where(html, body, button, input, textarea, select) {
+		font-family: var(--font-sans);
+	}
+
+	:where(pre, code, kbd, samp) {
+		font-family: var(--font-mono);
+	}
+}
+
+body {
+	padding-bottom: 4.5rem;
+}
+
+.screen {
+	display: grid;
+	gap: 1.5rem;
+	width: min(100%, 40rem);
+	margin: 0 auto;
+	padding: 1.5rem 1rem 3rem;
+}
+
+.screen > .bar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+}
+
+.screen h1 {
+	margin: 0;
+	font-size: 2rem;
+	font-weight: 700;
+}
+
+.screen h2 {
+	margin: 0 0 0.5rem;
+	color: var(--app-muted);
+	font-size: 0.8125rem;
+	font-weight: 600;
+	text-transform: uppercase;
+}
+
+.card {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	border: 1px solid var(--app-border);
+	border-radius: 0.75rem;
+	background: var(--app-panel);
+	color: var(--app-panel-text);
+}
+
+.card > * + * {
+	border-top: 1px solid var(--app-border);
+}
+
+.button {
+	border: 1px solid var(--app-border);
+	border-radius: 0.375rem;
+	padding: 0.5rem 1rem;
+	background: transparent;
+	color: var(--app-text);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.button.primary {
+	border-color: var(--app-accent);
+	background: var(--app-accent);
+	color: var(--app-accent-ink);
+}
+
+.button.danger {
+	color: var(--app-error);
+}
+
+.field {
+	width: 100%;
+	border: 1px solid var(--app-border);
+	border-radius: 0.375rem;
+	padding: 0.5rem 0.75rem;
+	background: var(--app-bg);
+	color: var(--app-text);
+	font: inherit;
+}
+
+.muted {
+	color: var(--app-muted);
+	font-size: 0.875rem;
+}
+
+dialog.sheet {
+	width: min(100% - 2rem, 24rem);
+	margin: auto;
+	border: 1px solid var(--app-border);
+	border-radius: 0.75rem;
+	padding: 1.25rem;
+	background: var(--app-panel);
+	color: var(--app-panel-text);
+}
+
+dialog.sheet::backdrop {
+	background: rgb(0 0 0 / 0.5);
+}
+
+dialog.sheet h2 {
+	margin: 0 0 0.75rem;
+	font-size: 1.125rem;
+}
+
+dialog.sheet form {
+	display: grid;
+	gap: 0.75rem;
+}
+
+dialog.sheet .actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 0.5rem;
+}

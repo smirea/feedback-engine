@@ -1,6 +1,6 @@
 import { computeAccessibleName, getRole } from 'dom-accessibility-api';
 import { describe, type Frame, type Point, type RawNode, type RawScene } from '../core/index.ts';
-import { hostAttribute, tags } from './tags.ts';
+import { discovery, hostAttribute, sourceAttribute, tags, type Component } from './tags.ts';
 
 /** Roles whose content merges into one element, as VoiceOver reads a button as one stop. */
 const controls: Record<string, string> = {
@@ -48,6 +48,17 @@ export type FixedRoot = { element: HTMLElement; frame: Frame; layer: number; bac
 
 export type Scene = RawScene & { fixed: FixedRoot[] };
 
+const union = (a: Frame, b: Frame): Frame => {
+	const x = Math.min(a.x, b.x);
+	const y = Math.min(a.y, b.y);
+	return {
+		x,
+		y,
+		width: Math.max(a.x + a.width, b.x + b.width) - x,
+		height: Math.max(a.y + a.height, b.y + b.height) - y,
+	};
+};
+
 const intersect = (a: Frame, b: Frame): Frame => {
 	const x = Math.max(a.x, b.x);
 	const y = Math.max(a.y, b.y);
@@ -82,14 +93,17 @@ const normalized = (value: string | null | undefined) => (value ?? '').replace(/
 
 const isControl = (element: Element) => leaves.has(element.tagName) || (getRole(element) ?? '') in controls;
 
-/** The words of a text and of the formatting inside it. A control inside it, such as the field a label wraps, is its own element. */
+/**
+ * The words of a text and of the formatting inside it. A control inside it, such as the field a label wraps, is its own
+ * element. Neighboring text nodes join as they are, since React writes `{count}%` as two of them.
+ */
 function text(element: Element): string {
-	const parts: string[] = [];
+	let words = '';
 	for (const child of element.childNodes) {
-		if (child.nodeType === Node.TEXT_NODE) parts.push(child.textContent ?? '');
-		else if (child instanceof Element && !isControl(child)) parts.push(text(child));
+		if (child.nodeType === Node.TEXT_NODE) words += child.textContent ?? '';
+		else if (child instanceof Element && !isControl(child)) words += ` ${text(child)} `;
 	}
-	return normalized(parts.join(' '));
+	return normalized(words);
 }
 
 function label(element: Element, role: string) {
@@ -140,6 +154,29 @@ export function readScene(scroll: Point): Scene {
 		};
 	};
 
+	let discovered: Map<Element, Component[]> | undefined;
+	try {
+		discovered = discovery.read?.();
+	} catch (error) {
+		// The reader depends on a framework's internals. Without it the capture still has the elements and the tags.
+		console.warn("Feedback could not read the framework's components", error);
+	}
+	/** Where each component already is, by its roots and then by layer. Its later roots in that layer grow the same node. */
+	const placed = new Map<Element[], Map<number, number>>();
+
+	/** The components rooted at an element, outermost first: the ones the framework knows, then the element's own tag. */
+	const componentsAt = (element: Element, isLayer: boolean): Component[] => {
+		// A dialog or a menu is one root of the screen that opens it. That screen is not the layer, so only a component that draws nothing else is.
+		const found = (discovered?.get(element) ?? []).filter(component => !isLayer || component.roots.length === 1);
+		const tag = tags.get(element);
+		if (!tag) return found;
+		// A tag that repeats the name of a component rooted here adds data to it, such as state the framework does not expose.
+		const same = found.findLastIndex(component => component.tag.name === tag.name);
+		if (same === -1) return [...found, { tag, roots: [element] }];
+		const known = found[same]!;
+		return found.with(same, { tag: { ...known.tag, data: tag.data ?? known.tag.data }, roots: known.roots });
+	};
+
 	const add = (node: Omit<RawNode, 'frame'>, frame: Frame, clip: Frame | undefined) => {
 		const clipped = clip ? intersect(frame, clip) : frame;
 		if (!clipped.width || !clipped.height) return null;
@@ -178,18 +215,32 @@ export function readScene(scroll: Point): Scene {
 		const frame = frameOf(element, fixed);
 		const visible = style.visibility === 'visible';
 		const hidden = merged === 'all' || element.getAttribute('aria-hidden') === 'true' || element.hasAttribute('inert');
-		const source = (element as SvelteElement).__svelte_meta?.loc;
+		const location = (element as SvelteElement).__svelte_meta?.loc;
+		const source = location
+			? `${location.file}:${location.line}`
+			: (element.getAttribute(sourceAttribute) ?? undefined);
 
-		const tag = tags.get(element);
-		if (tag && visible) {
+		for (const component of visible ? componentsAt(element, isLayer) : []) {
+			const { tag } = component;
+			const layers = placed.get(component.roots) ?? new Map<number, number>();
+			placed.set(component.roots, layers);
+			const index = layers.get(layer);
+			if (index !== undefined) {
+				const clipped = clip ? intersect(frame, clip) : frame;
+				if (clipped.width && clipped.height) scene.nodes[index]!.frame = union(scene.nodes[index]!.frame, clipped);
+				parent = index;
+				continue;
+			}
 			let data: string | undefined;
 			try {
 				data = tag.data ? describe(tag.data()) : undefined;
 			} catch (error) {
 				console.warn(`Feedback could not read the data of ${tag.name}`, error);
 			}
-			parent =
-				add({ parent, layer, kind: 'component', name: tag.name, source: tag.source, data }, frame, clip) ?? parent;
+			const added = add({ parent, layer, kind: 'component', name: tag.name, source: tag.source, data }, frame, clip);
+			if (added === null) continue;
+			layers.set(layer, added);
+			parent = added;
 		}
 
 		if (visible && !hidden) {
@@ -207,7 +258,7 @@ export function readScene(scroll: Point): Scene {
 						kind: 'element',
 						name: name ?? 'Text',
 						label: name ? label(element, role) : text(element),
-						source: source && `${source.file}:${source.line}`,
+						source,
 					},
 					frame,
 					clip,

@@ -3,20 +3,26 @@ import { join } from 'node:path';
 import pixelmatch from 'pixelmatch';
 import { chromium, webkit, type Browser, type BrowserContext, type Page } from 'playwright';
 import { PNG } from 'pngjs';
-import env from '../../../examples/todo-svelte/env.ts';
-import type { FeedbackEngine } from '../src/svelte/index.ts';
+import env from '../../../env.ts';
+import type { FeedbackEngine } from '../src/editor/setup.ts';
 
 export const root = join(import.meta.dir, '../../..');
-const example = join(root, 'examples/todo-svelte');
+
+// Beside the ports `bun run dev` and `bun run dev:react` use, so the tests run while an example app is open.
+const apps = {
+	svelte: { folder: 'examples/todo-svelte', dev: env.UI_PORT + 1, preview: env.UI_PORT + 2 },
+	react: { folder: 'examples/todo-react', dev: env.UI_PORT + 6, preview: env.UI_PORT + 7 },
+};
+export type AppName = keyof typeof apps;
+export const appNames = Object.keys(apps) as AppName[];
 
 export type Mode = 'dev' | 'preview';
 export const modes: Mode[] = ['dev', 'preview'];
 export const engines = { chromium, webkit };
 export type EngineName = keyof typeof engines;
 
-// Beside the port `bun run dev` uses, so the tests run while the example app is open.
-const ports = { dev: env.UI_PORT + 1, preview: env.UI_PORT + 2, procrastimate: env.UI_PORT + 3 };
-export const url = (mode: Mode, path = '/') => `http://127.0.0.1:${ports[mode]}${path}`;
+const procrastimatePort = env.UI_PORT + 3;
+export const url = (app: AppName, mode: Mode, path = '/') => `http://127.0.0.1:${apps[app][mode]}${path}`;
 
 /** A stand-in for ProcrastiMate's agent API that keeps what it was sent. The dev server's proxy forwards to it. */
 export const procrastimate = {
@@ -92,9 +98,9 @@ export async function startServers() {
 		stdout: 'pipe',
 		stderr: 'pipe',
 	});
-	if (build.exitCode !== 0) throw new Error(`The example app did not build:\n${build.stderr}`);
-	stand = serveProcrastimate(ports.procrastimate);
-	for (const mode of modes) {
+	if (build.exitCode !== 0) throw new Error(`The example apps did not build:\n${build.stdout}${build.stderr}`);
+	stand = serveProcrastimate(procrastimatePort);
+	for (const [app, mode] of appNames.flatMap(name => modes.map(each => [name, each] as const))) {
 		const child = spawn(
 			'bun',
 			[
@@ -106,15 +112,15 @@ export async function startServers() {
 				'--host',
 				'127.0.0.1',
 				'--port',
-				String(ports[mode]),
+				String(apps[app][mode]),
 				'--strictPort',
 			],
 			{
-				cwd: example,
+				cwd: join(root, apps[app].folder),
 				stdio: 'pipe',
 				env: {
 					...process.env,
-					PROCRASTIMATE_URL: `http://127.0.0.1:${ports.procrastimate}`,
+					PROCRASTIMATE_URL: `http://127.0.0.1:${procrastimatePort}`,
 					PROCRASTIMATE_TOKEN: procrastimate.token,
 				},
 			},
@@ -125,13 +131,13 @@ export async function startServers() {
 		servers.push(child);
 		for (let attempt = 0; ; attempt++) {
 			if (
-				await fetch(url(mode)).then(
+				await fetch(url(app, mode)).then(
 					response => response.ok,
 					() => false,
 				)
 			)
 				break;
-			if (attempt === 150) throw new Error(`The ${mode} server did not start:\n${log}`);
+			if (attempt === 150) throw new Error(`The ${mode} server of ${app} did not start:\n${log}`);
 			await Bun.sleep(100);
 		}
 	}
@@ -145,8 +151,9 @@ export async function stopServers() {
 
 export type Opened = { page: Page; context: BrowserContext; errors: string[] };
 
-/** Opens a page of the example app. `errors` collects page errors and console errors, which every test expects to stay empty. */
+/** Opens a page of an example app. `errors` collects page errors and console errors, which every test expects to stay empty. */
 export async function open(
+	app: AppName,
 	engine: EngineName,
 	mode: Mode,
 	path: string,
@@ -161,7 +168,7 @@ export async function open(
 	page.on('console', message => {
 		if (message.type() === 'error') errors.push(message.text());
 	});
-	await page.goto(url(mode, path));
+	await page.goto(url(app, mode, path));
 	await page.getByRole('heading', { level: 1 }).waitFor();
 	return { page, context, errors };
 }

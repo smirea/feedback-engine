@@ -27,7 +27,7 @@
 		"**/generated",
 		"**/*.generated.ts",
 		"**/*.gen.ts",
-		"examples/todo-svelte/env.ts",
+		"env.ts",
 		".build",
 		"DerivedData"
 	]
