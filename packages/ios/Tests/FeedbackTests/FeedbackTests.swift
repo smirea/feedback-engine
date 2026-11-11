@@ -859,3 +859,145 @@ private indirect enum Chain {
     #expect(two.summarized("\"Bigger done button, lighter screen.\"\nThat covers both.") == "2 Groceries Feedback: Bigger done button, lighter screen")
     #expect(two.summarized(" \n") == nil)
 }
+
+/// `spec/fixtures/capture.json`: one built tree with the answers every platform must give for it.
+/// The web package's `fixtures.test.ts` reads the same file.
+private struct Fixture: Decodable {
+    struct Rect: Decodable {
+        let x, y, width, height: CGFloat
+        var cgRect: CGRect { CGRect(x: x, y: y, width: width, height: height) }
+    }
+
+    struct Point: Decodable {
+        let x, y: CGFloat
+    }
+
+    struct Size: Decodable {
+        let width, height: CGFloat
+    }
+
+    struct Entry: Decodable {
+        let name, value: String
+    }
+
+    struct TreeNode: Decodable {
+        let id: Int
+        let parent: Int?
+        let layer: Int
+        let kind, name: String
+        let label, source, data: String?
+        let frame: Rect
+    }
+
+    struct Step: Decodable {
+        let submit: String?
+        let on: Int?
+        let reference: Int?
+    }
+
+    struct Cards: Decodable {
+        let targets: [Rect]
+        let heights: [CGFloat]
+        let environmentHeight: CGFloat
+    }
+
+    struct Layout: Decodable {
+        struct Card: Decodable {
+            let isLeft: Bool
+            let origin: Point
+        }
+
+        let shot: Rect
+        let cards: [Card]
+        let environment: Point
+        let size: Size
+    }
+
+    struct Title: Decodable {
+        let placeholder, prompt, summarized: String
+    }
+
+    struct Expected: Decodable {
+        let hitTests: [Int]
+        let similar: [[Int]]
+        let colorIndexes: [Int]
+        let cards: Layout
+        let taskTitle: Title
+    }
+
+    let captured: Date
+    let size: Size
+    let visible: Rect
+    let screenName: String
+    let environment, context: [Entry]
+    let nodes: [TreeNode]
+    let annotate: [Step]
+    let hitTests: [[CGFloat]]
+    let similar: [Int]
+    let segments: String
+    let cards: Cards
+    let summary: String
+    let expected: Expected
+}
+
+@Test func theSharedFixtureGivesTheSameAnswersAsOnTheWeb() throws {
+    let url = URL(fileURLWithPath: #filePath).appending(path: "../../../../../spec/fixtures/capture.json").standardized
+    let data = try Data(contentsOf: url)
+    let decoder = JSONDecoder()
+    decoder.dateDecodingStrategy = .iso8601
+    let fixture = try decoder.decode(Fixture.self, from: data)
+    let raw = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+    let expected = try #require(raw["expected"] as? [String: Any])
+
+    let nodes = fixture.nodes.map { node in
+        let kind: Node.Kind = switch node.kind {
+        case "screen": .screen
+        case "layer": .layer
+        case "component":
+            {
+                let parts = node.source!.split(separator: ":")
+                return .component(CodeLocation(file: String(parts[0]), line: Int(parts[1])!))
+            }()
+        default: .element(role: node.name)
+        }
+        return Node(id: node.id, parent: node.parent, layer: node.layer, kind: kind, name: node.name, label: node.label, frame: node.frame.cgRect, data: node.data)
+    }
+    let context = CGContext(data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    let screen = CGSize(width: fixture.size.width, height: fixture.size.height)
+    let capture = Capture(
+        date: fixture.captured, screen: screen, visible: fixture.visible.cgRect, scale: 1, image: context.makeImage()!, nodes: nodes,
+        environment: fixture.environment.map { ContextEntry(name: $0.name, value: $0.value) },
+        context: fixture.context.map { ContextEntry(name: $0.name, value: $0.value) },
+        screenName: fixture.screenName
+    )
+
+    var annotations = Annotations()
+    for step in fixture.annotate {
+        if let text = step.submit, let target = step.on {
+            annotations.submit(text, on: target)
+        } else if let node = step.reference {
+            _ = annotations.reference(nodes[node])
+        }
+    }
+
+    #expect(fixture.hitTests.map { capture.hitTest(CGPoint(x: $0[0], y: $0[1])) } == fixture.expected.hitTests)
+    #expect(fixture.similar.map { capture.similar(to: $0) } == fixture.expected.similar)
+    #expect(nodes.map { annotations.colorIndex(of: $0.id) } == fixture.expected.colorIndexes)
+    let segments = annotations.segments(fixture.segments).map { [$0.text, $0.reference?.number ?? 0] as NSArray }
+    #expect(segments as NSArray == expected["segments"] as? NSArray)
+
+    let report = try #require(JSONSerialization.jsonObject(with: Data(Report.json(capture, annotations).utf8)) as? NSDictionary)
+    #expect(report == expected["report"] as? NSDictionary)
+
+    let layout = CardLayout.place(targets: fixture.cards.targets.map(\.cgRect), heights: fixture.cards.heights, screen: screen, environmentHeight: fixture.cards.environmentHeight)
+    let wanted = fixture.expected.cards
+    #expect(layout.shot == wanted.shot.cgRect)
+    #expect(layout.cards == wanted.cards.map { .init(isLeft: $0.isLeft, origin: CGPoint(x: $0.origin.x, y: $0.origin.y)) })
+    #expect(layout.environment == CGPoint(x: wanted.environment.x, y: wanted.environment.y))
+    #expect(layout.size == CGSize(width: wanted.size.width, height: wanted.size.height))
+
+    let title = TaskTitle(capture, items: annotations.items)
+    #expect(title.placeholder == fixture.expected.taskTitle.placeholder)
+    #expect(title.prompt == fixture.expected.taskTitle.prompt)
+    #expect(title.summarized(fixture.summary) == fixture.expected.taskTitle.summarized)
+}

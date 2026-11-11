@@ -8,7 +8,7 @@ function problems(markdown: string) {
 	const found: string[] = [];
 	const seen = new Set<string>();
 	let columns: string[] = [];
-	for (const line of markdown.split('\n').map(line => line.trim())) {
+	for (const line of markdown.split('\n').map(row => row.trim())) {
 		if (!line.startsWith('|')) continue;
 		const cells = line
 			.slice(1, -1)

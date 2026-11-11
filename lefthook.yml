@@ -18,6 +18,10 @@ pre-commit:
           - name: test
             glob: '*.{js,mjs,mts,ts,tsx}'
             run: bun --no-env-file scripts/test-changed.ts {staged_files}
+          # The browser tests reach the package through the example app's dev server, which test-changed's import walk cannot see.
+          - name: web
+            glob: '{packages/web,examples/todo-svelte}/**'
+            run: bun --no-env-file run test:web
           # test-changed follows imports, and the features check reads its table from disk.
           - name: spec
             glob: 'spec/*.md'

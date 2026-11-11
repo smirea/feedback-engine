@@ -14,7 +14,7 @@
 		"skipLibCheck": true,
 		"strict": true,
 		"target": "ESNext",
-		"types": ["bun"],
+		"types": ["bun", "svelte"],
 		"verbatimModuleSyntax": true
 	},
 	// The example app checks itself. The root covers the repo scripts, the spec, and the web package. TypeScript's wildcards skip dot folders, so those are listed by name.

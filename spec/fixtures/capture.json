@@ -1,0 +1,726 @@
+{
+	"captured": "2026-05-01T12:00:00Z",
+	"size": {
+		"width": 400,
+		"height": 800
+	},
+	"visible": {
+		"x": 0,
+		"y": 0,
+		"width": 400,
+		"height": 800
+	},
+	"screenName": "Groceries",
+	"environment": [
+		{
+			"name": "App",
+			"value": "Demo"
+		},
+		{
+			"name": "Locale",
+			"value": "en_US"
+		}
+	],
+	"context": [
+		{
+			"name": "Store",
+			"value": "Store(count: 2)"
+		}
+	],
+	"nodes": [
+		{
+			"id": 0,
+			"parent": null,
+			"layer": 0,
+			"kind": "screen",
+			"name": "Screen",
+			"frame": {
+				"x": 0,
+				"y": 0,
+				"width": 400,
+				"height": 800
+			}
+		},
+		{
+			"id": 1,
+			"parent": 0,
+			"layer": 0,
+			"kind": "component",
+			"name": "ListScreen",
+			"frame": {
+				"x": 0,
+				"y": 0,
+				"width": 400,
+				"height": 800
+			},
+			"source": "App/ListScreen.swift:12",
+			"data": "filter: open"
+		},
+		{
+			"id": 2,
+			"parent": 1,
+			"layer": 0,
+			"kind": "element",
+			"name": "Header",
+			"label": "My Lists",
+			"frame": {
+				"x": 16,
+				"y": 60,
+				"width": 200,
+				"height": 24
+			}
+		},
+		{
+			"id": 3,
+			"parent": 1,
+			"layer": 0,
+			"kind": "component",
+			"name": "Row",
+			"frame": {
+				"x": 0,
+				"y": 100,
+				"width": 400,
+				"height": 44
+			},
+			"source": "App/Row.swift:40"
+		},
+		{
+			"id": 4,
+			"parent": 3,
+			"layer": 0,
+			"kind": "element",
+			"name": "Button",
+			"label": "Done",
+			"frame": {
+				"x": 10,
+				"y": 110,
+				"width": 24,
+				"height": 24
+			}
+		},
+		{
+			"id": 5,
+			"parent": 3,
+			"layer": 0,
+			"kind": "element",
+			"name": "Text",
+			"label": "Milk",
+			"frame": {
+				"x": 50,
+				"y": 110,
+				"width": 200,
+				"height": 24
+			}
+		},
+		{
+			"id": 6,
+			"parent": 3,
+			"layer": 0,
+			"kind": "element",
+			"name": "Button",
+			"label": "Info",
+			"frame": {
+				"x": 360,
+				"y": 110,
+				"width": 24,
+				"height": 24
+			}
+		},
+		{
+			"id": 7,
+			"parent": 1,
+			"layer": 0,
+			"kind": "component",
+			"name": "Row",
+			"frame": {
+				"x": 0,
+				"y": 150,
+				"width": 400,
+				"height": 44
+			},
+			"source": "App/Row.swift:40"
+		},
+		{
+			"id": 8,
+			"parent": 7,
+			"layer": 0,
+			"kind": "element",
+			"name": "Button",
+			"label": "Done",
+			"frame": {
+				"x": 10,
+				"y": 160,
+				"width": 24,
+				"height": 24
+			}
+		},
+		{
+			"id": 9,
+			"parent": 7,
+			"layer": 0,
+			"kind": "element",
+			"name": "Text",
+			"label": "Eggs",
+			"frame": {
+				"x": 50,
+				"y": 160,
+				"width": 200,
+				"height": 24
+			}
+		},
+		{
+			"id": 10,
+			"parent": 7,
+			"layer": 0,
+			"kind": "element",
+			"name": "Button",
+			"label": "Info",
+			"frame": {
+				"x": 360,
+				"y": 160,
+				"width": 24,
+				"height": 24
+			}
+		},
+		{
+			"id": 11,
+			"parent": 1,
+			"layer": 0,
+			"kind": "component",
+			"name": "Row",
+			"frame": {
+				"x": 0,
+				"y": 200,
+				"width": 400,
+				"height": 44
+			},
+			"source": "App/Row.swift:40"
+		},
+		{
+			"id": 12,
+			"parent": 11,
+			"layer": 0,
+			"kind": "element",
+			"name": "Button",
+			"label": "Done",
+			"frame": {
+				"x": 10,
+				"y": 210,
+				"width": 24,
+				"height": 24
+			}
+		},
+		{
+			"id": 13,
+			"parent": 11,
+			"layer": 0,
+			"kind": "element",
+			"name": "Text",
+			"label": "Bread",
+			"frame": {
+				"x": 50,
+				"y": 210.25,
+				"width": 200,
+				"height": 24
+			}
+		},
+		{
+			"id": 14,
+			"parent": 0,
+			"layer": 1,
+			"kind": "layer",
+			"name": "Sheet",
+			"frame": {
+				"x": 0,
+				"y": 400,
+				"width": 400,
+				"height": 400
+			}
+		},
+		{
+			"id": 15,
+			"parent": 14,
+			"layer": 1,
+			"kind": "component",
+			"name": "EditSheet",
+			"frame": {
+				"x": 0,
+				"y": 400,
+				"width": 400,
+				"height": 400
+			},
+			"source": "App/EditSheet.swift:8",
+			"data": "title: Milk\nisDone: false"
+		},
+		{
+			"id": 16,
+			"parent": 15,
+			"layer": 1,
+			"kind": "element",
+			"name": "Button",
+			"label": "Save",
+			"frame": {
+				"x": 300,
+				"y": 410,
+				"width": 80,
+				"height": 36
+			}
+		},
+		{
+			"id": 17,
+			"parent": 15,
+			"layer": 1,
+			"kind": "element",
+			"name": "Text field",
+			"label": "Title, Milk",
+			"frame": {
+				"x": 16,
+				"y": 450,
+				"width": 368,
+				"height": 36
+			}
+		}
+	],
+	"annotate": [
+		{
+			"submit": "Make it bigger",
+			"on": 6
+		},
+		{
+			"reference": 3
+		},
+		{
+			"submit": "Align with @1_Row and @2_Nope",
+			"on": 17
+		},
+		{
+			"reference": 4
+		},
+		{
+			"submit": "Move @2_Button left\nof the title",
+			"on": 1
+		},
+		{
+			"reference": 14
+		}
+	],
+	"hitTests": [
+		[370, 120],
+		[20, 120],
+		[200, 300],
+		[200, 500],
+		[30, 460],
+		[20, 70],
+		[200, 130]
+	],
+	"similar": [6, 4, 3, 2, 16],
+	"segments": "See @1_Row, @1_Rows, @3_Sheet and @9_Row",
+	"cards": {
+		"targets": [
+			{
+				"x": 0,
+				"y": 50,
+				"width": 60,
+				"height": 44
+			},
+			{
+				"x": 350,
+				"y": 50,
+				"width": 44,
+				"height": 44
+			},
+			{
+				"x": 0,
+				"y": 600,
+				"width": 400,
+				"height": 100
+			}
+		],
+		"heights": [60, 60, 60],
+		"environmentHeight": 150
+	},
+	"summary": "\"Bigger info button, aligned title.\"\nThat covers all.",
+	"expected": {
+		"hitTests": [6, 4, 1, 15, 17, 2, 5],
+		"similar": [[10], [8, 12], [7, 11], [], []],
+		"colorIndexes": [6, 4, 6, 1, 3, 6, 0, 6, 6, 6, 6, 6, 6, 6, 5, 6, 6, 2],
+		"segments": [
+			["See ", 0],
+			["@1_Row", 1],
+			[", @1_Rows, ", 0],
+			["@3_Sheet", 3],
+			[" and @9_Row", 0]
+		],
+		"report": {
+			"app": "Demo",
+			"captured": "2026-05-01T12:00:00Z",
+			"size": {
+				"width": 400,
+				"height": 800
+			},
+			"visible": {
+				"x": 0,
+				"y": 0,
+				"width": 400,
+				"height": 800
+			},
+			"environment": [
+				{
+					"name": "App",
+					"value": "Demo"
+				},
+				{
+					"name": "Locale",
+					"value": "en_US"
+				}
+			],
+			"items": [
+				{
+					"number": 1,
+					"text": "Make it bigger",
+					"target": 6,
+					"title": "Button \"Info\"",
+					"path": [0, 1, 3, 6],
+					"code": "App/Row.swift:40"
+				},
+				{
+					"number": 2,
+					"text": "Align with @1_Row and @2_Nope",
+					"target": 17,
+					"title": "Text field \"Title, Milk\"",
+					"path": [0, 14, 15, 17],
+					"code": "App/EditSheet.swift:8"
+				},
+				{
+					"number": 3,
+					"text": "Move @2_Button left\nof the title",
+					"target": 1,
+					"title": "ListScreen",
+					"path": [0, 1],
+					"code": "App/ListScreen.swift:12"
+				}
+			],
+			"references": [
+				{
+					"number": 1,
+					"token": "@1_Row",
+					"target": 3,
+					"title": "Row",
+					"path": [0, 1, 3],
+					"code": "App/Row.swift:40"
+				},
+				{
+					"number": 2,
+					"token": "@2_Button",
+					"target": 4,
+					"title": "Button \"Done\"",
+					"path": [0, 1, 3, 4],
+					"code": "App/Row.swift:40"
+				}
+			],
+			"context": [
+				{
+					"name": "Store",
+					"value": "Store(count: 2)"
+				}
+			],
+			"nodes": [
+				{
+					"id": 0,
+					"layer": 0,
+					"kind": "screen",
+					"name": "Screen",
+					"frame": {
+						"x": 0,
+						"y": 0,
+						"width": 400,
+						"height": 800
+					}
+				},
+				{
+					"id": 1,
+					"parent": 0,
+					"layer": 0,
+					"kind": "component",
+					"name": "ListScreen",
+					"frame": {
+						"x": 0,
+						"y": 0,
+						"width": 400,
+						"height": 800
+					},
+					"source": "App/ListScreen.swift:12",
+					"data": "filter: open"
+				},
+				{
+					"id": 2,
+					"parent": 1,
+					"layer": 0,
+					"kind": "element",
+					"name": "Header",
+					"label": "My Lists",
+					"frame": {
+						"x": 16,
+						"y": 60,
+						"width": 200,
+						"height": 24
+					}
+				},
+				{
+					"id": 3,
+					"parent": 1,
+					"layer": 0,
+					"kind": "component",
+					"name": "Row",
+					"frame": {
+						"x": 0,
+						"y": 100,
+						"width": 400,
+						"height": 44
+					},
+					"source": "App/Row.swift:40"
+				},
+				{
+					"id": 4,
+					"parent": 3,
+					"layer": 0,
+					"kind": "element",
+					"name": "Button",
+					"label": "Done",
+					"frame": {
+						"x": 10,
+						"y": 110,
+						"width": 24,
+						"height": 24
+					}
+				},
+				{
+					"id": 5,
+					"parent": 3,
+					"layer": 0,
+					"kind": "element",
+					"name": "Text",
+					"label": "Milk",
+					"frame": {
+						"x": 50,
+						"y": 110,
+						"width": 200,
+						"height": 24
+					}
+				},
+				{
+					"id": 6,
+					"parent": 3,
+					"layer": 0,
+					"kind": "element",
+					"name": "Button",
+					"label": "Info",
+					"frame": {
+						"x": 360,
+						"y": 110,
+						"width": 24,
+						"height": 24
+					}
+				},
+				{
+					"id": 7,
+					"parent": 1,
+					"layer": 0,
+					"kind": "component",
+					"name": "Row",
+					"frame": {
+						"x": 0,
+						"y": 150,
+						"width": 400,
+						"height": 44
+					},
+					"source": "App/Row.swift:40"
+				},
+				{
+					"id": 8,
+					"parent": 7,
+					"layer": 0,
+					"kind": "element",
+					"name": "Button",
+					"label": "Done",
+					"frame": {
+						"x": 10,
+						"y": 160,
+						"width": 24,
+						"height": 24
+					}
+				},
+				{
+					"id": 9,
+					"parent": 7,
+					"layer": 0,
+					"kind": "element",
+					"name": "Text",
+					"label": "Eggs",
+					"frame": {
+						"x": 50,
+						"y": 160,
+						"width": 200,
+						"height": 24
+					}
+				},
+				{
+					"id": 10,
+					"parent": 7,
+					"layer": 0,
+					"kind": "element",
+					"name": "Button",
+					"label": "Info",
+					"frame": {
+						"x": 360,
+						"y": 160,
+						"width": 24,
+						"height": 24
+					}
+				},
+				{
+					"id": 11,
+					"parent": 1,
+					"layer": 0,
+					"kind": "component",
+					"name": "Row",
+					"frame": {
+						"x": 0,
+						"y": 200,
+						"width": 400,
+						"height": 44
+					},
+					"source": "App/Row.swift:40"
+				},
+				{
+					"id": 12,
+					"parent": 11,
+					"layer": 0,
+					"kind": "element",
+					"name": "Button",
+					"label": "Done",
+					"frame": {
+						"x": 10,
+						"y": 210,
+						"width": 24,
+						"height": 24
+					}
+				},
+				{
+					"id": 13,
+					"parent": 11,
+					"layer": 0,
+					"kind": "element",
+					"name": "Text",
+					"label": "Bread",
+					"frame": {
+						"x": 50,
+						"y": 210.3,
+						"width": 200,
+						"height": 24
+					}
+				},
+				{
+					"id": 14,
+					"parent": 0,
+					"layer": 1,
+					"kind": "layer",
+					"name": "Sheet",
+					"frame": {
+						"x": 0,
+						"y": 400,
+						"width": 400,
+						"height": 400
+					}
+				},
+				{
+					"id": 15,
+					"parent": 14,
+					"layer": 1,
+					"kind": "component",
+					"name": "EditSheet",
+					"frame": {
+						"x": 0,
+						"y": 400,
+						"width": 400,
+						"height": 400
+					},
+					"source": "App/EditSheet.swift:8",
+					"data": "title: Milk\nisDone: false"
+				},
+				{
+					"id": 16,
+					"parent": 15,
+					"layer": 1,
+					"kind": "element",
+					"name": "Button",
+					"label": "Save",
+					"frame": {
+						"x": 300,
+						"y": 410,
+						"width": 80,
+						"height": 36
+					}
+				},
+				{
+					"id": 17,
+					"parent": 15,
+					"layer": 1,
+					"kind": "element",
+					"name": "Text field",
+					"label": "Title, Milk",
+					"frame": {
+						"x": 16,
+						"y": 450,
+						"width": 368,
+						"height": 36
+					}
+				}
+			]
+		},
+		"cards": {
+			"shot": {
+				"x": 340,
+				"y": 24,
+				"width": 400,
+				"height": 800
+			},
+			"cards": [
+				{
+					"isLeft": true,
+					"origin": {
+						"x": 24,
+						"y": 66
+					}
+				},
+				{
+					"isLeft": false,
+					"origin": {
+						"x": 776,
+						"y": 66
+					}
+				},
+				{
+					"isLeft": true,
+					"origin": {
+						"x": 24,
+						"y": 644
+					}
+				}
+			],
+			"environment": {
+				"x": 776,
+				"y": 150
+			},
+			"size": {
+				"width": 1080,
+				"height": 848
+			}
+		},
+		"taskTitle": {
+			"placeholder": "Groceries Feedback: 3 changes",
+			"prompt": "- On Button \"Info\": Make it bigger\n- On Text field \"Title, Milk\": Align with @1_Row and @2_Nope\n- On ListScreen: Move @2_Button left of the title",
+			"summarized": "3 Groceries Feedback: Bigger info button, aligned title"
+		}
+	}
+}

@@ -1,0 +1,77 @@
+import type { Frame, Point, Size } from './model.ts';
+
+export const cards = {
+	margin: 24,
+	column: 280,
+	gutter: 36,
+	spacing: 12,
+	badge: 20,
+	padding: 10,
+	rightColumnPenalty: 80,
+};
+
+export type Card = { isLeft: boolean; origin: Point };
+export type Layout = { shot: Frame; cards: Card[]; environment: Point; size: Size };
+
+/** From the card's badge to the nearest side of the target, at the badge's height when the target spans it. */
+export function line(card: Card, target: Frame): { start: Point; end: Point } {
+	const start = {
+		x: card.isLeft ? card.origin.x + cards.column : card.origin.x,
+		y: card.origin.y + cards.padding + cards.badge / 2,
+	};
+	const end = {
+		x: card.isLeft ? target.x : target.x + target.width,
+		y: Math.min(Math.max(start.y, target.y + 2), target.y + target.height - 2),
+	};
+	return { start, end };
+}
+
+const length = (card: Card, target: Frame) => {
+	const { start, end } = line(card, target);
+	return Math.hypot(end.x - start.x, end.y - start.y);
+};
+
+/**
+ * Where the image export puts each item's card. A card sits in the left column, as level with its target as the cards
+ * above it allow. It moves to the right column when that makes its line to the target at least `rightColumnPenalty`
+ * points shorter, as for a button at the right edge. The environment then takes the first gap in the right column
+ * that is tall enough, from the top. `targets` are frames in the capture. The layout's frames are in the image.
+ */
+export function place(targets: Frame[], heights: number[], screen: Size, environmentHeight: number): Layout {
+	const { margin, column, gutter, spacing, rightColumnPenalty } = cards;
+	const shot = { x: margin + column + gutter, y: margin, width: screen.width, height: screen.height };
+	const rightX = shot.x + shot.width + gutter;
+	const moved = targets.map(target => ({ ...target, x: target.x + shot.x, y: target.y + shot.y }));
+	const midY = (index: number) => moved[index]!.y + moved[index]!.height / 2;
+	const placed: Card[] = moved.map(() => ({ isLeft: true, origin: { x: 0, y: 0 } }));
+	let nextLeft = margin;
+	let nextRight = margin;
+	const order = moved.map((_, index) => index).toSorted((a, b) => midY(a) - midY(b) || a - b);
+	for (const index of order) {
+		const desired = Math.max(midY(index) - heights[index]! / 2, margin);
+		const left: Card = { isLeft: true, origin: { x: margin, y: Math.max(desired, nextLeft) } };
+		const right: Card = { isLeft: false, origin: { x: rightX, y: Math.max(desired, nextRight) } };
+		const card = length(left, moved[index]!) - length(right, moved[index]!) >= rightColumnPenalty ? right : left;
+		placed[index] = card;
+		if (card.isLeft) nextLeft = card.origin.y + heights[index]! + spacing;
+		else nextRight = card.origin.y + heights[index]! + spacing;
+	}
+
+	let environmentY = margin;
+	const rightCards = placed
+		.map((card, index) => ({ card, index }))
+		.filter(({ card }) => !card.isLeft)
+		.toSorted((a, b) => a.card.origin.y - b.card.origin.y);
+	for (const { card, index } of rightCards) {
+		if (environmentY + environmentHeight + spacing * 2 <= card.origin.y) break;
+		environmentY = Math.max(environmentY, card.origin.y + heights[index]! + spacing * 2);
+	}
+	const height =
+		Math.max(shot.y + shot.height, nextLeft - spacing, nextRight - spacing, environmentY + environmentHeight) + margin;
+	return {
+		shot,
+		cards: placed,
+		environment: { x: rightX, y: environmentY },
+		size: { width: rightX + column + margin, height },
+	};
+}

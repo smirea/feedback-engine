@@ -1,14 +1,18 @@
 <script lang="ts">
+	import { feedback } from '@smirea/feedback-engine/svelte';
 	import { remaining, type TodoList } from './store.svelte';
 
 	let { list }: { list: TodoList } = $props();
 </script>
 
-<li class="row">
+<span
+	class="row"
+	{@attach feedback('ListRow', () => ({ name: list.name, remaining: remaining(list), total: list.items.length }))}
+>
 	<span class="dot" data-color={list.color} aria-hidden="true"></span>
 	<span class="name">{list.name}</span>
 	<span class="count">{remaining(list)}</span>
-</li>
+</span>
 
 <style>
 	.row {
@@ -16,10 +20,6 @@
 		align-items: center;
 		gap: 0.75rem;
 		padding: 0.75rem 1rem;
-	}
-
-	.row + :global(.row) {
-		border-top: 1px solid var(--app-border);
 	}
 
 	.dot {
