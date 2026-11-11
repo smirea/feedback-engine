@@ -10,13 +10,23 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
 - `packages/ios/Sources/Feedback`: the pure core (`Model`, `TreeBuilder`, `Report`, `Describer`, `Session`) compiles on macOS and is unit tested. Files that need UIKit are wrapped in `#if canImport(UIKit)`.
 - `skills/feedback-accessibility`: the playbook apps' agents follow to make screens accessible and precise to point at. Update it in the same change when tagging, hit-testing, or element collection changes.
 - `examples/todo-ios`: the demo app. It links the package through a local package reference to `../..`.
-- `package.json` sits at the repository root for the same reason: apps will install `github:smirea/feedback-engine`. It has no `exports` map yet. Phase 1 of `docs/web-plan.md` adds one that points into `packages/web/src`. The root is also the Bun workspace for `examples/*`.
-- `packages/web` (planned): the web package `@smirea/feedback-engine`, one entry point per framework, producing the same exports. `docs/web-plan.md` has its shape and the order of the work.
+- `package.json` sits at the repository root for the same reason: apps install `github:smirea/feedback-engine`, and its `exports` map points into `packages/web/src`. The package ships source, with no build step. The root is also the Bun workspace for `examples/*`.
+- `packages/web/src`: the web package `@smirea/feedback-engine`.
+  - `core`: pure TypeScript, unit tested. The model, hit-testing, annotations, the session rules, the report, the card layout, the tree builder, and the value describer.
+  - `dom`: browser code without a framework. The scene reader, the screenshot, the image export, sharing, and the ProcrastiMate client.
+  - `editor`: the pill and the editor, in Svelte, mounted in a shadow root. Every component has `<svelte:options css="injected" />`, because other styles would not reach inside the shadow root.
+  - `svelte`: the entry point, `setupFeedbackEngine` and the `feedback` attachment.
+  - `vite`: the build plugin, in plain JavaScript so Node loads it from `node_modules`.
+- `spec/fixtures/capture.json`: one tree with the answers both platforms must give. `swift test` and `bun test` both read it. Change the fixture when shared logic changes, and both suites must pass on it.
+- `docs/web-plan.md`: what is left for the web package.
 - `examples/todo-svelte`: the web demo app, a SvelteKit SPA that mirrors `examples/todo-ios`.
 
 # Development
 
 - `bun run lint`, `bun run typecheck`, and `bun test` cover the TypeScript side. The commit hook runs them on staged files. `.github/CI.md` describes CI.
+- `bun run test:web` drives `examples/todo-svelte` with Playwright in Chromium and WebKit, on a dev server and a production build. It starts its own servers beside the `bun run dev` port, and a stand-in ProcrastiMate server. Test web behavior there, through the page: `present`, `tap`, and `exportReport` in `packages/web/e2e/app.ts`.
+- `Session` is plain TypeScript and not reactive. In the editor, change it only inside `act`, and draw only from `view`.
+- To check a ProcrastiMate post from the web against the real server code, run the scratch server described below, sign up with `POST /api/auth/sign-up/email`, and start the example with `PROCRASTIMATE_URL` and `PROCRASTIMATE_TOKEN` set to the scratch server and the `set-auth-token` header of the sign-up.
 - `bun run dev` serves `examples/todo-svelte` on `UI_PORT` from the root `.env`. A worktree gets its own port in `.env.local`. After editing `.env`, run `bun run env:generate` and commit `examples/todo-svelte/env.ts` as generated.
 - SvelteKit 3 has no `$lib` alias. The example imports with relative paths.
 - `swift test` runs the core tests on macOS. Test behavior through `TreeBuilder.build`, `Stitch.scene`, `Capture.hitTest`, and `Report.json` with literal expected values.

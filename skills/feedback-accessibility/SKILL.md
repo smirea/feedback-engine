@@ -1,6 +1,6 @@
 ---
 name: feedback-accessibility
-description: Make a SwiftUI screen accessible and precise to point at in Feedback captures. Use when you build or change a screen, row, card, or chart in an app that links Feedback, or when a Feedback tap selects the wrong thing.
+description: Make a SwiftUI or Svelte screen accessible and precise to point at in Feedback captures. Use when you build or change a screen, row, card, or chart in an app that links Feedback, or when a Feedback tap selects the wrong thing.
 ---
 
 # Accessibility first, Feedback tags on top
@@ -13,6 +13,8 @@ A Feedback capture is built from two sources:
 A tap selects the smallest node under the finger. Where no element or tagged view sits under the point, the tap falls through to the nearest enclosing tag, usually the whole screen. The one exception: inside the box of a component or element that already has feedback, a tap selects that item so its feedback can be edited, and a second tap on the same spot drills down to the smallest node.
 
 So get accessibility right for VoiceOver users, then add tags only where accessibility alone leaves a tap ambiguous.
+
+The sections below are written for SwiftUI. The rule and the reasoning hold for the web package too. [Svelte](#svelte) at the end has what differs there.
 
 ## The rule: one tap, one obvious target
 
@@ -87,3 +89,43 @@ Do this after changing a screen, in a Debug simulator build with realistic data:
 5. Check that VoiceOver output didn't get worse: agent-device's snapshot lists the elements VoiceOver reads.
 
 Agent-device's XCTest runner turns accessibility on for the whole simulator, which is the same state a capture switches on, so its snapshots are a fair preview of the elements. The tags only show up in a capture.
+
+## Svelte
+
+On the web, elements come from the DOM, not from a screen reader's tree, and components come from `{@attach feedback(...)}` tags. The rule is the same: one tap, one obvious target.
+
+### Accessibility (do this first)
+
+- Use the element that has the role: `<button>`, `<a href>`, `<input>`, `<select>`, `<h1>` to `<h6>`. A `<div onclick>` has no role, so it is not an element in a capture. If you must build a control from a `<div>`, give it its `role`.
+- Give every icon-only button an `aria-label`, and every `<img>` an `alt`. An image with `alt=""` is decorative and left out.
+- Hide decorative marks, such as a colored dot or an initials tile, with `aria-hidden="true"`.
+- Name a field with a `<label>` around it or an `aria-label`. The capture reads the name and the value together, such as `Text field "Title, Bananas"`.
+- A button or a link merges everything inside it into one element, such as `Link "Work 3"`. That is right for a row that reads as one sentence. Tag an inner part when it needs feedback of its own.
+- Landmarks, lists, and groups (`<main>`, `<nav>`, `<section>`, `<ul>`, `role="group"`) are walked through and never become nodes, even with a label. Tag one when a tap on its padding should select it.
+
+### Tags
+
+- Put `{@attach feedback()}` on the root element of every screen, dialog, and reusable component. It names the component after its file and reports its props and `$state` variables. A route file is named after its folders, so name a screen yourself: `{@attach feedback('ListsScreen', () => ({ filter }))}`.
+- Tag a region drawn inline where it is drawn: `{@attach feedback('Chart', () => plot)}`.
+- Always tag drawings that expose no elements: an `<svg>` chart, a `<canvas>`, a photo.
+- Tag cards and grouped boxes whose background shows a visible frame.
+- A component needs one root element to tag. A component that renders several siblings has no frame, so tag each sibling or wrap them.
+- Don't tag an element with `display: contents`. It has no box.
+- Outside a button or a link, don't tag a single text, button, image, or field. It's already an element.
+
+### Data
+
+- The data function runs when a capture is taken, never while rendering, so it may read whatever the component has. Keep it cheap anyway: a capture runs it for every tag on the page.
+- A bare `feedback()` reports every prop and every `$state` variable. Pass a function when that is too much, such as a component that receives a large list: `{@attach feedback(undefined, () => ({ count: items.length }))}`.
+- A class shows under its own name, such as `TodoStore(lists: [...])`. Give it a `toFeedback()` method to choose what it reports.
+
+### Verify each screen
+
+Do this after changing a screen, against the dev server, with realistic data:
+
+1. Open the screen in Playwright and call `await page.evaluate(() => __feedbackEngine.present())`. The shortcut, `Alt+Shift+F`, then the **Add Feedback** pill, is the path a person takes.
+2. Export the tree: add one item, then **Share › JSON**. The page holds the file: `await page.evaluate(() => __feedbackEngine.lastExport[0].blob.text())`.
+3. Replay every tap with `scripts/taps.py`, as in step 3 above. It reads the same `feedback.json`.
+4. Spot-check with real clicks on the regions you changed and read the selection title in the panel. The screenshot is scaled, so convert page points with the bounding box of the element with the role `img` and the name `Screenshot`.
+5. Check both a development build and a production build if untagged elements matter: only a development build gives them a `file:line`.
+

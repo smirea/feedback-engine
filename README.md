@@ -2,7 +2,7 @@
 
 **Point at your app. Say what's wrong. Hand an agent the exact component and line of code.**
 
-Shake the device, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
+Shake the device, or press a shortcut in the browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
 
 <p align="center">
   <img src="docs/editor.png" alt="The Feedback editor: a frozen screenshot with the Groceries row selected, showing ListRow, App/ListsScreen.swift:81 and its data" width="270">
@@ -19,7 +19,7 @@ Shake the device, tap any component on the frozen screenshot, and write what sho
 
 Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. Or post the feedback straight to a ProcrastiMate project as a task.
 
-Platform packages live under `packages/`. iOS is available now. A web package, `@smirea/feedback-engine`, is planned and will produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform, and [docs/web-plan.md](docs/web-plan.md) is the plan for the web package.
+Platform packages live under `packages/`: `Feedback` for iOS and `@smirea/feedback-engine` for the web, with Svelte as its first entry point. Both produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform.
 
 ## iOS
 
@@ -131,7 +131,127 @@ While the editor is open, VoiceOver and UI automation see only the editor. Its t
 - `.feedback(self)` reads `@Binding` values when a capture is taken. A binding whose getter can trap, such as `Binding(get: { selection! })`, crashes the capture the same way it would crash a redraw. Pass explicit `data:` for those views.
 - Components inside lazy containers, such as `List` and `LazyVStack`, appear only for rows that exist on screen, except in the scroll view captured at full length.
 
-## Example app
+## Web
+
+Requires Svelte 5.29 or later and Vite. The package ships TypeScript and Svelte source, and your app's Vite compiles it.
+
+### Add the package
+
+```sh
+bun add github:smirea/feedback-engine
+```
+
+### Turn it on
+
+```svelte
+<!-- src/routes/+layout.svelte -->
+<script lang="ts">
+	import { setupFeedbackEngine } from '@smirea/feedback-engine/svelte';
+	import { store } from '../lib/store.svelte';
+
+	const feedback = setupFeedbackEngine({ app: 'Todo', version: '1.0' });
+	feedback.context('Store', () => store);
+</script>
+```
+
+- `setupFeedbackEngine()` turns on the shortcut. `Alt+Shift+F` drops an **Add Feedback** pill in at the top center, and clicking it captures the page and opens the editor. Left alone, the pill leaves after 5 seconds, and it leaves at once when the tab goes to the background. Pass `shortcut: 'Ctrl+Shift+K'` for other keys, or `shortcut: false` for none. On a server the call returns an engine that does nothing, so a layout needs no guard.
+- `feedback.context(name, () => value)` attaches app state to every JSON export. The function runs when a capture is taken.
+- `feedback.present()` opens the editor directly from your own trigger, such as a settings button. A phone has no keyboard shortcut, so give it one.
+- To keep Feedback out of production, call it behind `import.meta.env.DEV` with a dynamic import. The production bundle then has the tags and none of the editor.
+
+  ```ts
+  if (import.meta.env.DEV) {
+  	void import('@smirea/feedback-engine/svelte').then(({ setupFeedbackEngine }) => setupFeedbackEngine());
+  }
+  ```
+
+Add the plugin to your Vite config. JavaScript has no `#fileID` and `#line`, so the plugin writes each tag's `file:line` in at build time.
+
+```ts
+// vite.config.ts
+import { feedbackEngine } from '@smirea/feedback-engine/vite';
+
+export default defineConfig({
+	plugins: [sveltekit({ preprocess: [feedbackEngine()] })],
+});
+```
+
+In a plain Svelte project, pass `preprocess: [feedbackEngine()]` to `svelte()` from `@sveltejs/vite-plugin-svelte`.
+
+### Name your components
+
+Attach a tag to each component's root element:
+
+```svelte
+<script lang="ts">
+	import { feedback } from '@smirea/feedback-engine/svelte';
+
+	let { item }: { item: TodoItem } = $props();
+	let isExpanded = $state(false);
+</script>
+
+<li {@attach feedback()}>…</li>
+```
+
+`feedback()` names the component after its file, so `TodoRow.svelte` is `TodoRow`, and a SvelteKit route file is named after its folders, so `routes/lists/[id]/+page.svelte` is `ListsIdPage`. It reports the component's props and its `$state` variables. To choose the name or the data yourself, use `{@attach feedback('TodoRow', () => item)}`. The data function runs when a capture is taken, never while rendering.
+
+Data reads like code, with the limits of the iOS package: `{kg: 72.575, note: null}` for a plain object, `Entry(kg: 72.575, note: null)` for a class instance, 3 decimals, 3 levels, 10 elements, and 1,500 characters. Functions and DOM nodes are skipped at any depth. Give a class a `toFeedback()` method to choose how it reads.
+
+Untagged content still appears. Buttons, links, fields, headings, images, and text come from the DOM with their ARIA role and accessible name, and each one attaches to the tagged component around it. A button or a link is one element, such as `Link "Work 3"`, so the text inside it can't be picked by itself. A tagged component inside it still can. In a development build every element also reports its own `file:line`, so feedback on an untagged button names that button's line.
+
+### Give feedback
+
+The editor works as on iOS, with these differences:
+
+- Hover the screenshot to see what a click would select.
+- Hold Ctrl and scroll, or pinch on a trackpad, to zoom up to 4×.
+- Enter adds the feedback. Shift with Enter adds a line.
+- **Share** lists **Image**, **JSON**, and **Image and JSON (ZIP)**. Each one then offers **Copy Feedback**, **Save File**, and, where the browser can share files, **Share…**. A browser takes one clipboard item per copy, so copying the ZIP export puts one item on the clipboard with the image and the JSON, and the place you paste into picks the one it reads.
+
+### Post to ProcrastiMate
+
+A page cannot call ProcrastiMate from another origin, and a token in the page would be public. The dev server forwards the calls and adds the token:
+
+```ts
+// vite.config.ts
+import { feedbackEngine, feedbackProcrastimate } from '@smirea/feedback-engine/vite';
+
+export default defineConfig({
+	plugins: [
+		feedbackProcrastimate({ token: process.env.PROCRASTIMATE_TOKEN }),
+		sveltekit({ preprocess: [feedbackEngine()] }),
+	],
+});
+```
+
+```ts
+setupFeedbackEngine({ procrastimate: { url: '/__feedback/procrastimate' } });
+```
+
+**ProcrastiMate** then shows in the Share menu, with the same picker and task as on iOS. The token is a ProcrastiMate API token. The proxy runs in `vite dev` and `vite preview`. A deployed static site has no proxy, so leave `procrastimate` out there.
+
+### How capture works
+
+- The browser gives a page no way to read its own pixels without a permission prompt, so Feedback draws the DOM again into a canvas with [modern-screenshot](https://github.com/qq15725/modern-screenshot). On the example app, a scrolled page differs from the browser's own screenshot in under 0.01% of pixels, and a page with an open dialog in about 1%.
+- The whole document is drawn at its full scroll height in one pass. Nothing scrolls on screen. The window jumps to its origin and back inside one task, so a sticky bar is read where the document has it, and scroll listeners run.
+- Content that stays put while the page scrolls, such as a `position: fixed` tab bar, is drawn where it was on screen, over the visible part of the capture.
+- A modal `<dialog>`, an open popover, and an `aria-modal` dialog are separate layers. Clicks on a layer only select what is inside it, and whatever it hides completely is left out of the tree.
+- Roles and names come from the DOM with [dom-accessibility-api](https://github.com/eps1lon/dom-accessibility-api). There is nothing to switch on first, and reading a screen takes a few milliseconds.
+
+### Limits
+
+- The screenshot is a re-draw, not the screen's pixels. Cross-origin images, `<canvas>`, `<video>`, and iframes can come out blank, and a field's placeholder is drawn in its text color. It is tested in Chromium and in Playwright's WebKit, not in Safari itself.
+- A very tall page is drawn at a lower scale, so the capture fits a 16 megapixel canvas.
+- A scroll container inside the page shows what was on screen in it.
+- A minified production build shows a class's minified name in component data, such as `a(count: 2)`.
+- Element locations for untagged content exist only in development builds. Tagged components keep theirs in every build.
+- A shake does not trigger Feedback on phones, and the task name is not summarized by an on-device model. [spec/features.md](spec/features.md) lists both as planned.
+
+### Drive it from a script
+
+`setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.present()` opens the editor without the shortcut, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `packages/web/e2e/feedback.e2e.ts` does both with Playwright.
+
+## Example apps
 
 `examples/todo-ios` is a small todo app with lists, a list detail screen, an edit sheet, and settings. Every screen is tagged. Run it with:
 
@@ -140,7 +260,7 @@ cd examples/todo-ios
 ./scripts/run
 ```
 
-`examples/todo-svelte` is the start of the same app for the web, a SvelteKit SPA with the Lists screen. Run it from the repository root with:
+`examples/todo-svelte` is the same app for the web, a SvelteKit SPA. Run it from the repository root with:
 
 ```sh
 bun install
@@ -156,6 +276,13 @@ swift test    # tree building, hit-testing, stitching, JSON export, and value de
 
 ```sh
 bun run lint        # oxlint and oxfmt
-bun run typecheck   # svelte-check for the example app, then the repository's TypeScript
-bun test            # the checks on spec/features.md
+bun run typecheck   # svelte-check for the example app and the web package, then the repository's TypeScript
+bun test            # the web core, the Vite plugin, the shared fixture, and the checks on spec/features.md
+bun run test:web    # the example app in Chromium and WebKit, on a dev server and a production build
+```
+
+`bun run test:web` needs Playwright's browsers once:
+
+```sh
+bunx playwright install chromium webkit
 ```
