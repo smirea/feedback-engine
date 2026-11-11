@@ -47,6 +47,7 @@
 		<div class="card">
 			<a class="line" href="/timeline">Timeline</a>
 			<a class="line" href="/catalog">Exercise Catalog</a>
+			<a class="line" href="/media">Media</a>
 		</div>
 	</section>
 

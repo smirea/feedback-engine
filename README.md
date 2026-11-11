@@ -240,7 +240,7 @@ setupFeedbackEngine({ procrastimate: { url: '/__feedback/procrastimate' } });
 
 ### Limits
 
-- The screenshot is a re-draw, not the screen's pixels. Cross-origin images, `<canvas>`, `<video>`, and iframes can come out blank, and a field's placeholder is drawn in its text color. It is tested in Chromium and in Playwright's WebKit, not in Safari itself.
+- The screenshot is a re-draw, not the screen's pixels. A `<canvas>`, an inline SVG, and an image from another origin that allows CORS are drawn. An image from an origin that does not allow CORS, a `<video>`, and an iframe can come out blank, and a field's placeholder is drawn in its text color. It is tested in Chromium, in Google Chrome, and in Playwright's WebKit, not in Safari itself.
 - A very tall page is drawn at a lower scale, so the capture fits a 16 megapixel canvas.
 - A scroll container inside the page shows what was on screen in it.
 - A minified production build shows a class's minified name in component data, such as `a(count: 2)`.

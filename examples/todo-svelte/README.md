@@ -1,6 +1,6 @@
 # Todo (Svelte)
 
-The web twin of `examples/todo-ios`, for trying Feedback in a browser: lists, a list detail screen, an edit dialog, settings, a long timeline with sticky headers, and a catalog. Every screen is tagged. It is a SvelteKit single-page app.
+The web twin of `examples/todo-ios`, for trying Feedback in a browser: lists, a list detail screen with an edit dialog and a popover menu, settings, a long timeline with sticky headers, a catalog with a carousel, and a media screen with charts and images. Every screen is tagged. It is a SvelteKit single-page app.
 
 ## Run
 

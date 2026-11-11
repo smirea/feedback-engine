@@ -494,3 +494,49 @@ test('context named like an environment entry shows beside it in the list', asyn
 	expect(errors).toEqual([]);
 	await context.close();
 });
+
+test('an open popover menu is a layer, and the screenshot draws it', async () => {
+	const { page, context, errors } = await open('chromium', 'dev', '/lists/groceries');
+	await page.getByRole('button', { name: 'Sort' }).click();
+	await page.getByRole('menu', { name: 'Sort' }).waitFor();
+	const window = await page.screenshot();
+	await present(page);
+	const capture = await captureImage(page);
+	const report = await exportReport(page);
+	expect(outline(report, 1)).toEqual([
+		'  Menu',
+		'    SortMenu  src/routes/lists/[id]/+page.svelte:84',
+		'      Menu item "manual"',
+		'      Menu item "due date"',
+		'      Menu item "priority"',
+	]);
+	const menu = report.nodes.find(node => node.kind === 'layer')!.frame;
+	const pixels = {
+		x: menu.x * 2,
+		y: menu.y * 2,
+		width: Math.floor(menu.width * 2),
+		height: Math.floor(menu.height * 2),
+	};
+	expect(difference(capture, window, 0, pixels)).toBeLessThan(0.05);
+	expect(errors).toEqual([]);
+	await context.close();
+});
+
+test('charts, images, and toFeedback() on the media screen', async () => {
+	const { page, context, errors } = await open('chromium', 'dev', '/media');
+	await page.waitForLoadState('networkidle');
+	const window = await page.screenshot();
+	await present(page);
+	expect(difference(await captureImage(page), window, 0)).toBeLessThan(0.02);
+	const report = await exportReport(page);
+	expect(report.nodes.find(node => node.name === 'OpenChart')!.data).toBe('series: Open per list: 17, 3, 1');
+	expect(report.nodes.find(node => node.name === 'DoneChart')!.data).toBe('series: Done per list: 2, 0, 1');
+	// An image with an empty alt is decorative, so it is not an element.
+	expect(report.nodes.filter(node => node.name === 'Image').map(node => node.label)).toEqual([
+		'Open todos per list',
+		'Feedback icon',
+		'Feedback icon from another origin',
+	]);
+	expect(errors).toEqual([]);
+	await context.close();
+});
