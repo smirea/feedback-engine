@@ -1,3 +1,5 @@
+import { Problem } from '../core/problem.ts';
+
 export type ProcrastimateConfig = {
 	/** Where ProcrastiMate's API answers: the Vite plugin's proxy path, or a server that allows this origin. */
 	url: string;
@@ -55,24 +57,44 @@ async function send(
 	type?: string,
 ) {
 	const search = new URLSearchParams(Object.entries(query).toSorted(([a], [b]) => a.localeCompare(b)));
-	const response = await fetch(`${config.url.replace(/\/$/, '')}/${path}${search.size ? `?${search}` : ''}`, {
-		method,
-		body,
-		headers: {
-			...(config.token ? { Authorization: `Bearer ${config.token}` } : {}),
-			...(type ? { 'Content-Type': type } : {}),
-		},
-	});
-	if (response.status === 401)
-		throw new Error('ProcrastiMate rejected the token. Check the token Feedback was set up with.');
-	if (!response.ok) {
-		const message = await response
-			.json()
-			.then(data => (data as { message?: string }).message)
-			.catch(() => undefined);
-		throw new Error(message ? `ProcrastiMate: ${message}` : `ProcrastiMate answered ${response.status}.`);
+	const url = `${config.url.replace(/\/$/, '')}/${path}${search.size ? `?${search}` : ''}`;
+	let response: Response;
+	try {
+		response = await fetch(url, {
+			method,
+			body,
+			headers: {
+				...(config.token ? { Authorization: `Bearer ${config.token}` } : {}),
+				...(type ? { 'Content-Type': type } : {}),
+			},
+		});
+	} catch (error) {
+		throw Problem.request(method, url, undefined, undefined, error);
 	}
-	return response;
+	if (response.ok) return response;
+	const text = await response.text().catch(() => '');
+	if (response.status === 401) {
+		throw Problem.request(
+			method,
+			url,
+			response.status,
+			text,
+			new Error('ProcrastiMate rejected the token. Check the token Feedback was set up with.'),
+		);
+	}
+	let message: string | undefined;
+	try {
+		message = (JSON.parse(text) as { message?: string }).message;
+	} catch {
+		// A proxy's HTML error page, which the details show as it came.
+	}
+	throw Problem.request(
+		method,
+		url,
+		response.status,
+		text,
+		new Error(message ? `ProcrastiMate: ${message}` : `ProcrastiMate answered ${response.status}.`),
+	);
 }
 
 type Row = { id: string; name: string; order: number; createdAt: number };
@@ -129,19 +151,26 @@ export async function postTask(
 	place: Place,
 	image: HTMLCanvasElement,
 	report: string,
+	step: (text: string) => void,
 ) {
 	const bytes = new TextEncoder().encode(report);
 	if (bytes.length > fileMaxBytes) throw new Error("The JSON report is over ProcrastiMate's 25 MB file limit.");
+	step('Encoding the image');
 	const full = await jpeg(image, 2048, 1_500_000);
 	const thumb = await jpeg(image, 320, 200_000);
 	const imageId = crypto.randomUUID();
 	const reportId = crypto.randomUUID();
+	step('Uploading the image');
 	await send(config, 'PUT', 'api/images', { id: imageId, size: 'full' }, full.blob, 'image/jpeg');
+	step('Uploading the thumbnail');
 	await send(config, 'PUT', 'api/images', { id: imageId, size: 'thumb' }, thumb.blob, 'image/jpeg');
+	const parts = Math.max(1, Math.ceil(bytes.length / filePartBytes));
 	for (let start = 0, part = 0; start < bytes.length; start += filePartBytes, part++) {
+		step(parts === 1 ? 'Uploading feedback.json' : `Uploading feedback.json, part ${part + 1} of ${parts}`);
 		const chunk = bytes.slice(start, start + filePartBytes);
 		await send(config, 'PUT', 'api/images', { id: reportId, size: `part${part}` }, chunk, 'application/octet-stream');
 	}
+	step('Creating the task');
 	const created = await send(
 		config,
 		'POST',
@@ -152,6 +181,7 @@ export async function postTask(
 	);
 	const { id } = (await created.json()) as { id: string };
 	// The agent API cannot create a task with attachments, so a failed attach would leave a task without them, and a retry would add a second one.
+	step('Attaching the files');
 	try {
 		await send(
 			config,

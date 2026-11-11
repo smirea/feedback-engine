@@ -566,6 +566,54 @@ for (const app of appNames) {
 			await context.close();
 		});
 
+		test('a failed post shows its error above the projects, with the request under Details and a copy', async () => {
+			procrastimate.tasks.length = 0;
+			procrastimate.refuseUpload = { status: 413, body: '<html><title>413 Request Entity Too Large</title></html>' };
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await present(page);
+			await tap(page, 100, 270);
+			await field(page).fill('Row is too tall');
+			await field(page).press('Enter');
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'ProcrastiMate' }).click();
+			const sheet = page.getByRole('form', { name: 'Add to ProcrastiMate' });
+			await sheet.getByRole('option', { name: 'Todo app' }).waitFor();
+			await sheet.getByRole('button', { name: 'Add' }).click();
+
+			const alert = sheet.getByRole('alert');
+			await alert.waitFor();
+			expect(await alert.locator('.message').innerText()).toBe('ProcrastiMate answered 413.');
+			const details = alert.locator('pre');
+			expect(await details.isVisible()).toBe(false);
+			await alert.getByText('Details').click();
+			const lines = (await details.innerText()).split('\n');
+			expect(lines[0]).toBe('Step: Uploading the image');
+			expect(lines[1]).toMatch(/^Elapsed: \d+\.\d s$/);
+			expect(lines[2]).toMatch(/^Request: PUT \S+\/api\/images\?id=[0-9a-f-]{36}&size=full$/);
+			expect(lines.slice(3, 6)).toEqual([
+				'Status: 413',
+				'Response: <html><title>413 Request Entity Too Large</title></html>',
+				'Error: Error: ProcrastiMate answered 413.',
+			]);
+			expect(lines).toContain('Place: Inbox');
+			expect(lines.some(line => line.startsWith('App: '))).toBe(true);
+
+			await alert.getByRole('button', { name: 'Copy Error' }).click();
+			await alert.getByRole('button', { name: 'Copied' }).waitFor();
+			expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+				`ProcrastiMate answered 413.\n\n${lines.join('\n')}`,
+			);
+			expect(procrastimate.tasks.length).toBe(0);
+
+			await sheet.getByRole('button', { name: 'Add' }).click();
+			await page.locator('.toast').waitFor();
+			expect(procrastimate.tasks.length).toBe(1);
+			expect(errors).toEqual([
+				'Failed to load resource: the server responded with a status of 413 (Payload Too Large)',
+			]);
+			await context.close();
+		});
+
 		test('a scroll container inside the page shows only what was on screen in it', async () => {
 			const { page, context } = await open(app, 'chromium', 'dev', '/catalog');
 			await page.locator('.featured').evaluate(node => node.scrollTo({ left: 150 }));

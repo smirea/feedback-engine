@@ -1,7 +1,7 @@
 <svelte:options css="injected" />
 
 <script lang="ts">
-	import { taskTitle, type FeedbackItem, type Session, type Toast } from '../core/index.ts';
+	import { Problem, taskTitle, type Fact, type FeedbackItem, type Session, type Toast } from '../core/index.ts';
 	import type { Screen } from '../dom/capture.ts';
 	import { annotatedImage } from '../dom/image.ts';
 	import {
@@ -34,9 +34,14 @@
 	let projects = $state(cachedProjects());
 	let place = $state<Place>({ projectId: lastProject() });
 	let loading = $state(true);
-	let loadError = $state<string>();
-	let postError = $state<string>();
-	let posting = $state(false);
+	let loadProblem = $state<Problem>();
+	let postProblem = $state<Problem>();
+	/** What the post is doing, while it runs. */
+	let step = $state<string>();
+	const posting = $derived(step !== undefined);
+	let status = $state<HTMLElement>();
+	// svelte-ignore state_referenced_locally
+	const environment: Fact[] = session.capture.environment.map(entry => ({ label: entry.name, value: entry.value }));
 
 	$effect(() => {
 		loadProjects(config)
@@ -46,32 +51,74 @@
 				if (!project) place = {};
 				else if (!project.sections.some(section => section.id === place.sectionId)) place = { projectId: project.id };
 			})
-			.catch((error: Error) => (loadError = error.message))
+			.catch(
+				(error: unknown) =>
+					(loadProblem = Problem.from(error).with([{ label: 'Step', value: 'Loading the projects' }], environment)),
+			)
 			.finally(() => (loading = false));
 	});
 
 	async function post() {
-		posting = true;
-		postError = undefined;
+		step = 'Drawing the image';
+		postProblem = undefined;
+		const started = performance.now();
 		const items = [...session.items];
 		const project = projects.find(candidate => candidate.id === place.projectId);
 		const section = project?.sections.find(candidate => candidate.id === place.sectionId);
+		const report = session.compactJSON;
+		const facts: Fact[] = [
+			{
+				label: 'Place',
+				value: [project ? `${project.name} (${project.id})` : 'Inbox', section && `${section.name} (${section.id})`]
+					.filter(Boolean)
+					.join(' / '),
+			},
+			{ label: 'Report', value: `${new TextEncoder().encode(report).length} bytes` },
+			{ label: 'Server', value: config.url },
+		];
 		try {
-			const id = await postTask(
-				config,
-				name.trim(),
-				place,
-				annotatedImage(screen, session.annotations),
-				session.compactJSON,
-			);
+			const image = annotatedImage(screen, session.annotations);
+			facts.push({ label: 'Image', value: `${image.width} × ${image.height} px` });
+			const id = await postTask(config, name.trim(), place, image, report, text => (step = text));
 			const destination = [project?.name ?? 'Inbox', section?.name].filter(Boolean).join(' / ');
 			onposted(items, { text: `Added to ${destination} in ProcrastiMate`, link: taskLink(config, id) });
 		} catch (error) {
-			postError = (error as Error).message;
-			posting = false;
+			const elapsed = { label: 'Elapsed', value: `${((performance.now() - started) / 1000).toFixed(1)} s` };
+			postProblem = Problem.from(error).with(
+				[{ label: 'Step', value: step ?? 'Posting' }, elapsed],
+				[...facts, ...environment],
+			);
+			step = undefined;
 		}
 	}
+
+	// Above the project list, which can be longer than the sheet: an error under it goes unseen.
+	$effect(() => {
+		if (postProblem || step) status?.scrollIntoView({ block: 'nearest' });
+	});
 </script>
+
+{#snippet problemCard(problem: Problem)}
+	<div class="problem" role="alert">
+		<p class="message">{problem.message}</p>
+		{#if problem.facts.length}
+			<details>
+				<summary>Details</summary>
+				<pre>{problem.details}</pre>
+			</details>
+		{/if}
+		<button
+			type="button"
+			class="link"
+			onclick={async event => {
+				const button = event.currentTarget;
+				await navigator.clipboard.writeText(problem.text);
+				button.textContent = 'Copied';
+				setTimeout(() => (button.textContent = 'Copy Error'), 2000);
+			}}>Copy Error</button
+		>
+	</div>
+{/snippet}
 
 {#snippet row(label: string, picked: boolean, indented: boolean, pick: () => void)}
 	<button
@@ -104,6 +151,11 @@
 			>
 		</header>
 		<div class="scroll">
+			<div class="status" bind:this={status}>
+				{#if step}<p class="step" role="status">{step}…</p>{/if}
+				{#if postProblem}{@render problemCard(postProblem)}{/if}
+				{#if loadProblem}{@render problemCard(loadProblem)}{/if}
+			</div>
 			<label>
 				<span class="caption">Name</span>
 				<input bind:value={name} aria-label="Task name" disabled={posting} />
@@ -132,8 +184,6 @@
 					{/if}
 				{/each}
 			</div>
-			{#if loadError}<p class="error">{loadError}</p>{/if}
-			{#if postError}<p class="error" role="alert">{postError}</p>{/if}
 		</div>
 	</form>
 </div>
@@ -249,9 +299,49 @@
 		font-weight: 700;
 	}
 
-	.error {
+	.status {
+		display: grid;
+		gap: 8px;
+	}
+
+	.status:empty {
+		display: none;
+	}
+
+	.step {
+		margin: 0;
+		color: #aeaeb2;
+	}
+
+	.problem {
+		display: grid;
+		justify-items: start;
+		gap: 6px;
+		border-radius: 10px;
+		padding: 10px 12px;
+		background: #2c2c2e;
+	}
+
+	.message {
 		margin: 0;
 		color: #ff453a;
+	}
+
+	details {
+		width: 100%;
+	}
+
+	summary {
+		color: #aeaeb2;
+		cursor: pointer;
+	}
+
+	pre {
+		margin: 6px 0 0;
+		font-size: 12px;
+		white-space: pre-wrap;
+		overflow-wrap: anywhere;
+		user-select: text;
 	}
 
 	@media (min-width: 900px) {

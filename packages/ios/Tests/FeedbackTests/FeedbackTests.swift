@@ -1001,3 +1001,33 @@ private struct Fixture: Decodable {
     #expect(title.prompt == fixture.expected.taskTitle.prompt)
     #expect(title.summarized(fixture.summary) == fixture.expected.taskTitle.summarized)
 }
+
+@Test func aFailedRequestKeepsWhatWasSentAndWhatCameBack() throws {
+    let url = URL(string: "https://procrastimate.stf.lol/api/images?id=abc&size=full")!
+    let refused = Problem.request("PUT", url, status: 413, body: Data(#"{"message":"A part is at most 1500000 bytes"}"#.utf8), error: CocoaError(.fileWriteOutOfSpace))
+    let posted = refused.with(before: [.init(label: "Step", value: "Uploading the image")], after: [.init(label: "App", value: "Demo")])
+    #expect(posted.message == CocoaError(.fileWriteOutOfSpace).localizedDescription)
+    #expect(posted.facts.map(\.label) == ["Step", "Request", "Status", "Response", "Error", "App"])
+    #expect(posted.details.hasPrefix("""
+        Step: Uploading the image
+        Request: PUT https://procrastimate.stf.lol/api/images?id=abc&size=full
+        Status: 413
+        Response: {"message":"A part is at most 1500000 bytes"}
+        Error: 
+        """))
+    #expect(posted.text == "\(posted.message)\n\n\(posted.details)")
+    #expect(!posted.retryable)
+    #expect([401, 408, 429, 500, 502].allSatisfy { Problem.request("PUT", url, status: $0, body: nil, error: CocoaError(.fileNoSuchFile)).retryable })
+    #expect([400, 403, 404, 413].allSatisfy { !Problem.request("PUT", url, status: $0, body: nil, error: CocoaError(.fileNoSuchFile)).retryable })
+
+    let offline = Problem.request("GET", url, status: nil, body: nil, error: URLError(.timedOut))
+    #expect(offline.facts.map(\.label) == ["Request", "Error"])
+    #expect(offline.facts[1].value.contains("-1001"))
+    #expect(offline.retryable)
+    #expect(try JSONDecoder().decode(Problem.self, from: JSONEncoder().encode(offline)) == offline)
+    #expect(Problem(offline) == offline)
+
+    let plain = Problem(CocoaError(.fileNoSuchFile))
+    #expect(plain.facts.map(\.label) == ["Error"])
+    #expect(Problem(message: "Nothing else").text == "Nothing else")
+}

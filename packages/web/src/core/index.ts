@@ -2,6 +2,7 @@ export * from './annotations.ts';
 export * from './cardLayout.ts';
 export * from './describe.ts';
 export * from './model.ts';
+export * from './problem.ts';
 export * from './report.ts';
 export * from './session.ts';
 export * from './taskTitle.ts';
