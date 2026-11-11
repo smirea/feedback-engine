@@ -33,7 +33,9 @@ function trees(): Fiber[] {
 	for (const node of [document, ...document.querySelectorAll('*')]) {
 		for (const key of Object.keys(node)) {
 			if (!key.startsWith('__reactContainer$')) continue;
-			found.push((node as unknown as Record<string, { stateNode: { current: Fiber } }>)[key]!.stateNode.current);
+			// React empties the marker of a root that was unmounted, and leaves the property.
+			const root = (node as unknown as Record<string, { stateNode: { current: Fiber } } | null>)[key];
+			if (root) found.push(root.stateNode.current);
 		}
 	}
 	return found;
