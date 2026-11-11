@@ -39,7 +39,13 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 	}
 	current?.destroy();
 
-	const engine = new Engine(options);
+	// Written by `feedbackProcrastimate()` when it has a token. The cast keeps the name in one piece, which Vite
+	// replaces as text, and needs no `import.meta.env` type from the app that compiles this file.
+	const proxy = (import.meta as unknown as { env: Record<string, string | undefined> }).env.FEEDBACK_PROCRASTIMATE;
+	const engine = new Engine({
+		...options,
+		procrastimate: options.procrastimate ?? (proxy ? { url: proxy } : undefined),
+	});
 	const host = document.createElement('div');
 	host.setAttribute(hostAttribute, '');
 	// The shadow root keeps the app's styles out of the editor and the editor's styles out of the app.

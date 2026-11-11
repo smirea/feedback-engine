@@ -25,4 +25,4 @@ The dev server forwards the editor's ProcrastiMate calls to `PROCRASTIMATE_URL` 
 PROCRASTIMATE_TOKEN=<a ProcrastiMate API token>
 ```
 
-Without a token, **ProcrastiMate** in the Share menu says that the dev server has none.
+The token is the switch. With it, the Share menu lists **ProcrastiMate**. Without it, the entry is not there.

@@ -14,6 +14,11 @@ import FoundationModels
 enum Procrastimate {
     /// ProcrastiMate keeps its session here while it is signed in, for the team's other apps.
     static let accessGroup = "FNYFHG5SV7.com.stefan.shared"
+
+    /// Whether the app's entitlements let it read that keychain group. The Share menu lists ProcrastiMate only then,
+    /// so an app outside the team never shows an entry that cannot work. A signed-out ProcrastiMate still counts:
+    /// the picker says to sign in.
+    static var isAvailable: Bool { Client.session().status != errSecMissingEntitlement }
     /// ProcrastiMate's `FILE_PART_BYTES` and `FILE_MAX_BYTES` (`shared/images.ts`).
     static let filePartBytes = 1_500_000
     static let fileMaxBytes = 25_000_000
@@ -97,7 +102,6 @@ enum Procrastimate {
     }
 
     enum Failure: LocalizedError {
-        case missingEntitlement
         case signedOut
         case server(status: Int, message: String?)
         case unreadable
@@ -106,7 +110,6 @@ enum Procrastimate {
 
         var errorDescription: String? {
             switch self {
-            case .missingEntitlement: "This app can't read ProcrastiMate's session. Add `$(AppIdentifierPrefix)com.stefan.shared` to its `keychain-access-groups` entitlement."
             case .signedOut: "ProcrastiMate isn't signed in on this device. Open it, sign in, then try again."
             case .server(let status, let message): message.map { "ProcrastiMate: \($0)" } ?? "ProcrastiMate answered \(status)."
             case .unreadable: "ProcrastiMate sent a response Feedback could not read."
@@ -122,8 +125,18 @@ enum Procrastimate {
 
         /// Reads the session ProcrastiMate shares through the team's keychain group, as
         /// Notouroboros does. A simulator honors the group only in a signed build, even ad hoc.
+        /// An app outside the group never gets here: its Share menu has no ProcrastiMate entry.
         init() throws {
             struct Item: Decodable { let apiURL: String; let token: String }
+            let (status, data) = Client.session()
+            guard status == errSecSuccess, let data,
+                  let item = try? JSONDecoder().decode(Item.self, from: data), !item.token.isEmpty,
+                  let apiURL = URL(string: item.apiURL)
+            else { throw Failure.signedOut }
+            (self.apiURL, self.token) = (apiURL, item.token)
+        }
+
+        static func session() -> (status: OSStatus, data: Data?) {
             let query: [String: Any] = [
                 kSecClass as String: kSecClassGenericPassword,
                 kSecAttrService as String: "procrastimate-link",
@@ -134,12 +147,7 @@ enum Procrastimate {
             ]
             var result: CFTypeRef?
             let status = SecItemCopyMatching(query as CFDictionary, &result)
-            if status == errSecMissingEntitlement { throw Failure.missingEntitlement }
-            guard status == errSecSuccess, let data = result as? Data,
-                  let item = try? JSONDecoder().decode(Item.self, from: data), !item.token.isEmpty,
-                  let apiURL = URL(string: item.apiURL)
-            else { throw Failure.signedOut }
-            (self.apiURL, self.token) = (apiURL, item.token)
+            return (status, result as? Data)
         }
 
         /// The space's projects and their sections in the app's order. `/api/view` is the only route

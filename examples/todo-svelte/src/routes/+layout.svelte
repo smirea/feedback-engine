@@ -6,11 +6,7 @@
 
 	let { children } = $props();
 
-	const feedback = setupFeedbackEngine({
-		app: 'Todo',
-		version: '1.0',
-		procrastimate: { url: '/__feedback/procrastimate' },
-	});
+	const feedback = setupFeedbackEngine({ app: 'Todo', version: '1.0' });
 	feedback.context('TodoStore', () => store);
 </script>
 
