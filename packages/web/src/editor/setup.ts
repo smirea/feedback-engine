@@ -8,8 +8,14 @@ export type FeedbackEngine = {
 	context(name: string, value: () => unknown): void;
 	/** Captures the page and opens the editor. Does nothing while the editor is open. */
 	present(): Promise<void>;
-	/** Shows the Add Feedback pill, as the shortcut does. */
+	/** Shows the Add Feedback pill, as a keyboard shortcut does. Pressing it captures the page. Left alone, it leaves after 5 seconds. */
 	showPill(): void;
+	/**
+	 * Shows the pill counting down from `seconds`, 5 unless given, then captures the page and opens the editor. For a
+	 * trigger inside one of the app's menus, such as on a phone: the user has the countdown to leave the menu and reach
+	 * the screen they mean. Pressing the pill captures at once.
+	 */
+	countdown(seconds?: number): void;
 	/** The files of the last export, for automation that cannot use the clipboard or a download. */
 	readonly lastExport: { name: string; blob: Blob }[];
 	/** Removes the shortcut and Feedback's UI from the page. */
@@ -24,12 +30,12 @@ declare global {
 let current: { engine: FeedbackEngine; destroy: () => void } | undefined;
 
 /**
- * Turns Feedback on: the shortcut shows a pill that captures the page and opens the editor. Call it once, in the
- * browser. On a server it returns an engine that does nothing, so a layout can call it without a guard.
+ * Turns Feedback on: Alt+Meta+click on anything captures the page and opens the editor on what was clicked. Call it
+ * once, in the browser. On a server it returns an engine that does nothing, so a layout can call it without a guard.
  */
 export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngine {
 	if (typeof document === 'undefined') {
-		return { context() {}, present: async () => {}, showPill() {}, lastExport: [], destroy() {} };
+		return { context() {}, present: async () => {}, showPill() {}, countdown() {}, lastExport: [], destroy() {} };
 	}
 	current?.destroy();
 
@@ -48,10 +54,21 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 			engine.showPill();
 		}
 	};
+	const pointerEvents = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'] as const;
+	const pointer = (event: MouseEvent) => {
+		if (!shortcut || !matchesShortcut(shortcut, event) || event.composedPath().includes(host)) return;
+		// The click is for Feedback, so the app must not act on it, move focus, or start a text selection.
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		// A disabled control sends pointer events and no click, and a person still points at it.
+		if (event.type === 'pointerup') void engine.present({ x: event.clientX, y: event.clientY });
+	};
 	const hidden = () => {
 		if (document.visibilityState === 'hidden') engine.hidePill();
 	};
 	addEventListener('keydown', keydown);
+	// In the capture phase, so the chord reaches Feedback before the element under the pointer.
+	for (const type of pointerEvents) addEventListener(type, pointer, true);
 	document.addEventListener('visibilitychange', hidden);
 
 	const api: FeedbackEngine = {
@@ -62,11 +79,13 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 		},
 		present: () => engine.present(),
 		showPill: () => engine.showPill(),
+		countdown: (seconds = 5) => engine.countdown(seconds),
 		get lastExport() {
 			return engine.lastExport;
 		},
 		destroy() {
 			removeEventListener('keydown', keydown);
+			for (const type of pointerEvents) removeEventListener(type, pointer, true);
 			document.removeEventListener('visibilitychange', hidden);
 			void unmount(component);
 			host.remove();

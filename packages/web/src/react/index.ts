@@ -8,8 +8,8 @@ export type { FeedbackOptions } from '../editor/engine.ts';
 export type { FeedbackEngine } from '../editor/setup.ts';
 
 /**
- * Turns Feedback on: the shortcut shows a pill that captures the page and opens the editor. Call it once, in the
- * browser, before or after React renders. On a server it returns an engine that does nothing.
+ * Turns Feedback on: Alt+Meta+click on anything captures the page and opens the editor on what was clicked. Call it
+ * once, in the browser, before or after React renders. On a server it returns an engine that does nothing.
  */
 export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngine {
 	discovery.read = readComponents;

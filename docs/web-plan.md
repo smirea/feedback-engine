@@ -4,7 +4,7 @@ The web package, `@smirea/feedback-engine`, is in `packages/web/src` and on par 
 
 ## Planned
 
-- **A shake on phones (T8).** It needs the `devicemotion` permission, which iOS Safari grants only from a tap, and a physical phone to check it on. Until then a phone opens the editor from the app's own control.
+- **A shake on phones (T8).** It needs the `devicemotion` permission, which iOS Safari grants only from a tap, and a physical phone to check it on. Until then a phone starts a countdown from one of the app's menus.
 - **A task name from an on-device model (P5).** Chrome has a built-in model behind `LanguageModel`. On the machine this was developed on, Chrome 156 reported it as `unavailable`, so the code could not be checked and was not written. `taskTitle` in the core already has the prompt and the cleanup of the reply.
 - **A container that reports its caller's location (G4).** The Vite plugin would have to pass the `file:line` of each `<Legend />` to the component.
 - **React without Vite.** `feedbackEngineReact()` is a Vite plugin, and it does two jobs another bundler would need: it registers the app's components, and it compiles the editor's Svelte files. A Next.js app on webpack or Turbopack needs both as a loader, or the editor as a compiled bundle. Decide that when such an app needs Feedback.
@@ -12,7 +12,8 @@ The web package, `@smirea/feedback-engine`, is in `packages/web/src` and on par 
 
 ## Decisions taken, which you can change
 
-- **The shortcut** is `Alt+Shift+F`, and `setupFeedbackEngine({ shortcut })` changes it.
+- **The trigger** is Alt+Meta+click, which opens the editor on what was clicked. `setupFeedbackEngine({ shortcut })` changes the chord. A chord that ends in a key shows the pill instead, which is how the first version worked, with `Alt+Shift+F`.
+- **A phone's trigger** is `countdown()` from one of the app's menus: 5 seconds to reach the screen, then the capture.
 - **ProcrastiMate** goes through the dev server. `feedbackProcrastimate()` forwards the page's calls and adds a token from the server's environment. This replaced the first plan, a CORS change in ProcrastiMate with a token in the page, because it needs no change and no deploy in ProcrastiMate and keeps the token off the page. A deployed static site has no ProcrastiMate entry. If a deployed app needs one, ProcrastiMate has to allow that origin, and the app passes `procrastimate: { url, token }`, which the client already takes.
 - **Component data** is written with JavaScript literals, such as `{kg: 72.575, note: null}`.
 - **React components are found, not tagged.** A capture reads React's fiber tree, and the Vite plugin registers each component of the app with its name and `file:line`. The alternatives were a tag on every component, as in Svelte, and React's own function names without a plugin. A tag on every component is work React does not need. React's own names are minified in a production build, measured as `ee`, `b`, and `h` on a Vite 8 build, and they cannot tell the app's components from a library's.

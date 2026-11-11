@@ -81,11 +81,10 @@ async function consume(fixture: string, port: number, check?: string[]) {
 	return { page, state };
 }
 
-/** Gives feedback the way a person does, from the shortcut to the JSON export, and returns the tree. */
-async function exported(page: Page) {
+/** Gives feedback the way a person does, from `open` to the JSON export, and returns the tree. */
+async function exported(page: Page, open: () => Promise<void>) {
 	await page.getByRole('button', { name: 'Count 3' }).click();
-	await page.keyboard.press('Alt+Shift+F');
-	await page.getByRole('button', { name: 'Add Feedback' }).click();
+	await open();
 	const field = page.getByRole('textbox', { name: 'Feedback text' });
 	await field.fill('Bigger button');
 	await field.press('Enter');
@@ -108,7 +107,11 @@ async function exported(page: Page) {
 
 test('a Svelte app that installs the packed package builds, serves, and exports feedback', async () => {
 	const { page, state } = await consume('consumer', env.UI_PORT + 4);
-	const report = await exported(page);
+	// This app sets a keyboard shortcut, which shows the pill.
+	const report = await exported(page, async () => {
+		await page.keyboard.press('Alt+Shift+F');
+		await page.getByRole('button', { name: 'Add Feedback' }).click();
+	});
 	expect(report.tree).toEqual([
 		['Screen', undefined, undefined],
 		['  App', 'src/App.svelte:7', 'count: 4'],
@@ -129,7 +132,9 @@ test('a React 18 app that installs the packed package type-checks, builds, serve
 		'--noEmit',
 	]);
 	await page.getByRole('heading', { name: 'Consumer' }).waitFor();
-	const report = await exported(page);
+	const report = await exported(page, () =>
+		page.getByRole('heading', { name: 'Consumer' }).click({ modifiers: ['Alt', 'Meta'] }),
+	);
 	expect(report.tree).toEqual([
 		['Screen', undefined, undefined],
 		// `App` is tagged under its own name, so its data is the tag's. `Theme` draws nothing of its own and shares its box.

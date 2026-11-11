@@ -119,11 +119,18 @@ Agent-device's XCTest runner turns accessibility on for the whole simulator, whi
 - A bare `feedback()` reports every prop and every `$state` variable. Pass a function when that is too much, such as a component that receives a large list: `{@attach feedback(undefined, () => ({ count: items.length }))}`.
 - A class shows under its own name, such as `TodoStore(lists: [...])`. Give it a `toFeedback()` method to choose what it reports.
 
+### A way to open Feedback
+
+- With a mouse, Alt+Meta+click on anything opens the editor with that element selected. There is nothing to build.
+- A phone has no modifier keys, and a shake does not work on the web yet. Add an entry to a menu the app already has, such as Settings or an account menu, that starts a countdown: `<button onclick={() => globalThis.__feedbackEngine?.countdown()}>Send Feedback</button>`. The page shows a pill that counts down from 5 and then captures, so the person has time to leave the menu and open the screen they mean.
+- Don't call `present()` from a menu. It captures at once, so the capture is the menu.
+- Show the entry only when `globalThis.__feedbackEngine` exists, so it is gone from a build that leaves Feedback out.
+
 ### Verify each screen
 
 Do this after changing a screen, against the dev server, with realistic data:
 
-1. Open the screen in Playwright and call `await page.evaluate(() => __feedbackEngine.present())`. The shortcut, `Alt+Shift+F`, then the **Add Feedback** pill, is the path a person takes.
+1. Open the screen in Playwright and call `await page.evaluate(() => __feedbackEngine.present())`. Alt+Meta+click is the path a person takes: `await page.getByRole('heading').first().click({ modifiers: ['Alt', 'Meta'] })`.
 2. Export the tree: add one item, then **Share › JSON**. The page holds the file: `await page.evaluate(() => __feedbackEngine.lastExport[0].blob.text())`.
 3. [Replay every tap](#replay-every-tap) on the export.
 4. Spot-check with real clicks on the regions you changed and read the selection title in the panel. The screenshot is scaled, so convert page points with the bounding box of the element with the role `img` and the name `Screenshot`.
@@ -173,11 +180,18 @@ Every component of the app is in a capture already, under its own name, with its
 - The data function runs when a capture is taken, never while rendering, so it may read whatever the component has.
 - A class shows under its own name, such as `TodoStore(lists: [...])`. Give it a `toFeedback()` method to choose what it reports.
 
+### A way to open Feedback
+
+- With a mouse, Alt+Meta+click on anything opens the editor with that element selected. There is nothing to build.
+- A phone has no modifier keys, and a shake does not work on the web yet. Add an entry to a menu the app already has, such as Settings or an account menu, that starts a countdown: `<button onClick={() => globalThis.__feedbackEngine?.countdown()}>Send Feedback</button>`. The page shows a pill that counts down from 5 and then captures, so the person has time to leave the menu and open the screen they mean.
+- Don't call `present()` from a menu. It captures at once, so the capture is the menu.
+- Show the entry only when `globalThis.__feedbackEngine` exists, so it is gone from a build that leaves Feedback out.
+
 ### Verify each screen
 
 Do this after changing a screen, against the dev server, with realistic data:
 
-1. Open the screen in Playwright and call `await page.evaluate(() => __feedbackEngine.present())`. The shortcut, `Alt+Shift+F`, then the **Add Feedback** pill, is the path a person takes.
+1. Open the screen in Playwright and call `await page.evaluate(() => __feedbackEngine.present())`. Alt+Meta+click is the path a person takes: `await page.getByRole('heading').first().click({ modifiers: ['Alt', 'Meta'] })`.
 2. Export the tree: add one item, then **Share › JSON**. The page holds the file: `await page.evaluate(() => __feedbackEngine.lastExport[0].blob.text())`.
 3. [Replay every tap](#replay-every-tap) on the export. Add `--wrapper App`, with the name of each component that wraps the whole app, so the screen's own component counts as the root.
 4. Read the tree for what should not be there: a component named after a wrapper, the same name twice in one path, or a screen component missing because it was declared inside another function.

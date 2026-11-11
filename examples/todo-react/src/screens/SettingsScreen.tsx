@@ -47,11 +47,13 @@ export function SettingsScreen() {
 				<h2 id='feedback'>Feedback</h2>
 				<div className='card'>
 					<div className='line'>
-						<button type='button' className='button' onClick={() => void globalThis.__feedbackEngine?.present()}>
+						<button type='button' className='button' onClick={() => globalThis.__feedbackEngine?.countdown()}>
 							Send Feedback
 						</button>
 					</div>
-					<p className='line muted'>Or press Alt+Shift+F on any screen.</p>
+					<p className='line muted'>
+						Starts in 5 seconds, so open the screen you mean. With a mouse, Alt+Meta+click anything.
+					</p>
 				</div>
 			</section>
 

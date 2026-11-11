@@ -7,7 +7,11 @@ export type FeedbackOptions = {
 	/** The app's name in exports. Defaults to the document's title. */
 	app?: string;
 	version?: string;
-	/** The keys that show the Add Feedback pill, such as `Alt+Shift+F`. `false` turns the shortcut off. */
+	/**
+	 * What opens Feedback. A chord that ends in `Click`, such as the default `Alt+Meta+Click`, opens the editor with the
+	 * element under the pointer selected. A chord that ends in a key, such as `Alt+Shift+F`, shows the Add Feedback
+	 * pill. `false` turns it off.
+	 */
 	shortcut?: string | false;
 	/** Adds ProcrastiMate to the Share menu. */
 	procrastimate?: {
@@ -25,8 +29,14 @@ export type FeedbackEngine = {
 	context(name: string, value: () => unknown): void;
 	/** Captures the page and opens the editor. Does nothing while the editor is open. */
 	present(): Promise<void>;
-	/** Shows the Add Feedback pill, as the shortcut does. */
+	/** Shows the Add Feedback pill, as a keyboard shortcut does. Pressing it captures the page. Left alone, it leaves after 5 seconds. */
 	showPill(): void;
+	/**
+	 * Shows the pill counting down from `seconds`, 5 unless given, then captures the page and opens the editor. For a
+	 * trigger inside one of the app's menus, such as on a phone: the user has the countdown to leave the menu and reach
+	 * the screen they mean. Pressing the pill captures at once.
+	 */
+	countdown(seconds?: number): void;
 	/** The files of the last export, for automation that cannot use the clipboard or a download. */
 	readonly lastExport: { name: string; blob: Blob }[];
 	/** Removes the shortcut and Feedback's UI from the page. */
@@ -37,8 +47,8 @@ export type FeedbackEngine = {
 export type FeedbackRepresentable = { toFeedback(): unknown };
 
 /**
- * Turns Feedback on: the shortcut shows a pill that captures the page and opens the editor. Call it once, in the
- * browser, before or after React renders. On a server it returns an engine that does nothing.
+ * Turns Feedback on: Alt+Meta+click on anything captures the page and opens the editor on what was clicked. Call it
+ * once, in the browser, before or after React renders. On a server it returns an engine that does nothing.
  */
 export function setupFeedbackEngine(options?: FeedbackOptions): FeedbackEngine;
 

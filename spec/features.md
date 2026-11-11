@@ -15,13 +15,15 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | ID | Feature | iOS | Svelte | React | Notes |
 | --- | --- | --- | --- | --- | --- |
 | T1 | One call at launch turns Feedback on. | shipped | shipped | shipped | iOS: `Feedback.enable()`. Web: `setupFeedbackEngine()` from `@smirea/feedback-engine/svelte` or `/react`. On a server it returns an engine that does nothing. |
-| T2 | A deliberate gesture shows an **Add Feedback** pill at the top center. Tapping the pill captures the screen and opens the editor. | shipped | shipped | shipped | iOS: a shake. Web: a keyboard shortcut, `Alt+Shift+F` unless the app sets another, because a desktop has no shake. |
+| T2 | A deliberate gesture shows an **Add Feedback** pill at the top center. Tapping the pill captures the screen and opens the editor. | shipped | shipped | shipped | iOS: a shake. Web: the default gesture is a click and needs no pill (T10). A keyboard chord, such as `shortcut: 'Alt+Shift+F'`, shows the pill, and so does `showPill()`. |
 | T3 | The pill morphs out of a capsule the size of the Dynamic Island. | shipped | no | no | A browser has no Dynamic Island. The web pill drops in at the top center. |
 | T4 | The pill leaves by itself after 5 seconds. Triggering again restarts the timer. | shipped | shipped | shipped | |
 | T5 | Leaving the app or locking the phone clears the pill at once. | shipped | shipped | shipped | Web: on `visibilitychange`. |
 | T6 | The app can open the editor from its own control. | shipped | shipped | shipped | iOS: `Feedback.present()`. Web: `present()` on the object `setupFeedbackEngine()` returns. |
 | T7 | The app can keep Feedback out of production builds. | shipped | shipped | shipped | iOS: wrap `enable()` in `#if DEBUG`. Web: call `setupFeedbackEngine()` behind `import.meta.env.DEV` with a dynamic import. The production bundle then has the tags, or React's component names, and none of the editor. |
-| T8 | On a phone, a shake is the gesture. | shipped | planned | planned | Web: needs the `devicemotion` permission, which iOS Safari grants only from a tap. Not built, because it cannot be checked without a physical phone. A phone uses the app's own control (T6) until then. |
+| T8 | On a phone, a shake is the gesture. | shipped | planned | planned | Web: needs the `devicemotion` permission, which iOS Safari grants only from a tap. Not built, because it cannot be checked without a physical phone. A phone uses a countdown from one of the app's menus (T9) until then. |
+| T9 | A trigger in one of the app's menus starts a 5 second countdown, so the user can reach the screen they mean before the capture. | no | shipped | shipped | iOS: a shake works on every screen, so no trigger has to live in a menu. Web: `countdown()`. The pill shows **Feedback in 5** and counts down, then captures. Pressing the pill captures at once. It is the trigger for a phone, which has no modifier keys. |
+| T10 | Pointing at something opens the editor with it selected. | no | shipped | shipped | iOS: a shake has no position. Web: Alt+Meta+click, or the chord in `shortcut` when it ends in `Click`. The app does not get the click, and a disabled control can be clicked, because the trigger is the pointer's release. |
 
 ## Tagging
 

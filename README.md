@@ -2,7 +2,7 @@
 
 **Point at your app. Say what's wrong. Hand an agent the exact component and line of code.**
 
-Shake the device, or press a shortcut in the browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
+Shake the device, or Alt+Meta+click anything in the browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
 
 <p align="center">
   <img src="docs/editor.png" alt="The Feedback editor: a frozen screenshot with the Groceries row selected, showing ListRow, App/ListsScreen.swift:81 and its data" width="270">
@@ -156,9 +156,11 @@ Requires Svelte 5.29 or later.
 </script>
 ```
 
-- `setupFeedbackEngine()` turns on the shortcut. `Alt+Shift+F` drops an **Add Feedback** pill in at the top center, and clicking it captures the page and opens the editor. Left alone, the pill leaves after 5 seconds, and it leaves at once when the tab goes to the background. Pass `shortcut: 'Ctrl+Shift+K'` for other keys, or `shortcut: false` for none. On a server the call returns an engine that does nothing, so a layout needs no guard.
+- `setupFeedbackEngine()` turns on the trigger. Alt+Meta+click on anything, which is Option+Command+click on a Mac, captures the page and opens the editor with what you clicked selected. The app never gets that click, so a link does not navigate, and a disabled button can be clicked too. Pass `shortcut: 'Ctrl+Shift+Click'` for another chord, or `shortcut: false` for none. On a server the call returns an engine that does nothing, so a layout needs no guard.
+- A chord that ends in a key, such as `shortcut: 'Alt+Shift+F'`, drops an **Add Feedback** pill in at the top center instead, and clicking the pill captures the page. Left alone, the pill leaves after 5 seconds, and it leaves at once when the tab goes to the background.
 - `feedback.context(name, () => value)` attaches app state to every JSON export. The function runs when a capture is taken.
-- `feedback.present()` opens the editor directly from your own trigger, such as a settings button. A phone has no keyboard shortcut, so give it one.
+- `feedback.countdown()` is the trigger for a phone, which has no modifier keys, and where a shake does not work yet. Call it from an entry in one of your app's menus, such as Settings. The pill shows **Feedback in 5** and counts down, so you have 5 seconds to leave the menu and open the screen you mean. Then it captures. Tapping the pill captures at once, and `countdown(10)` gives more time.
+- `feedback.present()` captures at once, with no countdown. It suits a control that is on the screen you want to capture.
 - To keep Feedback out of production, call it behind `import.meta.env.DEV` with a dynamic import. The production bundle then has the tags and none of the editor.
 
   ```ts
@@ -324,11 +326,11 @@ setupFeedbackEngine({ procrastimate: { url: '/__feedback/procrastimate' } });
 - A minified production build shows a class's minified name in component data, such as `a(count: 2)`.
 - Element locations for untagged content exist only in development builds. Components keep theirs in every build.
 - React: a capture reads fields that are internal to React, the ones React's own developer tools read. If React renames them, components found without a tag are missing, and tagged regions and elements still appear. A bundler other than Vite is not supported.
-- A shake does not trigger Feedback on phones, and the task name is not summarized by an on-device model. [spec/features.md](spec/features.md) lists both as planned.
+- A shake does not trigger Feedback on phones, where `countdown()` from a menu stands in for it, and the task name is not summarized by an on-device model. [spec/features.md](spec/features.md) lists both as planned.
 
 ### Drive it from a script
 
-`setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.present()` opens the editor without the shortcut, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `packages/web/e2e/feedback.e2e.ts` does both with Playwright, for the Svelte app and the React app.
+`setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.present()` opens the editor without the click, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `packages/web/e2e/feedback.e2e.ts` does both with Playwright, for the Svelte app and the React app.
 
 ## Example apps
 

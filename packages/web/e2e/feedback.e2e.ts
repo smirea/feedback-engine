@@ -111,6 +111,7 @@ for (const app of appNames) {
 					test('the Lists screen exports its components, elements, and context', async () => {
 						const { page, context, errors } = await open(app, engine, mode, '/');
 						await present(page);
+						expect(await page.getByText('Click the screenshot to pick a component.').count()).toBe(1);
 						const report = await exportReport(page);
 
 						expect(outline(report)).toEqual(expected[app].lists);
@@ -253,10 +254,11 @@ for (const app of appNames) {
 					const { page, context, errors } = await open(app, engine, 'dev', '/', viewport);
 					const report = async () => JSON.parse((await lastExport(page))[0]!.bytes.toString());
 
-					await page.keyboard.press('Alt+Shift+F');
-					await page.getByRole('button', { name: 'Add Feedback' }).click();
+					// Alt+Meta+click opens the editor on the row under the pointer, and the link under it does not take the click.
+					await page.getByRole('link', { name: /^Groceries/ }).click({ modifiers: ['Alt', 'Meta'] });
 					await editor(page).waitFor();
-					expect(await page.getByText('Click the screenshot to pick a component.').count()).toBe(1);
+					expect(new URL(page.url()).pathname).toBe('/');
+					expect(await selected(page)).toBe('ListRow');
 					expect(await page.getByRole('button', { name: 'Share' }).isDisabled()).toBe(true);
 					// The editor is a modal dialog in the top layer, so the page under it takes no clicks and assistive technology skips it.
 					const covered = () =>
@@ -381,17 +383,70 @@ for (const app of appNames) {
 			}
 		}
 
-		test('the pill leaves by itself after five seconds, and the shortcut restarts the timer', async () => {
+		test('the pill leaves by itself after five seconds, and showing it again restarts the timer', async () => {
 			const { page, context } = await open(app, 'chromium', 'dev', '/');
 			const pill = page.getByRole('button', { name: 'Add Feedback' });
-			await page.keyboard.press('Alt+Shift+F');
+			await page.evaluate(() => globalThis.__feedbackEngine!.showPill());
 			await pill.waitFor();
 			await page.waitForTimeout(3000);
-			await page.keyboard.press('Alt+Shift+F');
+			await page.evaluate(() => globalThis.__feedbackEngine!.showPill());
 			await page.waitForTimeout(3000);
 			expect(await pill.count()).toBe(1);
 			await page.waitForTimeout(2500);
 			expect(await pill.count()).toBe(0);
+			await context.close();
+		}, 30_000);
+
+		for (const engine of engineNames) {
+			test(`Alt+Meta+click opens the editor on what was clicked, and the app never gets the click, in ${engine}`, async () => {
+				const { page, context, errors } = await open(app, engine, 'dev', '/lists/groceries');
+				const close = async () => {
+					await page.getByRole('button', { name: 'Close' }).click();
+					await editor(page).waitFor({ state: 'detached' });
+				};
+
+				await page.getByRole('button', { name: 'Mark All Done' }).click({ modifiers: ['Alt', 'Meta'] });
+				await editor(page).waitFor();
+				expect(await selected(page)).toBe('Button "Mark All Done"');
+				await close();
+				expect(await page.getByText('2 of 19 done').count()).toBe(1);
+
+				// A disabled button takes no click of its own, and a person still points at it.
+				await page.getByRole('button', { name: 'Add', exact: true }).click({ modifiers: ['Alt', 'Meta'], force: true });
+				await editor(page).waitFor();
+				expect(await selected(page)).toBe('Button "Add"');
+				await close();
+
+				// Any other chord belongs to the app.
+				await page.getByRole('button', { name: 'Mark All Done' }).click({ modifiers: ['Alt'] });
+				expect(await page.getByText('19 of 19 done').count()).toBe(1);
+				expect(await editor(page).count()).toBe(0);
+				expect(errors).toEqual([]);
+				await context.close();
+			});
+		}
+
+		test("a countdown from the app's own menu captures the screen the user goes to", async () => {
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/settings');
+			await page.getByRole('button', { name: 'Send Feedback' }).click();
+			await page.getByRole('button', { name: 'Feedback in 5' }).waitFor();
+			await page.getByRole('link', { name: 'Lists', exact: true }).click();
+			await page.getByRole('heading', { name: 'Lists', level: 1 }).waitFor();
+			await page.getByRole('button', { name: 'Feedback in 3' }).waitFor();
+			expect(await editor(page).count()).toBe(0);
+			await editor(page).waitFor({ timeout: 8000 });
+			const report = await exportReport(page);
+			expect(report.environment[1]).toEqual({ name: 'Location', value: '/' });
+			expect(report.nodes.some(node => node.name === 'ListsScreen')).toBe(true);
+			await page.getByRole('button', { name: 'Close' }).click();
+			await page.getByRole('alertdialog').getByRole('button', { name: 'Discard' }).click();
+			await editor(page).waitFor({ state: 'detached' });
+
+			// Pressing the pill captures at once.
+			await page.evaluate(() => globalThis.__feedbackEngine!.countdown());
+			await page.getByRole('button', { name: 'Feedback in 5' }).click();
+			await editor(page).waitFor({ timeout: 1500 });
+			expect(errors).toEqual([]);
 			await context.close();
 		}, 30_000);
 
@@ -422,8 +477,8 @@ for (const app of appNames) {
 		test('closing gives focus back to the field that had it', async () => {
 			const { page, context } = await open(app, 'chromium', 'dev', '/lists/groceries');
 			await page.getByRole('textbox', { name: 'New todo' }).fill('Kiwi');
-			await page.keyboard.press('Alt+Shift+F');
-			await page.getByRole('button', { name: 'Add Feedback' }).click();
+			// The click that opens the editor must not take focus from the field either.
+			await page.getByRole('heading', { level: 1 }).click({ modifiers: ['Alt', 'Meta'] });
 			await editor(page).waitFor();
 			await page.getByRole('button', { name: 'Close' }).click();
 			await editor(page).waitFor({ state: 'detached' });
@@ -433,7 +488,7 @@ for (const app of appNames) {
 
 		test('leaving the page clears the pill at once', async () => {
 			const { page, context } = await open(app, 'chromium', 'dev', '/');
-			await page.keyboard.press('Alt+Shift+F');
+			await page.evaluate(() => globalThis.__feedbackEngine!.showPill());
 			await page.getByRole('button', { name: 'Add Feedback' }).waitFor();
 			await page.evaluate(() => {
 				Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });

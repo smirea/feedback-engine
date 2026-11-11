@@ -1,7 +1,7 @@
 <svelte:options css="injected" />
 
 <script lang="ts">
-	let { onpress }: { onpress: () => void } = $props();
+	let { remaining, onpress }: { remaining: number | undefined; onpress: () => void } = $props();
 </script>
 
 <!-- A click must not take focus from the field the user was typing in. -->
@@ -10,7 +10,7 @@
 		<path d="M40 56h120l24 24v64H96l-32 28v-28H40z" />
 		<path d="M112 172v20h64l32 28v-28h20v-88l-16-16" />
 	</svg>
-	Add Feedback
+	{remaining === undefined ? 'Add Feedback' : `Feedback in ${remaining}`}
 </button>
 
 <style>
@@ -33,6 +33,8 @@
 		font:
 			600 15px/1 system-ui,
 			sans-serif;
+		/* The pill keeps its width while a countdown's digit changes. */
+		font-variant-numeric: tabular-nums;
 		cursor: pointer;
 		translate: -50% 0;
 		animation: drop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
