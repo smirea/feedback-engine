@@ -14,7 +14,7 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
 - `packages/web/src`: the web package `@smirea/feedback-engine`.
   - `core`: pure TypeScript, unit tested. The model, hit-testing, annotations, the session rules, the report, the card layout, the tree builder, and the value describer.
   - `dom`: browser code without a framework. The scene reader, the screenshot, the image export, sharing, and the ProcrastiMate client.
-  - `editor`: the pill and the editor, in Svelte, mounted in a shadow root. Every component has `<svelte:options css="injected" />`, because other styles would not reach inside the shadow root.
+  - `editor`: the pill and the editor, in Svelte, mounted in a shadow root. Every component has `<svelte:options css="injected" />`, because other styles would not reach inside the shadow root. Keep runes in `.svelte` files. A `.svelte.ts` module with type syntax breaks an app's dev server, which pre-bundles the package from `node_modules` without removing types.
   - `svelte`: the entry point, `setupFeedbackEngine` and the `feedback` attachment.
   - `vite`: the build plugin, in plain JavaScript so Node loads it from `node_modules`.
 - `spec/fixtures/capture.json`: one tree with the answers both platforms must give. `swift test` and `bun test` both read it. Change the fixture when shared logic changes, and both suites must pass on it.
@@ -24,7 +24,7 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
 # Development
 
 - `bun run lint`, `bun run typecheck`, and `bun test` cover the TypeScript side. The commit hook runs them on staged files. `.github/CI.md` describes CI.
-- `bun run test:web` drives `examples/todo-svelte` with Playwright in Chromium and WebKit, on a dev server and a production build. It starts its own servers beside the `bun run dev` port, and a stand-in ProcrastiMate server. Test web behavior there, through the page: `present`, `tap`, and `exportReport` in `packages/web/e2e/app.ts`.
+- `bun run test:web` drives `examples/todo-svelte` with Playwright in Chromium and WebKit, on a dev server and a production build. It starts its own servers beside the `bun run dev` port, and a stand-in ProcrastiMate server. `consumer.e2e.ts` packs the package, installs it into a plain Svelte app outside the repository, and runs that app with Node, because the example's workspace link skips what Vite does to a package in `node_modules`. Test web behavior there, through the page: `present`, `tap`, and `exportReport` in `packages/web/e2e/app.ts`.
 - `Session` is plain TypeScript and not reactive. In the editor, change it only inside `act`, and draw only from `view`.
 - To check a ProcrastiMate post from the web against the real server code, run the scratch server described below, sign up with `POST /api/auth/sign-up/email`, and start the example with `PROCRASTIMATE_URL` and `PROCRASTIMATE_TOKEN` set to the scratch server and the `set-auth-token` header of the sign-up.
 - `bun run dev` serves `examples/todo-svelte` on `UI_PORT` from the root `.env`. A worktree gets its own port in `.env.local`. After editing `.env`, run `bun run env:generate` and commit `examples/todo-svelte/env.ts` as generated.

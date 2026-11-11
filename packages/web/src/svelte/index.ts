@@ -1,10 +1,10 @@
 import { mount, unmount } from 'svelte';
 import type { Attachment } from 'svelte/attachments';
 import { hostAttribute, tags } from '../dom/tags.ts';
-import { defaultShortcut, Engine, matchesShortcut, type FeedbackOptions } from '../editor/engine.svelte.ts';
+import { defaultShortcut, Engine, matchesShortcut, type FeedbackOptions } from '../editor/engine.ts';
 import Host from '../editor/Host.svelte';
 
-export type { FeedbackOptions } from '../editor/engine.svelte.ts';
+export type { FeedbackOptions } from '../editor/engine.ts';
 export type { FeedbackRepresentable } from '../core/index.ts';
 
 export type FeedbackEngine = {
