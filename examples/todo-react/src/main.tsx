@@ -7,11 +7,7 @@ import { store } from './store.ts';
 import './styles/layout.css';
 import './styles/components.css';
 
-const feedback = setupFeedbackEngine({
-	app: 'Todo',
-	version: '1.0',
-	procrastimate: { url: '/__feedback/procrastimate' },
-});
+const feedback = setupFeedbackEngine({ app: 'Todo', version: '1.0' });
 feedback.context('TodoStore', () => store);
 
 createRoot(document.getElementById('root')!).render(

@@ -38,6 +38,11 @@ export const procrastimate = {
 	unauthorized: 0,
 };
 
+const procrastimateEnv = {
+	PROCRASTIMATE_URL: `http://127.0.0.1:${procrastimatePort}`,
+	PROCRASTIMATE_TOKEN: procrastimate.token,
+};
+
 function serveProcrastimate(port: number) {
 	return Bun.serve({
 		port,
@@ -94,7 +99,8 @@ export async function startServers() {
 	// `bun test` sets NODE_ENV to `test`, which would make this a development build.
 	const build = Bun.spawnSync(['bun', 'run', 'build'], {
 		cwd: root,
-		env: { ...process.env, NODE_ENV: 'production' },
+		// The token is the switch for the Share menu's ProcrastiMate entry, and a build bakes that in.
+		env: { ...process.env, NODE_ENV: 'production', ...procrastimateEnv },
 		stdout: 'pipe',
 		stderr: 'pipe',
 	});
@@ -118,11 +124,7 @@ export async function startServers() {
 			{
 				cwd: join(root, apps[app].folder),
 				stdio: 'pipe',
-				env: {
-					...process.env,
-					PROCRASTIMATE_URL: `http://127.0.0.1:${procrastimatePort}`,
-					PROCRASTIMATE_TOKEN: procrastimate.token,
-				},
+				env: { ...process.env, ...procrastimateEnv },
 			},
 		);
 		let log = '';

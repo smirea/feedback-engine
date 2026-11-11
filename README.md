@@ -15,9 +15,11 @@ Four notes on one screen. The fourth points at a second element. Type `@`, tap t
   <sub>Four notes, one with a reference, then the exported image. Played at 3.5× speed. <a href="docs/demo.mp4">Full quality video</a></sub>
 </p>
 
-Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. Or post the feedback straight to a ProcrastiMate project as a task.
+Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. With the optional [ProcrastiMate](#procrastimate) integration, the Share menu also posts the feedback as a task.
 
 Platform packages live under `packages/`: `Feedback` for iOS and `@smirea/feedback-engine` for the web, with an entry point for Svelte and one for React. All of them produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform.
+
+There are no tagged releases yet. `master` is the release, so pin a commit when a build has to stay put.
 
 ## iOS
 
@@ -53,7 +55,6 @@ struct MyApp: App {
 - `Feedback.enable()` turns on shake-to-feedback. A shake morphs an **Add Feedback** glass pill out of the top center of the screen, growing from a Dynamic Island–sized capsule, and tapping it opens the editor. Top center sits between a navigation bar's leading and trailing buttons, so the pill covers at most the bar's title. Left alone, the pill morphs back up after 5 seconds, so an accidental shake costs nothing. Leaving the app or locking the phone clears it at once. Wrap the call in `#if DEBUG` if you only want it in development builds.
 - `Feedback.context(name) { value }` attaches app state to every JSON export. The closure runs when a capture is taken.
 - `Feedback.present()` opens the editor directly from your own trigger, such as a settings button.
-- **ProcrastiMate** in the Share menu posts with the session ProcrastiMate shares through the keychain group `FNYFHG5SV7.com.stefan.shared` while it is signed in on the device. Add `$(AppIdentifierPrefix)com.stefan.shared` to the app's `keychain-access-groups` entitlement. A simulator build has to be signed, even ad hoc (`CODE_SIGN_IDENTITY=-`), for the group to count. Without the entitlement, the picker says so.
 
 ### Name your components
 
@@ -105,7 +106,7 @@ The command reads the skill from `master`, so the app picks up changes without a
 5. Tap inside a numbered box to bring back that item's feedback and edit it, then press the checkmark to save. Tap the same spot again, or step to the child, to give feedback on something inside the box instead. Feedback belongs to one level: stepping to the parent or child shows theirs, or a blank field for a new item.
 6. Open the list to review or remove items, and to see the context that will be attached.
 7. Tap **Share** and pick what to send. **Image** is one `feedback.png` with the boxes, each item's text and code location with its references highlighted in their colors, and the environment. **JSON** is one `feedback.json` with every item, the whole component tree, the component data, and the attached context, without the screenshot. **Image and JSON (ZIP)** is both files in one `feedback.zip`. In the share sheet, **Copy Feedback** puts the export on the clipboard, ready to paste into a chat with an agent, and other targets, such as Messages, Notes, or Files, receive it too.
-8. **ProcrastiMate** opens a project picker with the last project you posted to already selected. A project with sections lists them under it once picked. The task name starts as the screen's navigation title, `Feedback`, and the number of items, such as `Groceries Feedback: 3 changes`. On a device with Apple Intelligence, the on-device model then summarizes the items in the background, with a spinner beside the name, and the name becomes `3 Groceries Feedback: bigger titles, remove the share button`. A name you have typed by then stays. You can edit it either way, and **Add** never waits for the summary. **Add** creates the task with the image and `feedback.json` attached, and a toast confirms it. Tap the toast to open the task in ProcrastiMate.
+8. In an app set up for [ProcrastiMate](#procrastimate), **ProcrastiMate** opens a project picker with the last project you posted to already selected. A project with sections lists them under it once picked. The task name starts as the screen's navigation title, `Feedback`, and the number of items, such as `Groceries Feedback: 3 changes`. On a device with Apple Intelligence, the on-device model then summarizes the items in the background, with a spinner beside the name, and the name becomes `3 Groceries Feedback: bigger titles, remove the share button`. A name you have typed by then stays. You can edit it either way, and **Add** never waits for the summary. **Add** creates the task with the image and `feedback.json` attached, and a toast confirms it. Tap the toast to open the task in ProcrastiMate.
 9. Tap **Close** to return to the app. If some items were never shared, Feedback asks before it discards them. The text field that had focus before the editor opened gets it back.
 
 While the editor is open, VoiceOver and UI automation see only the editor. Its text stops growing at the largest standard Dynamic Type size, so the screenshot keeps room at accessibility sizes.
@@ -297,7 +298,7 @@ The editor works as on iOS, with these differences:
 
 ### Post to ProcrastiMate
 
-A page cannot call ProcrastiMate from another origin, and a token in the page would be public. The dev server forwards the calls and adds the token:
+Optional, and off until the dev server has a token. See [ProcrastiMate](#procrastimate) for what it is. A page cannot call ProcrastiMate from another origin, and a token in the page would be public, so the dev server forwards the calls and adds the token:
 
 ```ts
 // vite.config.ts
@@ -308,11 +309,11 @@ export default defineConfig({
 });
 ```
 
-```ts
-setupFeedbackEngine({ procrastimate: { url: '/__feedback/procrastimate' } });
-```
+The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows in the Share menu, with the same picker and task as on iOS. Without it, the entry is not there, and nothing else changes. `setupFeedbackEngine()` needs no option for either case.
 
-**ProcrastiMate** then shows in the Share menu, with the same picker and task as on iOS. The token is a ProcrastiMate API token. The proxy runs in `vite dev` and `vite preview`. A deployed static site has no proxy, so leave `procrastimate` out there.
+- The token is a ProcrastiMate API token. `feedbackProcrastimate({ url })` names another ProcrastiMate server.
+- The proxy runs in `vite dev` and `vite preview`. A build reads the token too. Build a site you deploy without it, because a static host has no proxy.
+- For a proxy of your own, pass its address to the page instead: `setupFeedbackEngine({ procrastimate: { url: '/my-proxy' } })`.
 
 ### How capture works
 
@@ -336,6 +337,13 @@ setupFeedbackEngine({ procrastimate: { url: '/__feedback/procrastimate' } });
 
 `setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.present()` opens the editor without the click, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `packages/web/e2e/feedback.e2e.ts` does both with Playwright, for the Svelte app and the React app.
 
+## ProcrastiMate
+
+[ProcrastiMate](https://github.com/smirea/procrastimate) is the task app that Feedback's author files feedback into. The integration is optional and off until you set it up. Without it, the Share menu has **Image**, **JSON**, and **Image and JSON (ZIP)**, and nothing in the editor mentions ProcrastiMate.
+
+- **Web.** Add `feedbackProcrastimate()` with a token, as under [Post to ProcrastiMate](#post-to-procrastimate).
+- **iOS.** The Share menu lists **ProcrastiMate** only in an app whose entitlements include ProcrastiMate's keychain group, `FNYFHG5SV7.com.stefan.shared`. ProcrastiMate keeps its session there while it is signed in on the device, and Feedback posts with that session. A keychain group belongs to one Apple developer team, so this works only in apps that team signs. For such an app, add `$(AppIdentifierPrefix)com.stefan.shared` to its `keychain-access-groups` entitlement. A simulator build has to be signed, even ad hoc (`CODE_SIGN_IDENTITY=-`), for the group to count.
+
 ## Example apps
 
 `examples/todo-ios` is a small todo app with lists, a list detail screen, an edit sheet, and settings. Every screen is tagged. Run it with:
@@ -349,11 +357,20 @@ cd examples/todo-ios
 
 ```sh
 bun install
-bun run dev         # the Svelte app
-bun run dev:react   # the React app
+bun run dev         # the Svelte app, at http://127.0.0.1:6180
+bun run dev:react   # the React app, at http://127.0.0.1:6185
 ```
 
+Both run from a fresh clone. The tracked `.env` has every default, and no account or token is needed.
+
 ## Development
+
+You need [Bun](https://bun.sh) 1.4 or later for the web side, and Xcode with Swift 6 for iOS.
+
+```sh
+bun install
+bun run hooks   # once per clone, for the git hooks that lint, type-check, and test what you commit
+```
 
 ```sh
 swift build   # compiles the package for macOS
@@ -372,3 +389,18 @@ bun run test:web    # both example apps in Chromium and WebKit, on a dev server 
 ```sh
 bunx playwright install chromium webkit
 ```
+
+### Environment
+
+`.env` is tracked and holds the defaults: `UI_PORT` for the Svelte example, with the React example five ports above it, and where ProcrastiMate is. To change a value on your machine, put it in `.env.local`, which git ignores and which the example apps read after `.env`. A `PROCRASTIMATE_TOKEN` there turns on the [ProcrastiMate](#procrastimate) entry in both examples.
+
+### A name instead of a port
+
+`.env` also names `feedback-engine.localhost` as the Svelte example's host. [localias](https://github.com/peterldowns/localias) gives a dev server such a name. It serves the name over HTTPS and forwards it to a port. It is optional.
+
+```sh
+localias set feedback-engine.localhost 6180
+localias start
+```
+
+`bun run dev` then also answers at `https://feedback-engine.localhost`. The React example has no name, so open it at its port.

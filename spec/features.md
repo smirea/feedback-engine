@@ -133,6 +133,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | P5 | An on-device language model summarizes the items into the task name without blocking the post. | shipped | planned | planned | iOS: Apple Intelligence. Web: Chrome's built-in model. Not built, because Chrome reports the model as unavailable on the machine this was developed on, so it could not be checked. |
 | P6 | The task carries the image export as JPEG with a thumbnail, and `feedback.json`. | shipped | shipped | shipped | |
 | P7 | A toast confirms the post and opens the task when tapped. | shipped | shipped | shipped | iOS: `procrastimate://task/<id>`. Web: the task's page in the ProcrastiMate web app. |
+| P8 | The Share menu lists ProcrastiMate only where a post can work. Elsewhere the entry is not there. | shipped | shipped | shipped | iOS: the app's entitlements include ProcrastiMate's keychain group, which only an app of the same Apple team can have. Web: `feedbackProcrastimate()` has a token, and tells the page so. The example apps read it from `PROCRASTIMATE_TOKEN`. |
 
 ## Agent workflow
 

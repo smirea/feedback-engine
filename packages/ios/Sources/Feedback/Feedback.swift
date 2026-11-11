@@ -163,6 +163,11 @@ enum ShareTarget: CaseIterable {
     case zip
     case procrastimate
 
+    /// What the Share menu lists. ProcrastiMate is there only in an app that can reach it.
+    static var available: [ShareTarget] {
+        allCases.filter { $0 != .procrastimate || Procrastimate.isAvailable }
+    }
+
     var title: String {
         switch self {
         case .image: "Image"
