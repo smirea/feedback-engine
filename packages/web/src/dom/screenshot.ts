@@ -50,12 +50,30 @@ async function withFieldState<T>(work: () => Promise<T>) {
 	}
 }
 
+/**
+ * What the browser paints behind the page: the root's background, else the body's, which the root takes over, else the
+ * canvas color of the page's color scheme. The re-draw is transparent where the page sets no background.
+ */
+function pageBackground() {
+	for (const element of [document.documentElement, document.body]) {
+		const color = element && getComputedStyle(element).backgroundColor;
+		if (color && color !== 'transparent' && color !== 'rgba(0, 0, 0, 0)') return color;
+	}
+	const probe = document.createElement('div');
+	probe.style.cssText = 'position: fixed; background: Canvas';
+	document.documentElement.append(probe);
+	const color = getComputedStyle(probe).backgroundColor;
+	probe.remove();
+	return color;
+}
+
 async function draw(size: Size, scale: number, visible: Frame, fixed: FixedRoot[]) {
 	const roots = new Set<Node>(fixed.map(root => root.element));
 	const canvas = await domToCanvas(document.documentElement, {
 		width: size.width,
 		height: size.height,
 		scale,
+		backgroundColor: pageBackground(),
 		filter: node => !(roots.has(node) || (node instanceof Element && node.hasAttribute(hostAttribute))),
 	});
 	// The library sizes the canvas with inline styles. The editor sizes it instead.
