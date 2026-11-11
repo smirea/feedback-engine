@@ -4,17 +4,15 @@
 
 Shake the device, or Alt+Meta+click anything in the browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
 
-<p align="center">
-  <img src="docs/editor.png" alt="The Feedback editor: a frozen screenshot with the Groceries row selected, showing ListRow, App/ListsScreen.swift:81 and its data" width="270">
-  &nbsp;&nbsp;&nbsp;
-  <img src="docs/export.png" alt="The exported feedback.png: the screenshot with three numbered boxes, each linked to a card with the component, its file:line, and the note" width="560">
-</p>
+| Tap a component in the editor | The `feedback.png` it exports |
+| :---: | :---: |
+| <img src="docs/editor.png" alt="The Feedback editor on iOS: a frozen screenshot with four numbered boxes and an @1 tag on the New List button. The Groceries row is selected, showing ListRow, App/ListsScreen.swift:81, its data, and its note." width="250"> | <img src="docs/export.png" alt="The exported feedback.png: the screenshot with four numbered boxes, each linked to a card with the component, its file:line, and the note. The fourth note names the New List button as @1_Button, highlighted in the color of that button's box." width="520"> |
 
-<p align="center"><sub>Left: tap a component in the editor. Right: the <code>feedback.png</code> it exports, ready to paste into a chat with an agent.</sub></p>
+Four notes on one screen. The fourth points at a second element: type `@`, tap the element, and the note reads `Move this next to @1_Button`. The export draws that element's box and highlights the token in the same color, so an agent knows which button you meant.
 
 <p align="center">
-  <img src="docs/demo.gif" alt="Adding three pieces of feedback, then opening the exported image" width="270"><br>
-  <sub>Three notes and the exported image in about 10 seconds. <a href="docs/demo.mp4">Full quality video</a></sub>
+  <img src="docs/demo.gif" alt="A shake, the Add Feedback pill, four pieces of feedback with one reference, the Share menu, and the exported image" width="270"><br>
+  <sub>Four notes, one with a reference, then the exported image. Played at 3.5× speed. <a href="docs/demo.mp4">Full quality video</a></sub>
 </p>
 
 Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. Or post the feedback straight to a ProcrastiMate project as a task.
@@ -138,6 +136,12 @@ While the editor is open, VoiceOver and UI automation see only the editor. Its t
 ```sh
 bun add github:smirea/feedback-engine
 ```
+
+| The editor in the browser | The `feedback.png` it exports |
+| :---: | :---: |
+| <img src="docs/web-editor.png" alt="The Feedback editor in Google Chrome over the React example: the page's screenshot on the left with four numbered boxes and an @1 tag on the New List button, and a panel on the right showing ListRow, src/components/ListRow.tsx:4, its props, and its note." width="320"> | <img src="docs/web-export.png" alt="The feedback.png exported from the browser: the page with four numbered boxes, each linked to a card with the component, its file:line, and the note. The fourth note names the New List button as @1_Button." width="450"> |
+
+The same four notes on the React example in Google Chrome, opened with Alt+Meta+click on the Groceries row. Each card names its component or element and the `file:line` it comes from, such as `src/components/ListRow.tsx:4`.
 
 ### Svelte
 
