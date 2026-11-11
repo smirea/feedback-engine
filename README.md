@@ -8,7 +8,7 @@ Shake the device, or Alt+Meta+click anything in the browser, tap any component o
 | :---: | :---: |
 | <img src="docs/editor.png" alt="The Feedback editor on iOS: a frozen screenshot with four numbered boxes and an @1 tag on the New List button. The Groceries row is selected, showing ListRow, App/ListsScreen.swift:81, its data, and its note." width="250"> | <img src="docs/export.png" alt="The exported feedback.png: the screenshot with four numbered boxes, each linked to a card with the component, its file:line, and the note. The fourth note names the New List button as @1_Button, highlighted in the color of that button's box." width="520"> |
 
-Four notes on one screen. The fourth points at a second element: type `@`, tap the element, and the note reads `Move this next to @1_Button`. The export draws that element's box and highlights the token in the same color, so an agent knows which button you meant.
+Four notes on one screen. The fourth points at a second element. Type `@`, tap the element, and the note reads `Move this next to @1_Button`. The export draws that element's box and highlights the token in the same color, so an agent knows which button you meant.
 
 <p align="center">
   <img src="docs/demo.gif" alt="A shake, the Add Feedback pill, four pieces of feedback with one reference, the Share menu, and the exported image" width="270"><br>
