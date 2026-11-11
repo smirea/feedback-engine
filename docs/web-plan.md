@@ -20,5 +20,4 @@ The web package, `@smirea/feedback-engine`, is in `packages/web/src` and on par 
 - **Real Safari.** The browser tests run Chromium and Playwright's WebKit. Libraries that draw the DOM into a canvas document first-render gaps for images and fonts in Safari. Check one capture on a real iPhone.
 - **Cross-origin images, `<canvas>`, `<video>`, and iframes.** The example app has none, so the screenshot of a page that has them is untested.
 - **A touch-screen pinch and the share sheet.** Both are written. Playwright can neither pinch nor share.
-- **A GitHub install.** The example links the package from the workspace, and a spike installed it from a packed tarball. Installing `github:smirea/feedback-engine` in a separate app is the same file layout and was checked once after the merge that added the `exports` map.
 - **`__svelte_meta`.** Element locations in development builds read a field that is internal to Svelte. If Svelte renames it, untagged elements lose their locations and tagged components keep theirs.

@@ -22,7 +22,7 @@
 		type Export,
 		type ExportFormat,
 	} from '../dom/share.ts';
-	import type { Engine } from './engine.svelte.ts';
+	import type { Engine } from './engine.ts';
 	import ItemsSheet from './ItemsSheet.svelte';
 	import ProcrastimateSheet from './ProcrastimateSheet.svelte';
 

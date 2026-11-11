@@ -16,12 +16,17 @@ export type FeedbackOptions = {
 export const defaultShortcut = 'Alt+Shift+F';
 const pillSeconds = 5;
 
-/** What the pill and the editor show. One per page. */
+/**
+ * What the pill and the editor show. One per page. It is plain TypeScript, not a `.svelte.ts` module with runes: Vite
+ * pre-bundles a package from `node_modules`, and that step compiles such a module without removing its types.
+ */
 export class Engine {
 	readonly options: FeedbackOptions;
 	readonly providers: { name: string; value: () => unknown }[] = [];
-	pill = $state(false);
-	screen = $state.raw<Screen | undefined>(undefined);
+	pill = false;
+	screen: Screen | undefined;
+	/** Called after `pill` or `screen` changes, so the host draws again. */
+	onchange = () => {};
 	/** The files of the last export, for automation that cannot use the clipboard or a download. */
 	lastExport: { name: string; blob: Blob }[] = [];
 	private capturing = false;
@@ -38,6 +43,7 @@ export class Engine {
 		if (this.screen || this.capturing) return;
 		this.remember();
 		this.pill = true;
+		this.onchange();
 		clearTimeout(this.timer);
 		this.timer = setTimeout(() => this.hidePill(), pillSeconds * 1000);
 	}
@@ -45,6 +51,7 @@ export class Engine {
 	hidePill() {
 		clearTimeout(this.timer);
 		this.pill = false;
+		this.onchange();
 	}
 
 	/** Captures the page and opens the editor. Does nothing while the editor is open. */
@@ -59,6 +66,7 @@ export class Engine {
 				version: this.options.version,
 				context: this.providers,
 			});
+			this.onchange();
 		} finally {
 			this.capturing = false;
 		}
@@ -67,6 +75,7 @@ export class Engine {
 	close() {
 		const { focused } = this;
 		this.screen = undefined;
+		this.onchange();
 		this.focused = null;
 		// The page stays inert until the editor's modal dialog is gone, and an inert element cannot take focus.
 		void tick().then(() => (focused instanceof HTMLElement && focused.isConnected ? focused.focus() : undefined));

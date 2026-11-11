@@ -2,17 +2,26 @@
 
 <script lang="ts">
 	import Editor from './Editor.svelte';
-	import type { Engine } from './engine.svelte.ts';
+	import type { Engine } from './engine.ts';
 	import Pill from './Pill.svelte';
 
 	let { engine }: { engine: Engine } = $props();
+
+	// The engine is not reactive by itself, so it reports each change and this reads it again.
+	let version = $state(0);
+	// svelte-ignore state_referenced_locally
+	engine.onchange = () => (version += 1);
+	const shown = $derived.by(() => {
+		void version;
+		return { pill: engine.pill, screen: engine.screen };
+	});
 </script>
 
-{#if engine.pill}
+{#if shown.pill}
 	<Pill onpress={() => void engine.present()} />
 {/if}
-{#if engine.screen}
-	{#key engine.screen}
-		<Editor {engine} screen={engine.screen} />
+{#if shown.screen}
+	{#key shown.screen}
+		<Editor {engine} screen={shown.screen} />
 	{/key}
 {/if}

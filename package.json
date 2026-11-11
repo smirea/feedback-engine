@@ -1,5 +1,6 @@
 {
 	"name": "@smirea/feedback-engine",
+	"version": "0.1.0",
 	"workspaces": [
 		"examples/*"
 	],
@@ -30,7 +31,7 @@
 		"preview": "bun --filter todo-svelte preview --host 127.0.0.1",
 		"test": "bun test --pass-with-no-tests",
 		"typecheck": "bun --filter todo-svelte check && svelte-check-native --tsconfig ./packages/web/tsconfig.json && bun check",
-		"test:web": "bun test --timeout 120000 ./packages/web/e2e/feedback.e2e.ts"
+		"test:web": "bun test --timeout 120000 ./packages/web/e2e/feedback.e2e.ts ./packages/web/e2e/consumer.e2e.ts"
 	},
 	"dependencies": {
 		"dom-accessibility-api": "^0.7.1",
