@@ -2,7 +2,7 @@
 
 In-app feedback packages, one per platform. Read `README.md` for the integration API, `spec/report.md` for the shared export format, and `spec/features.md` for what each platform does. Keep every platform's output identical to `spec/report.md`, and update it in the same change when the format moves.
 
-`spec/features.md` has one row per feature with a status for iOS and for the web. Add or update the row in the same change that adds, changes, or removes behavior on any platform. `bun test spec` fails on a row without a status for every platform.
+`spec/features.md` has one row per feature with a status for iOS, Svelte, and React. Add or update the row in the same change that adds, changes, or removes behavior on any platform. `bun test spec` fails on a row without a status for every platform.
 
 # Layout
 
@@ -15,19 +15,22 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
   - `core`: pure TypeScript, unit tested. The model, hit-testing, annotations, the session rules, the report, the card layout, the tree builder, and the value describer.
   - `dom`: browser code without a framework. The scene reader, the screenshot, the image export, sharing, and the ProcrastiMate client.
   - `editor`: the pill and the editor, in Svelte, mounted in a shadow root. Every component has `<svelte:options css="injected" />`, because other styles would not reach inside the shadow root. Keep runes in `.svelte` files. A `.svelte.ts` module with type syntax breaks an app's dev server, which pre-bundles the package from `node_modules` without removing types.
-  - `svelte`: the entry point, `setupFeedbackEngine` and the `feedback` attachment.
-  - `vite`: the build plugin, in plain JavaScript so Node loads it from `node_modules`.
+  - `editor/setup.ts`: `setupFeedbackEngine`, which both entry points export.
+  - `svelte`: the Svelte entry point, with the `feedback` attachment.
+  - `react`: the React entry point, with the `feedback` ref and `components.ts`, which reads React's fiber tree for the components the Vite plugin registered. It imports nothing from `react`. `public.d.ts` is what an app's compiler reads instead of the source, and `public.test.ts` fails the type check when the two drift.
+  - `vite`: the build plugins, in plain JavaScript so Node loads them from `node_modules`. `index.js` has the Svelte preprocessor and the ProcrastiMate proxy. `react.js` has the React plugin, which also compiles the editor's Svelte files for a React app.
 - `spec/fixtures/capture.json`: one tree with the answers both platforms must give. `swift test` and `bun test` both read it. Change the fixture when shared logic changes, and both suites must pass on it.
 - `docs/web-plan.md`: what is left for the web package.
-- `examples/todo-svelte`: the web demo app, a SvelteKit SPA that mirrors `examples/todo-ios`.
+- `examples/todo-svelte` and `examples/todo-react`: the web demo apps, a SvelteKit SPA and a React app with React Router. They mirror `examples/todo-ios` and each other: the same screens, markup, and styles, so one browser suite runs on both. Change them together.
 
 # Development
 
 - `bun run lint`, `bun run typecheck`, and `bun test` cover the TypeScript side. The commit hook runs them on staged files. `.github/CI.md` describes CI.
-- `bun run test:web` drives `examples/todo-svelte` with Playwright in Chromium and WebKit, on a dev server and a production build. It starts its own servers beside the `bun run dev` port, and a stand-in ProcrastiMate server. `consumer.e2e.ts` packs the package, installs it into a plain Svelte app outside the repository, and runs that app with Node, because the example's workspace link skips what Vite does to a package in `node_modules`. Test web behavior there, through the page: `present`, `tap`, and `exportReport` in `packages/web/e2e/app.ts`.
+- `bun run test:web` drives both example apps with Playwright in Chromium and WebKit, on a dev server and a production build. Every test in `feedback.e2e.ts` runs once per app, and `expected` at its top holds what differs between them. It starts its own servers beside the `bun run dev` ports, and a stand-in ProcrastiMate server. `consumer.e2e.ts` packs the package, installs it into a plain Svelte app and a plain React 18 app outside the repository, and runs each with Node, because the examples' workspace link skips what Vite does to a package in `node_modules`. The React app has stricter compiler options than the package, and its `tsc` run fails if an app ever compiles the package's source. Test web behavior there, through the page: `present`, `tap`, and `exportReport` in `packages/web/e2e/app.ts`.
 - `Session` is plain TypeScript and not reactive. In the editor, change it only inside `act`, and draw only from `view`.
 - To check a ProcrastiMate post from the web against the real server code, run the scratch server described below, sign up with `POST /api/auth/sign-up/email`, and start the example with `PROCRASTIMATE_URL` and `PROCRASTIMATE_TOKEN` set to the scratch server and the `set-auth-token` header of the sign-up.
-- `bun run dev` serves `examples/todo-svelte` on `UI_PORT` from the root `.env`. A worktree gets its own port in `.env.local`. After editing `.env`, run `bun run env:generate` and commit `examples/todo-svelte/env.ts` as generated.
+- `bun run dev` serves `examples/todo-svelte` on `UI_PORT` from the root `.env`, and `bun run dev:react` serves `examples/todo-react` on `UI_PORT + 5`. A worktree gets its own ports in `.env.local`. After editing `.env`, run `bun run env:generate` and commit the root `env.ts` as generated.
+- A React component is a node only when the plugin registered it. Without a registration the fiber tree cannot tell the app's components from a library's, and a minified build has no names. Keep that rule: a fallback to React's own function names would give a development build and a production build different trees.
 - SvelteKit 3 has no `$lib` alias. The example imports with relative paths.
 - `swift test` runs the core tests on macOS. Test behavior through `TreeBuilder.build`, `Stitch.scene`, `Capture.hitTest`, and `Report.json` with literal expected values.
 - `xcodebuild -scheme Feedback -destination 'generic/platform=iOS Simulator' build` compiles the UIKit half.
