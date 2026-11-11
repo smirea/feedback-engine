@@ -1,6 +1,6 @@
 # Feedback export format
 
-Every platform package exports a capture in one of two formats, each a single file, so agents read feedback from any app the same way. The iOS package is the reference implementation (`packages/ios/Sources/Feedback/Report.swift` and `AnnotatedImage.swift`).
+Every platform package exports a capture in one of two formats, each a single file, so agents read feedback from any app the same way. The iOS package is the reference implementation (`packages/ios/Sources/Feedback/Report.swift` and `AnnotatedImage.swift`). The web package's core is in `packages/web/src/core`. `spec/fixtures/capture.json` holds one tree with the answers both must give for it, and both test suites read it.
 
 ## Capture model
 
@@ -12,13 +12,13 @@ A capture is a screenshot plus a tree of nodes. Node 0 is the whole capture. Whe
 | `name` | Component name, layer name, or element role (`Button`, `Switch`, `Text`, `Text field`, `Header`, `Image`, …) |
 | `label` | Visible text of an element |
 | `frame` | Rectangle in points from the capture's top-left corner, clipped to the capture |
-| `source` | `file:line` of the component's tag call |
+| `source` | `file:line` of the component's tag call. On the web, an element has one too in development builds, where the framework records it. |
 | `data` | Text description of the component's data at capture time |
 | `layer` | 0 for the base screen. Higher layers are presented on top. |
 
 Hit-testing picks the smallest node under the point, considering only the topmost layer that covers it. A node that a higher layer covers completely can never be picked, so the tree leaves it out. Content hidden under the bars or a pinned section header or footer of a full-length capture is left out too. Each section header and footer appears once, in its own place, except the header of a section that starts above the capture, which stays where it was pinned on screen.
 
-An element's parent is the smallest component that holds its centre and at least three quarters of its area, or else the smallest that holds its centre. Of two components with the same frame, the inner one wins.
+Where the platform knows the real hierarchy, as the web does from the DOM, a node's parent is the nearest node above it. Where it does not, as on iOS, an element's parent is the smallest component that holds its centre and at least three quarters of its area, or else the smallest that holds its centre. Of two components with the same frame, the inner one wins.
 
 ## Component data
 
@@ -30,6 +30,15 @@ A component's `name` is its type name without generic arguments, such as `Dashbo
 - Nesting stops after 3 levels as `Type(…)`, `case(…)`, `[…]`, or `(…)`, and lists after 10 elements as `… N more`. The whole description stops at 1,500 characters, followed by `… (truncated)`.
 - Values in `context` use the same format with 6 levels of nesting and up to 8,000 characters.
 - Closures, framework internals such as environment values, and values made only of those are left out.
+
+The web writes JavaScript values with the same rules and these spellings:
+
+- A missing value is `null` or `undefined`, as the value is.
+- A plain object is `{field: value}` and a class instance is `Type(field: value)`. A class's getters count as fields. Past the nesting limit they are `{…}` and `Type(…)`.
+- A plain object passed as a component's data is one `label: value` line per property.
+- A `Map` is `[key: value]`, and an array or a `Set` is `[a, b]`.
+- A `Date` is its ISO 8601 string. A value with a `toFeedback()` method is described as what that method returns.
+- Functions, DOM nodes, and values made only of those are left out.
 
 ## References
 
@@ -50,7 +59,7 @@ The JSON export carries everything the capture knows except the image, as one ob
 | `size` | `width` and `height` of the whole capture |
 | `visible` | `x`, `y`, `width`, `height` of the part that was on screen |
 | `environment`, `context` | Arrays of `name` and `value`, in the order the app registered them |
-| `items` | `number`, `text`, `target` (node id), `title`, `path` (node ids from the screen down to the target), and `code`, the nearest component's `file:line` when there is one |
+| `items` | `number`, `text`, `target` (node id), `title`, `path` (node ids from the screen down to the target), and `code`, the `file:line` of the nearest node with a `source`, from the target up, when there is one |
 | `references` | Each reference some item's text uses, by number: `number`, `token`, and the same `target`, `title`, `path`, and `code` as an item |
 | `nodes` | Every node in id order: `id`, `parent`, `layer`, `kind`, `name`, `label`, `frame`, `source`, and `data`. Keys without a value are left out. |
 

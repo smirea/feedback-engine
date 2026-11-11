@@ -3,7 +3,15 @@
 	"workspaces": [
 		"examples/*"
 	],
+	"files": [
+		"packages/web/src",
+		"Package.swift",
+		"packages/ios/Sources"
+	],
 	"type": "module",
+	"exports": {
+		"./core": "./packages/web/src/core/index.ts"
+	},
 	"scripts": {
 		"build": "bun --filter todo-svelte build",
 		"dev": "bun --filter todo-svelte dev --host 127.0.0.1",

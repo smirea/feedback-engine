@@ -18,9 +18,10 @@ const paths = (full ? [] : (await $`git diff --name-only -z ${comparison}`.text(
 	name => name && !isDocs(name),
 );
 const isSwift = (name: string) =>
-	['packages/ios/', 'examples/todo-ios/', 'Package.swift'].some(prefix => name.startsWith(prefix));
+	['packages/ios/', 'examples/todo-ios/', 'Package.swift', 'spec/fixtures/'].some(prefix => name.startsWith(prefix));
 const common = full || paths.some(name => name.startsWith('.github/'));
-const bun = common || paths.some(name => !isSwift(name));
+// Both suites read `spec/fixtures`.
+const bun = common || paths.some(name => !isSwift(name) || name.startsWith('spec/fixtures/'));
 const swift = common || paths.some(isSwift);
 
 appendFileSync(output, `bun=${bun}\nswift=${swift}\n`);
