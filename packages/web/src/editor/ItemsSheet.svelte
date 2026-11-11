@@ -71,7 +71,7 @@
 				{/each}
 			</ul>
 			<h3>Attached context</h3>
-			{#each [...capture.environment, ...capture.context] as entry (entry.name)}
+			{#each [...capture.environment, ...capture.context] as entry, index (index)}
 				<details>
 					<summary>{entry.name}</summary>
 					<pre>{entry.value}</pre>

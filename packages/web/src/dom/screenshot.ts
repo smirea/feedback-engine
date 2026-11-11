@@ -78,6 +78,8 @@ async function draw(size: Size, scale: number, visible: Frame, fixed: FixedRoot[
 			width: frame.width,
 			height: frame.height,
 			scale,
+			// A layer inside this root is drawn by its own turn.
+			filter: node => node === root.element || !roots.has(node),
 			style: {
 				position: 'static',
 				inset: 'auto',

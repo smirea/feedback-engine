@@ -155,15 +155,21 @@ export function readScene(scroll: Point): Scene {
 		let { parent, layer, clip, merged, fixed } = walk;
 		const isLayer = roots.includes(element);
 		if (style.position === 'fixed' || isLayer) {
-			if (!fixed) {
+			// A layer is its own root even inside a fixed shell or another layer: the browser lifts it to the top layer.
+			if (isLayer) {
 				const frame = frameOf(element, true);
-				const backdrop = isLayer ? getComputedStyle(element, '::backdrop').backgroundColor : undefined;
-				if (isLayer) {
-					layer = scene.layers.length;
-					scene.layers.push({ name: layerName(element), frame });
-					parent = null;
-				}
-				scene.fixed.push({ element: element as HTMLElement, frame, layer, backdrop });
+				layer = scene.layers.length;
+				scene.layers.push({ name: layerName(element), frame });
+				scene.fixed.push({
+					element: element as HTMLElement,
+					frame,
+					layer,
+					backdrop: getComputedStyle(element, '::backdrop').backgroundColor,
+				});
+				parent = null;
+				merged = 'none';
+			} else if (!fixed) {
+				scene.fixed.push({ element: element as HTMLElement, frame: frameOf(element, true), layer });
 			}
 			fixed = true;
 			clip = undefined;

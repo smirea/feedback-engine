@@ -115,7 +115,8 @@ for (const mode of modes) {
 				await present(page);
 				expect(await page.evaluate(() => scrollY)).toBe(1500);
 
-				expect(difference(await captureImage(page), window, 1500 * 2)).toBeLessThan(0.001);
+				// Text is drawn a little differently in a canvas than on screen, more so on Linux than on macOS.
+				expect(difference(await captureImage(page), window, 1500 * 2)).toBeLessThan(0.01);
 				const report = await exportReport(page);
 				expect(report.size.width).toBe(390);
 				expect(report.size.height).toBeGreaterThan(5000);
@@ -460,5 +461,36 @@ test('a scroll container inside the page shows only what was on screen in it', a
 		[226, 112],
 		[346, 28],
 	]);
+	await context.close();
+});
+
+test('a dialog inside a fixed shell is still its own layer', async () => {
+	const { page, context, errors } = await open('chromium', 'dev', '/');
+	await page.evaluate(() => {
+		const shell = document.createElement('div');
+		shell.style.cssText = 'position: fixed; top: 0; right: 0; left: 0; height: 40px; background: #334';
+		shell.innerHTML = '<button>Shell</button><dialog style="margin: auto"><button>Inside</button></dialog>';
+		document.body.append(shell);
+		shell.querySelector('dialog')!.showModal();
+	});
+	await present(page);
+	const report = await exportReport(page);
+	expect(outline(report, 1)).toEqual(['  Dialog', '    Button "Inside"']);
+	expect(report.nodes.find(node => node.label === 'Shell')!.layer).toBe(0);
+	const inside = report.nodes.find(node => node.label === 'Inside')!.frame;
+	await tap(page, inside.x + 5, inside.y + 5);
+	expect(await page.locator('.selected').innerText()).toBe('Button "Inside"');
+	expect(errors).toEqual([]);
+	await context.close();
+});
+
+test('context named like an environment entry shows beside it in the list', async () => {
+	const { page, context, errors } = await open('chromium', 'dev', '/');
+	await page.evaluate(() => globalThis.__feedbackEngine!.context('App', () => ({ build: 7 })));
+	await present(page);
+	await page.getByRole('button', { name: /^Feedback list/ }).click();
+	const names = await page.getByRole('dialog', { name: 'Feedback list' }).locator('summary').allInnerTexts();
+	expect(names.filter(name => name === 'App').length).toBe(2);
+	expect(errors).toEqual([]);
 	await context.close();
 });
