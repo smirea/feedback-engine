@@ -32,6 +32,8 @@
 	// svelte-ignore state_referenced_locally
 	const { capture } = screen;
 	const session = new Session(capture);
+	// svelte-ignore state_referenced_locally
+	if (engine.pointed) session.pick(engine.pointed);
 	const maxZoom = 4;
 
 	/** `Session` is plain TypeScript, so every change to it goes through `act`, and everything drawn reads `view`. */

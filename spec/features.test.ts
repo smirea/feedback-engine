@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const statuses = new Set(['shipped', 'planned', 'no']);
+const platforms = ['iOS', 'Svelte', 'React'];
 
 function problems(markdown: string) {
 	const found: string[] = [];
@@ -26,10 +27,10 @@ function problems(markdown: string) {
 		if (seen.has(id)) found.push(`${id}: duplicate id`);
 		seen.add(id);
 		if (!row.Feature) found.push(`${id}: no feature`);
-		for (const platform of ['iOS', 'Web']) {
+		for (const platform of platforms) {
 			if (!statuses.has(row[platform]!)) found.push(`${id}: ${platform} status "${row[platform]}"`);
 		}
-		if ((row.iOS === 'no' || row.Web === 'no') && !row.Notes) found.push(`${id}: a "no" without a reason`);
+		if (platforms.some(platform => row[platform] === 'no') && !row.Notes) found.push(`${id}: a "no" without a reason`);
 	}
 	return { found, rows: seen.size };
 }
@@ -42,14 +43,14 @@ test('every feature has a status on every platform', () => {
 
 test('the check reports a missing status, a duplicate id, a missing id, and a "no" without a reason', () => {
 	const table = [
-		'| ID | Feature | iOS | Web | Notes |',
-		'| --- | --- | --- | --- | --- |',
-		'| T1 | Shake. | shipped | | |',
-		'| T1 | Pill. | shipped | no | |',
-		'| | Timer. | shipped | planned | |',
+		'| ID | Feature | iOS | Svelte | React | Notes |',
+		'| --- | --- | --- | --- | --- | --- |',
+		'| T1 | Shake. | shipped | shipped | | |',
+		'| T1 | Pill. | shipped | shipped | no | |',
+		'| | Timer. | shipped | planned | planned | |',
 	].join('\n');
 	expect(problems(table).found).toEqual([
-		'T1: Web status ""',
+		'T1: React status ""',
 		'T1: duplicate id',
 		'T1: a "no" without a reason',
 		'"Timer.": no id',
@@ -58,9 +59,9 @@ test('the check reports a missing status, a duplicate id, a missing id, and a "n
 
 test('the check reads indented rows and aligned separators', () => {
 	const table = [
-		'  | ID | Feature | iOS | Web | Notes |',
-		'  | :--- | :---: | --- | --- | ---: |',
-		'  | T1 | Shake. | shipped | | |',
+		'  | ID | Feature | iOS | Svelte | React | Notes |',
+		'  | :--- | :---: | --- | --- | --- | ---: |',
+		'  | T1 | Shake. | shipped | | shipped | |',
 	].join('\n');
-	expect(problems(table)).toEqual({ found: ['T1: Web status ""'], rows: 1 });
+	expect(problems(table)).toEqual({ found: ['T1: Svelte status ""'], rows: 1 });
 });

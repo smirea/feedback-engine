@@ -1,4 +1,5 @@
 import { tick } from 'svelte';
+import type { Point } from '../core/index.ts';
 import { captureScreen, type Screen } from '../dom/capture.ts';
 import type { ProcrastimateConfig } from '../dom/procrastimate.ts';
 import { hostAttribute } from '../dom/tags.ts';
@@ -7,13 +8,17 @@ export type FeedbackOptions = {
 	/** The app's name in exports. Defaults to the document's title. */
 	app?: string;
 	version?: string;
-	/** The keys that show the Add Feedback pill, such as `Alt+Shift+F`. `false` turns the shortcut off. */
+	/**
+	 * What opens Feedback. A chord that ends in `Click`, such as the default `Alt+Meta+Click`, opens the editor with the
+	 * element under the pointer selected. A chord that ends in a key, such as `Alt+Shift+F`, shows the Add Feedback
+	 * pill. `false` turns it off.
+	 */
 	shortcut?: string | false;
 	/** Adds ProcrastiMate to the Share menu. */
 	procrastimate?: ProcrastimateConfig;
 };
 
-export const defaultShortcut = 'Alt+Shift+F';
+export const defaultShortcut = 'Alt+Meta+Click';
 const pillSeconds = 5;
 
 /**
@@ -24,8 +29,12 @@ export class Engine {
 	readonly options: FeedbackOptions;
 	readonly providers: { name: string; value: () => unknown }[] = [];
 	pill = false;
+	/** The seconds left before the pill captures by itself, while a countdown runs. */
+	remaining: number | undefined;
 	screen: Screen | undefined;
-	/** Called after `pill` or `screen` changes, so the host draws again. */
+	/** Where the user pointed to open the editor, in the capture's coordinates. The editor starts with that node selected. */
+	pointed: Point | undefined;
+	/** Called after `pill`, `remaining`, or `screen` changes, so the host draws again. */
 	onchange = () => {};
 	/** The files of the last export, for automation that cannot use the clipboard or a download. */
 	lastExport: { name: string; blob: Blob }[] = [];
@@ -43,23 +52,46 @@ export class Engine {
 		if (this.screen || this.capturing) return;
 		this.remember();
 		this.pill = true;
+		this.remaining = undefined;
 		this.onchange();
 		clearTimeout(this.timer);
 		this.timer = setTimeout(() => this.hidePill(), pillSeconds * 1000);
 	}
 
+	/**
+	 * Shows the pill counting down, then captures. For a trigger inside a menu, which would otherwise capture the menu:
+	 * the user has the countdown to reach the screen they mean. Pressing the pill captures at once.
+	 */
+	countdown(seconds: number) {
+		if (this.screen || this.capturing) return;
+		this.remember();
+		this.pill = true;
+		this.remaining = seconds;
+		this.onchange();
+		clearTimeout(this.timer);
+		const count = () => {
+			this.remaining! -= 1;
+			if (this.remaining! <= 0) return void this.present();
+			this.onchange();
+			this.timer = setTimeout(count, 1000);
+		};
+		this.timer = setTimeout(count, 1000);
+	}
+
 	hidePill() {
 		clearTimeout(this.timer);
 		this.pill = false;
+		this.remaining = undefined;
 		this.onchange();
 	}
 
-	/** Captures the page and opens the editor. Does nothing while the editor is open. */
-	async present() {
+	/** Captures the page and opens the editor. Does nothing while the editor is open. `at` is where the user pointed, in the window. */
+	async present(at?: Point) {
 		if (this.screen || this.capturing) return;
 		this.remember();
 		this.hidePill();
 		this.capturing = true;
+		this.pointed = at && { x: at.x + scrollX, y: at.y + scrollY };
 		try {
 			this.screen = await captureScreen({
 				app: this.options.app,
@@ -87,8 +119,11 @@ export class Engine {
 	}
 }
 
-/** Whether a key event is the shortcut. Letters match by physical key, since Alt changes the character a Mac types. */
-export function matchesShortcut(shortcut: string, event: KeyboardEvent) {
+/**
+ * Whether an event is the shortcut: a click of the main button for a chord that ends in `Click`, a key press for any
+ * other. Letters match by physical key, since Alt changes the character a Mac types.
+ */
+export function matchesShortcut(shortcut: string, event: KeyboardEvent | MouseEvent) {
 	const keys = shortcut.split('+').map(key => key.trim().toLowerCase());
 	const key = keys.pop()!;
 	const modifiers = { alt: event.altKey, shift: event.shiftKey, ctrl: event.ctrlKey, meta: event.metaKey };
@@ -98,6 +133,8 @@ export function matchesShortcut(shortcut: string, event: KeyboardEvent) {
 		),
 	);
 	if (Object.entries(modifiers).some(([name, pressed]) => pressed !== wanted.has(name))) return false;
+	if (key === 'click') return 'button' in event && event.button === 0;
+	if (!('code' in event)) return false;
 	const code = /^[a-z]$/.test(key) ? `Key${key.toUpperCase()}` : /^\d$/.test(key) ? `Digit${key}` : undefined;
 	return code ? event.code === code : event.key.toLowerCase() === key;
 }

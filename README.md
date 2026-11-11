@@ -2,7 +2,7 @@
 
 **Point at your app. Say what's wrong. Hand an agent the exact component and line of code.**
 
-Shake the device, or press a shortcut in the browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
+Shake the device, or Alt+Meta+click anything in the browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
 
 <p align="center">
   <img src="docs/editor.png" alt="The Feedback editor: a frozen screenshot with the Groceries row selected, showing ListRow, App/ListsScreen.swift:81 and its data" width="270">
@@ -19,7 +19,7 @@ Shake the device, or press a shortcut in the browser, tap any component on the f
 
 Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. Or post the feedback straight to a ProcrastiMate project as a task.
 
-Platform packages live under `packages/`: `Feedback` for iOS and `@smirea/feedback-engine` for the web, with Svelte as its first entry point. Both produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform.
+Platform packages live under `packages/`: `Feedback` for iOS and `@smirea/feedback-engine` for the web, with an entry point for Svelte and one for React. All of them produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform.
 
 ## iOS
 
@@ -133,15 +133,17 @@ While the editor is open, VoiceOver and UI automation see only the editor. Its t
 
 ## Web
 
-Requires Svelte 5.29 or later and Vite. The package ships TypeScript and Svelte source, and your app's Vite compiles it.
-
-### Add the package
+`@smirea/feedback-engine` has one entry point per framework, `/svelte` and `/react`, and both need Vite. The package ships TypeScript and Svelte source, and your app's Vite compiles it. The editor is the same in both: Svelte components in a shadow root. A React app needs no Svelte setup, because the package's Vite plugin compiles the editor.
 
 ```sh
 bun add github:smirea/feedback-engine
 ```
 
-### Turn it on
+### Svelte
+
+Requires Svelte 5.29 or later.
+
+#### Turn it on
 
 ```svelte
 <!-- src/routes/+layout.svelte -->
@@ -154,9 +156,11 @@ bun add github:smirea/feedback-engine
 </script>
 ```
 
-- `setupFeedbackEngine()` turns on the shortcut. `Alt+Shift+F` drops an **Add Feedback** pill in at the top center, and clicking it captures the page and opens the editor. Left alone, the pill leaves after 5 seconds, and it leaves at once when the tab goes to the background. Pass `shortcut: 'Ctrl+Shift+K'` for other keys, or `shortcut: false` for none. On a server the call returns an engine that does nothing, so a layout needs no guard.
+- `setupFeedbackEngine()` turns on the trigger. Alt+Meta+click on anything, which is Option+Command+click on a Mac, captures the page and opens the editor with what you clicked selected. The app never gets that click, so a link does not navigate, and a disabled button can be clicked too. Pass `shortcut: 'Ctrl+Shift+Click'` for another chord, or `shortcut: false` for none. On a server the call returns an engine that does nothing, so a layout needs no guard.
+- A chord that ends in a key, such as `shortcut: 'Alt+Shift+F'`, drops an **Add Feedback** pill in at the top center instead, and clicking the pill captures the page. Left alone, the pill leaves after 5 seconds, and it leaves at once when the tab goes to the background.
 - `feedback.context(name, () => value)` attaches app state to every JSON export. The function runs when a capture is taken.
-- `feedback.present()` opens the editor directly from your own trigger, such as a settings button. A phone has no keyboard shortcut, so give it one.
+- `feedback.countdown()` is the trigger for a phone, which has no modifier keys, and where a shake does not work yet. Call it from an entry in one of your app's menus, such as Settings. The pill shows **Feedback in 5** and counts down, so you have 5 seconds to leave the menu and open the screen you mean. Then it captures. Tapping the pill captures at once, and `countdown(10)` gives more time.
+- `feedback.present()` captures at once, with no countdown. It suits a control that is on the screen you want to capture.
 - To keep Feedback out of production, call it behind `import.meta.env.DEV` with a dynamic import. The production bundle then has the tags and none of the editor.
 
   ```ts
@@ -178,7 +182,7 @@ export default defineConfig({
 
 In a plain Svelte project, pass `preprocess: [feedbackEngine()]` to `svelte()` from `@sveltejs/vite-plugin-svelte`.
 
-### Name your components
+#### Name your components
 
 Attach a tag to each component's root element:
 
@@ -195,9 +199,88 @@ Attach a tag to each component's root element:
 
 `feedback()` names the component after its file, so `TodoRow.svelte` is `TodoRow`, and a SvelteKit route file is named after its folders, so `routes/lists/[id]/+page.svelte` is `ListsIdPage`. It reports the component's props and its `$state` variables. To choose the name or the data yourself, use `{@attach feedback('TodoRow', () => item)}`. The data function runs when a capture is taken, never while rendering.
 
+### React
+
+Requires React 18 or later and Vite 8 or later. It is tested with React 18.3 and React 19.
+
+#### Turn it on
+
+Add the plugin to your Vite config, before the React plugin:
+
+```ts
+// vite.config.ts
+import { feedbackEngineReact } from '@smirea/feedback-engine/vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+	plugins: [feedbackEngineReact(), react()],
+});
+```
+
+```tsx
+// src/main.tsx
+import { setupFeedbackEngine } from '@smirea/feedback-engine/react';
+import { store } from './store';
+
+const feedback = setupFeedbackEngine({ app: 'Todo', version: '1.0' });
+feedback.context('Store', () => store);
+```
+
+`setupFeedbackEngine()` takes the options and returns the engine described under [Svelte](#turn-it-on-1). Call it before or after React renders. To keep Feedback out of production, call it behind `import.meta.env.DEV`. In a React 18 app with seven components, the production bundle then grew by 1.3 kB, for the component names, and had none of the editor.
+
+The plugin does three things:
+
+- It registers every component in your `.jsx` and `.tsx` files with its name and `file:line`. React knows a component only by its function's name, which a minified build replaces.
+- It compiles the editor's Svelte files. Without the plugin, the build stops at the first one. Svelte is a peer dependency, which `bun add` and `npm install` add by themselves.
+- On the dev server, it writes each HTML element's `file:line` into a `data-feedback-source` attribute, because React 19 no longer records it. `feedbackEngineReact({ elementSources: false })` turns that off, and test runs never get it.
+
+#### Components need no tags
+
+React keeps its component tree at runtime, so a capture reads it. Every component of your app is in the capture under its own name, with its props as its data and the `file:line` of its declaration:
+
+```tsx
+export function TodoRow({ item, onToggle }: { item: TodoItem; onToggle: () => void }) {
+	return <li>…</li>;
+}
+```
+
+A capture shows `TodoRow` with `item: {id: "…", title: "Oat milk", …}` at `src/components/TodoRow.tsx:3`.
+
+- A component is found when it is declared at the top level of a module: a function, a class, an arrow function, or a `memo` or `forwardRef` call. A component declared inside another function is not.
+- A library's components, such as a router's `Link`, stay out of the tree. The elements they draw still appear.
+- `children` and functions are left out of the data, and a prop that is JSX reads as its tag, such as `<Icon>`.
+- A component that renders several elements is one box around them. A component that draws through a portal sits where it draws.
+
+#### Tag a region, or add state
+
+`feedback(name, data)` returns a ref. Use it for a region that is drawn inline, without a component of its own:
+
+```tsx
+import { feedback } from '@smirea/feedback-engine/react';
+
+<figure ref={feedback('Chart', () => plot)}>…</figure>;
+```
+
+React keeps hook state without names, so a capture cannot read it. To report state, tag the component's root element under the component's own name. The tag's data then replaces the props:
+
+```tsx
+export function TodoDetailDialog({ item }: { item: TodoItem }) {
+	const [draft, setDraft] = useState({ ...item });
+	return <dialog ref={feedback('TodoDetailDialog', () => ({ item: draft }))}>…</dialog>;
+}
+```
+
+The data function runs when a capture is taken, never while rendering. On an element that already has a ref, call both from one ref function.
+
+### Component data and untagged content
+
 Data reads like code, with the limits of the iOS package: `{kg: 72.575, note: null}` for a plain object, `Entry(kg: 72.575, note: null)` for a class instance, 3 decimals, 3 levels, 10 elements, and 1,500 characters. Functions and DOM nodes are skipped at any depth. Give a class a `toFeedback()` method to choose how it reads.
 
-Untagged content still appears. Buttons, links, fields, headings, images, and text come from the DOM with their ARIA role and accessible name, and each one attaches to the tagged component around it. A button or a link is one element, such as `Link "Work 3"`, so the text inside it can't be picked by itself. A tagged component inside it still can. In a development build every element also reports its own `file:line`, so feedback on an untagged button names that button's line.
+Untagged content still appears. Buttons, links, fields, headings, images, and text come from the DOM with their ARIA role and accessible name, and each one attaches to the component around it. A button or a link is one element, such as `Link "Work 3"`, so the text inside it can't be picked by itself. A tagged component inside it still can. In a development build every element also reports its own `file:line`, so feedback on an untagged button names that button's line.
+
+### Set up your app's coding agents
+
+[`skills/feedback-accessibility/SKILL.md`](skills/feedback-accessibility/SKILL.md) has a section for Svelte and one for React, each with the accessibility rules, what to tag, and how to check a screen. Add the line from [the iOS section](#set-up-your-apps-coding-agents) to the app's `AGENTS.md`, with `Svelte` or `React` in place of `SwiftUI`.
 
 ### Give feedback
 
@@ -214,13 +297,10 @@ A page cannot call ProcrastiMate from another origin, and a token in the page wo
 
 ```ts
 // vite.config.ts
-import { feedbackEngine, feedbackProcrastimate } from '@smirea/feedback-engine/vite';
+import { feedbackProcrastimate } from '@smirea/feedback-engine/vite';
 
 export default defineConfig({
-	plugins: [
-		feedbackProcrastimate({ token: process.env.PROCRASTIMATE_TOKEN }),
-		sveltekit({ preprocess: [feedbackEngine()] }),
-	],
+	plugins: [feedbackProcrastimate({ token: process.env.PROCRASTIMATE_TOKEN }) /* and the plugins above */],
 });
 ```
 
@@ -244,12 +324,13 @@ setupFeedbackEngine({ procrastimate: { url: '/__feedback/procrastimate' } });
 - A very tall page is drawn at a lower scale, so the capture fits a 16 megapixel canvas.
 - A scroll container inside the page shows what was on screen in it.
 - A minified production build shows a class's minified name in component data, such as `a(count: 2)`.
-- Element locations for untagged content exist only in development builds. Tagged components keep theirs in every build.
-- A shake does not trigger Feedback on phones, and the task name is not summarized by an on-device model. [spec/features.md](spec/features.md) lists both as planned.
+- Element locations for untagged content exist only in development builds. Components keep theirs in every build.
+- React: a capture reads fields that are internal to React, the ones React's own developer tools read. If React renames them, components found without a tag are missing, and tagged regions and elements still appear. A bundler other than Vite is not supported.
+- A shake does not trigger Feedback on phones, where `countdown()` from a menu stands in for it, and the task name is not summarized by an on-device model. [spec/features.md](spec/features.md) lists both as planned.
 
 ### Drive it from a script
 
-`setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.present()` opens the editor without the shortcut, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `packages/web/e2e/feedback.e2e.ts` does both with Playwright.
+`setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.present()` opens the editor without the click, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `packages/web/e2e/feedback.e2e.ts` does both with Playwright, for the Svelte app and the React app.
 
 ## Example apps
 
@@ -260,11 +341,12 @@ cd examples/todo-ios
 ./scripts/run
 ```
 
-`examples/todo-svelte` is the same app for the web, a SvelteKit SPA. Run it from the repository root with:
+`examples/todo-svelte` and `examples/todo-react` are the same app for the web: a SvelteKit SPA, and a React app with React Router. Run them from the repository root with:
 
 ```sh
 bun install
-bun run dev
+bun run dev         # the Svelte app
+bun run dev:react   # the React app
 ```
 
 ## Development
@@ -276,9 +358,9 @@ swift test    # tree building, hit-testing, stitching, JSON export, and value de
 
 ```sh
 bun run lint        # oxlint and oxfmt
-bun run typecheck   # svelte-check for the example app and the web package, then the repository's TypeScript
+bun run typecheck   # each example app, svelte-check for the web package, then the repository's TypeScript
 bun test            # the web core, the Vite plugin, the shared fixture, and the checks on spec/features.md
-bun run test:web    # the example app in Chromium and WebKit, on a dev server and a production build
+bun run test:web    # both example apps in Chromium and WebKit, on a dev server and a production build
 ```
 
 `bun run test:web` needs Playwright's browsers once:

@@ -34,11 +34,11 @@
 		<h2 id="feedback">Feedback</h2>
 		<div class="card">
 			<div class="line">
-				<button type="button" class="button" onclick={() => void globalThis.__feedbackEngine?.present()}
+				<button type="button" class="button" onclick={() => globalThis.__feedbackEngine?.countdown()}
 					>Send Feedback</button
 				>
 			</div>
-			<p class="line muted">Or press Alt+Shift+F on any screen.</p>
+			<p class="line muted">Starts in 5 seconds, so open the screen you mean. With a mouse, Alt+Meta+click anything.</p>
 		</div>
 	</section>
 

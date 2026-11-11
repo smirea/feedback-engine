@@ -20,3 +20,21 @@ export function feedbackProcrastimate(options?: {
 	/** Defaults to `/__feedback/procrastimate`. */
 	path?: string;
 }): Plugin;
+
+/**
+ * Registers a React module's components, rewrites its `feedback(` calls to carry their `file:line`, and, with
+ * `elementSources`, writes each HTML element's `file:line` into an attribute. `undefined` when nothing changed.
+ */
+export function addReact(code: string, file: string, options?: { elementSources?: boolean }): string | undefined;
+
+/**
+ * The Vite plugin for a React app: it finds the app's components for captures, and compiles the editor. Put it before
+ * the React plugin. It needs Vite 8 or later.
+ */
+export function feedbackEngineReact(options?: {
+	/** Writes each HTML element's `file:line` into a `data-feedback-source` attribute. Defaults to the dev server only. */
+	elementSources?: boolean;
+}): Plugin;
+
+/** The attribute `elementSources` writes. */
+export const sourceAttribute: string;

@@ -13,7 +13,7 @@ bun run dev
 
 The dev server listens on `UI_PORT` from the root `.env`, 6180 in the main checkout, and answers at http://feedback-engine.localhost when localias maps that host. An agent worktree gets its own port in `.env.local`.
 
-Press Alt+Shift+F on any screen, then click **Add Feedback**. **Settings › Send Feedback** opens the editor without the shortcut.
+Alt+Meta+click anything, which is Option+Command+click on a Mac, to open the editor on it. On a phone, **Settings › Send Feedback** starts a 5 second countdown: open the screen you mean before it ends.
 
 `bun run build` writes the static site to `build/`, and `bun run preview` serves it.
 

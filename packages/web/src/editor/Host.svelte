@@ -13,12 +13,12 @@
 	engine.onchange = () => (version += 1);
 	const shown = $derived.by(() => {
 		void version;
-		return { pill: engine.pill, screen: engine.screen };
+		return { pill: engine.pill, remaining: engine.remaining, screen: engine.screen };
 	});
 </script>
 
 {#if shown.pill}
-	<Pill onpress={() => void engine.present()} />
+	<Pill remaining={shown.remaining} onpress={() => void engine.present()} />
 {/if}
 {#if shown.screen}
 	{#key shown.screen}
