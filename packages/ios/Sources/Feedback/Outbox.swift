@@ -259,8 +259,8 @@ final class Outbox {
         step = "Creating the task"
         sending = (post.id, step)
         let title = posts.first { $0.id == post.id }?.title ?? post.title
-        try await client.create(id: post.id, title: title, place: post.place, attachments: [post.image, post.report])
-        update(post.id) { $0.sentTitle = title }
+        let created = try await client.create(id: post.id, title: title, place: post.place, attachments: [post.image, post.report])
+        update(post.id) { $0.sentTitle = created }
     }
 
     private func update(_ id: String, _ change: (inout PendingPost) -> Void) {

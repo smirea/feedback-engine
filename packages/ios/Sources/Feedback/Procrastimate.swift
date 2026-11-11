@@ -180,14 +180,16 @@ enum Procrastimate {
         }
 
         /// Creates the task with its attachments in one write. The id is the client's, so a retry
-        /// whose first answer was lost returns that task instead of adding a second one.
-        func create(id: String, title: String, place: Place, attachments: [Attachment]) async throws {
+        /// whose first answer was lost returns that task instead of adding a second one. Returns the
+        /// task's title, which is the first attempt's for such a retry, not this one's.
+        func create(id: String, title: String, place: Place, attachments: [Attachment]) async throws -> String {
             struct NewTask: Encodable { let id: String; let title: String; let projectId: String?; let sectionId: String?; let attachments: [Attachment] }
-            struct Task: Decodable { let id: String }
+            struct Task: Decodable { let id: String; let title: String }
             let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(id: id, title: title, projectId: place.projectId, sectionId: place.sectionId, attachments: attachments)))
             guard task.id == id else {
                 throw Problem(message: "ProcrastiMate made a task under another id, so a retry would add a second one.", facts: [.init(label: "Task", value: "\(task.id), sent \(id)")])
             }
+            return task.title
         }
 
         func rename(id: String, title: String) async throws {
