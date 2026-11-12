@@ -88,14 +88,7 @@ enum AnnotatedImage {
         let environmentHeight = measure(environment, width: column)
         let cards = annotations.items.enumerated().map { index, item in
             let node = capture.nodes[item.target]
-            let text = NSMutableAttributedString(string: node.title + "\n", attributes: [
-                .font: UIFont.systemFont(ofSize: 12, weight: .semibold), .foregroundColor: secondary,
-            ])
-            if let source = capture.nearestComponent(from: item.target)?.source {
-                text.append(NSAttributedString(string: source.description + "\n", attributes: [
-                    .font: UIFont.monospacedSystemFont(ofSize: 10.5, weight: .regular), .foregroundColor: secondary,
-                ]))
-            }
+            let text = NSMutableAttributedString()
             for segment in annotations.segments(item.text) {
                 if let reference = segment.reference {
                     let color = Palette.uiColor(annotations.colorIndex(of: reference.target))
@@ -106,8 +99,21 @@ enum AnnotatedImage {
                     text.append(NSAttributedString(string: segment.text, attributes: [.font: UIFont.systemFont(ofSize: 14), .foregroundColor: primary]))
                 }
             }
+            let footer = NSMutableAttributedString(string: node.title, attributes: [
+                .font: UIFont.systemFont(ofSize: 11, weight: .semibold), .foregroundColor: primary,
+            ])
+            if let source = capture.nearestComponent(from: item.target)?.source {
+                footer.append(NSAttributedString(string: "\n" + source.description, attributes: [
+                    .font: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), .foregroundColor: primary,
+                ]))
+            }
+            let body = max(measure(text, width: textWidth), badge) + padding * 2
+            let footerHeight = measure(footer, width: column - padding * 2) + footerPadding * 2
             let color = Palette.uiColor(annotations.colorIndex(of: item.target))
-            return (number: index + 1, color: color, text: text, height: max(measure(text, width: textWidth), badge) + padding * 2, frame: node.frame)
+            return (
+                number: index + 1, color: color, text: text, footer: footer,
+                body: body, height: body + footerHeight, frame: node.frame
+            )
         }
         let layout = CardLayout.place(targets: cards.map(\.frame), heights: cards.map(\.height), screen: capture.screen, environmentHeight: environmentHeight)
         let shot = layout.shot
@@ -170,14 +176,24 @@ enum AnnotatedImage {
             for (card, placement) in zip(cards, layout.cards) {
                 let rect = CGRect(origin: placement.origin, size: CGSize(width: column, height: card.height))
                 let background = UIBezierPath(roundedRect: rect, cornerRadius: 10)
+                let border = tint(card.color)
                 UIColor.white.setFill()
                 background.fill()
-                card.color.withAlphaComponent(0.45).setStroke()
+                context.cgContext.saveGState()
+                background.addClip()
+                border.setFill()
+                context.fill(CGRect(x: rect.minX, y: rect.minY + card.body, width: column, height: card.height - card.body))
+                context.cgContext.restoreGState()
+                border.setStroke()
                 background.lineWidth = 1
                 background.stroke()
                 drawBadge(card.number, color: card.color, center: CGPoint(x: rect.minX + padding + badge / 2, y: rect.minY + padding + badge / 2))
                 card.text.draw(
-                    with: CGRect(x: rect.minX + padding * 2 + badge, y: rect.minY + padding, width: textWidth, height: card.height - padding * 2),
+                    with: CGRect(x: rect.minX + padding * 2 + badge, y: rect.minY + padding, width: textWidth, height: card.body - padding * 2),
+                    options: [.usesLineFragmentOrigin], context: nil
+                )
+                card.footer.draw(
+                    with: CGRect(x: rect.minX + padding, y: rect.minY + card.body + footerPadding, width: column - padding * 2, height: card.height - card.body - footerPadding * 2),
                     options: [.usesLineFragmentOrigin], context: nil
                 )
             }
@@ -187,6 +203,15 @@ enum AnnotatedImage {
     }
 
     private static var textWidth: CGFloat { column - padding * 3 - badge }
+    private static let footerPadding: CGFloat = 6
+
+    /// The card's border and its footer's fill: the item's color at 45% over white, opaque so the
+    /// two match exactly.
+    private static func tint(_ color: UIColor) -> UIColor {
+        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
+        color.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return UIColor(red: red * 0.45 + 0.55, green: green * 0.45 + 0.55, blue: blue * 0.45 + 0.55, alpha: 1)
+    }
 
     private static func environmentText(_ capture: Capture) -> NSAttributedString {
         let paragraph = NSMutableParagraphStyle()

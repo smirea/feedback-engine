@@ -106,6 +106,15 @@ function withAlpha(color: string, alpha: number) {
 	return `rgb(${value >> 16} ${(value >> 8) & 255} ${value & 255} / ${alpha})`;
 }
 
+/** The card's border and its footer's fill: the item's color at 45% over white, opaque so the two match exactly. */
+function tint(color: string) {
+	const value = Number.parseInt(color.slice(1), 16);
+	const mix = (channel: number) => Math.round(channel * 0.45 + 255 * 0.55);
+	return `rgb(${mix(value >> 16)} ${mix((value >> 8) & 255)} ${mix(value & 255)})`;
+}
+
+const footerPadding = 6;
+
 const clamp = (value: number, low: number, high: number) => Math.min(Math.max(value, low), high);
 
 function dashedBox(context: CanvasRenderingContext2D, target: Frame, color: string) {
@@ -188,8 +197,6 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 		const text = layout(
 			context,
 			[
-				{ runs: [{ text: title(node), font: `600 12px ${sans}`, color: secondary }] },
-				...(source ? [{ runs: [{ text: source, font: `10.5px ${mono}`, color: secondary }] }] : []),
 				{
 					runs: annotations.segments(item.text).map(segment =>
 						segment.reference
@@ -205,11 +212,23 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 			],
 			textWidth,
 		);
+		const footer = layout(
+			context,
+			[
+				{ runs: [{ text: title(node), font: `600 11px ${sans}`, color: primary }] },
+				...(source ? [{ runs: [{ text: source, font: `11px ${mono}`, color: primary }] }] : []),
+			],
+			column - padding * 2,
+		);
+		const body = Math.max(heightOf(text), badgeSize) + padding * 2;
+		const footerHeight = heightOf(footer) + footerPadding * 2;
 		return {
 			number: index + 1,
 			color: paletteColor(annotations.colorIndex(item.target)),
 			text,
-			height: Math.max(heightOf(text), badgeSize) + padding * 2,
+			footer,
+			body,
+			height: body + footerHeight,
 			frame: node.frame,
 		};
 	});
@@ -269,17 +288,25 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 
 	for (const [index, item] of items.entries()) {
 		const { origin } = placed.cards[index]!;
+		const border = tint(item.color);
 		roundedRect(context, { ...origin, width: column, height: item.height }, 10);
 		context.fillStyle = 'white';
 		context.fill();
+		context.save();
+		context.clip();
+		context.fillStyle = border;
+		context.fillRect(origin.x, origin.y + item.body, column, item.height - item.body);
+		context.restore();
+		roundedRect(context, { ...origin, width: column, height: item.height }, 10);
 		context.lineWidth = 1;
-		context.strokeStyle = withAlpha(item.color, 0.45);
+		context.strokeStyle = border;
 		context.stroke();
 		badge(context, item.number, item.color, {
 			x: origin.x + padding + badgeSize / 2,
 			y: origin.y + padding + badgeSize / 2,
 		});
 		drawText(context, item.text, { x: origin.x + padding * 2 + badgeSize, y: origin.y + padding });
+		drawText(context, item.footer, { x: origin.x + padding, y: origin.y + item.body + footerPadding });
 	}
 
 	drawText(context, environment, placed.environment);

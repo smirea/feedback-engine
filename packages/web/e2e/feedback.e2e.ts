@@ -271,15 +271,28 @@ for (const app of appNames) {
 					const groceries = { x: left + 100, y: 270 };
 					await tap(page, groceries.x, groceries.y);
 					expect(await selected(page)).toBe('ListRow');
-					expect(await page.locator('.source').innerText()).toBe(expected[app].listRow);
-					expect(await page.locator('.similar-count').innerText()).toBe('2 similar');
-					expect(await page.locator('.data').innerText()).toBe('name: Groceries\nremaining: 17\ntotal: 19');
+					expect(await page.getByRole('tooltip').count()).toBe(0);
+					await page.locator('.selected').click();
+					const info = page.getByRole('tooltip');
+					expect(await info.locator('.source').innerText()).toBe(expected[app].listRow);
+					expect(await info.locator('.similar-count').innerText()).toBe('2 similar');
+					expect(await info.locator('.data').innerText()).toBe('name: Groceries\nremaining: 17\ntotal: 19');
+					await tap(page, groceries.x, groceries.y);
+					expect(await info.count()).toBe(0);
 					expect(await page.locator('.box.similar').count()).toBe(2);
 
 					await page.getByRole('button', { name: /^Select parent/ }).click();
 					expect(await selected(page)).toBe('Link "Groceries 17"');
 					await page.getByRole('button', { name: /^Select child/ }).click();
 					expect(await selected(page)).toBe('ListRow');
+
+					const fieldHeight = async () => (await field(page).boundingBox())!.height;
+					await field(page).fill('Line');
+					const oneLine = await fieldHeight();
+					await field(page).fill('Line\n'.repeat(4));
+					expect(await fieldHeight()).toBeGreaterThan(oneLine * 2);
+					await field(page).fill('Line\n'.repeat(80));
+					expect(await fieldHeight()).toBeCloseTo(viewport.height * 0.6, 0);
 
 					await field(page).fill('Row is too tall');
 					await page.getByRole('button', { name: 'Add feedback' }).click();

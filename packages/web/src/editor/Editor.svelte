@@ -84,6 +84,7 @@
 	let paneSize = $state({ width: 0, height: 0 });
 	let zoom = $state(1);
 	let hover = $state<number>();
+	let showsInfo = $state(false);
 	let showsList = $state(false);
 	let showsShare = $state(false);
 	let showsProcrastimate = $state(false);
@@ -195,8 +196,8 @@
 	}
 
 	function requestClose() {
-		if (showsList || showsShare || showsProcrastimate || pending) {
-			showsList = showsShare = showsProcrastimate = false;
+		if (showsInfo || showsList || showsShare || showsProcrastimate || pending) {
+			showsInfo = showsList = showsShare = showsProcrastimate = false;
 			pending = undefined;
 		} else if (session.isTyping || session.unshared.length) {
 			confirmsClose = true;
@@ -245,6 +246,9 @@
 	bind:this={dialog}
 	class="editor"
 	aria-label="Feedback"
+	onpointerdown={event => {
+		if (showsInfo && !(event.target as Element).closest('.title')) showsInfo = false;
+	}}
 	oncancel={event => {
 		event.preventDefault();
 		requestClose();
@@ -362,7 +366,28 @@
 							</button>
 						{/if}
 					</span>
-					<strong class="selected">{title(view.target)}</strong>
+					<span class="title">
+						<button
+							type="button"
+							class="selected"
+							aria-expanded={showsInfo}
+							aria-controls="target-info"
+							onclick={() => (showsInfo = !showsInfo)}>{title(view.target)}</button
+						>
+						{#if showsInfo}
+							<div class="info" id="target-info" role="tooltip">
+								{#if view.source || view.similar.length}
+									<div class="meta">
+										<span class="source">{view.source ?? ''}</span>
+										{#if view.similar.length}<span class="similar-count">{view.similar.length} similar</span>{/if}
+									</div>
+								{/if}
+								{#if view.data}<pre class="data">{view.data}</pre>{/if}
+								{#if !view.source && !view.similar.length && !view.data}<span class="empty">No source or data</span
+									>{/if}
+							</div>
+						{/if}
+					</span>
 					<span class="side end">
 						{#if view.child}
 							<button
@@ -379,11 +404,6 @@
 			{:else}
 				<p class="hint">Click the screenshot to pick a component.</p>
 			{/if}
-			<div class="meta">
-				<span class="source">{view.source ?? ''}</span>
-				{#if view.similar.length}<span class="similar-count">{view.similar.length} similar</span>{/if}
-			</div>
-			<pre class="data">{view.data ?? ' '}</pre>
 			{#if view.isReferencing}
 				<div class="picker">
 					{#if view.referenceTarget}
@@ -778,12 +798,46 @@
 		white-space: nowrap;
 	}
 
+	.title {
+		position: relative;
+		display: flex;
+		min-width: 0;
+	}
+
 	.selected {
+		min-width: 0;
+		border: 0;
+		padding: 0;
+		background: none;
 		color: #ffd60a;
 		font-size: 16px;
+		font-weight: 700;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	/* Above the title, so on a phone it covers the screenshot and not the field being typed in. */
+	.info {
+		position: absolute;
+		bottom: calc(100% + 10px);
+		left: 50%;
+		z-index: 3;
+		display: grid;
+		gap: 8px;
+		width: max-content;
+		max-width: min(420px, calc(100vw - 32px));
+		border-radius: 12px;
+		padding: 10px 12px;
+		box-sizing: border-box;
+		background: #2c2c2e;
+		box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+		translate: -50% 0;
+	}
+
+	.empty {
+		color: #aeaeb2;
+		font-size: 13px;
 	}
 
 	.hint {
@@ -794,8 +848,7 @@
 	.meta {
 		display: flex;
 		justify-content: space-between;
-		gap: 8px;
-		min-height: 16px;
+		gap: 16px;
 		color: #aeaeb2;
 		font:
 			12px ui-monospace,
@@ -805,10 +858,7 @@
 	}
 
 	.source {
-		direction: rtl;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		overflow-wrap: anywhere;
 	}
 
 	.similar-count {
@@ -817,7 +867,7 @@
 	}
 
 	.data {
-		height: 3.9em;
+		max-height: 40vh;
 		margin: 0;
 		color: #aeaeb2;
 		font:
@@ -825,7 +875,7 @@
 			'SF Mono',
 			Menlo,
 			monospace;
-		overflow: hidden;
+		overflow: auto;
 		white-space: pre-wrap;
 	}
 
@@ -861,7 +911,7 @@
 	textarea {
 		flex: 1;
 		min-height: 38px;
-		max-height: 6.5em;
+		max-height: 60dvh;
 		border: 0;
 		border-radius: 18px;
 		padding: 8px 12px;
@@ -967,10 +1017,9 @@
 			border-left: 1px solid rgb(255 255 255 / 0.08);
 		}
 
-		.data {
-			height: auto;
-			max-height: 40vh;
-			overflow: auto;
+		.info {
+			top: calc(100% + 10px);
+			bottom: auto;
 		}
 
 		.scrim {

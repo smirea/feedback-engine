@@ -15,6 +15,8 @@ struct EditorView: View {
     /// jump as the panel grows with a selection or a longer draft.
     @State private var panelHeight: CGFloat = 0
     @State private var panelTop: CGFloat = 0
+    /// The editor's height above the keyboard, which the feedback field grows into up to 60%.
+    @State private var height: CGFloat = 0
     @FocusState private var composing: Bool
 
     var body: some View {
@@ -53,12 +55,13 @@ struct EditorView: View {
                     .animation(.snappy, value: session.toast)
             }
             .ignoresSafeArea(.keyboard)
-            TargetPanel(session: session, composing: $composing)
+            TargetPanel(session: session, composing: $composing, maxFieldHeight: height * 0.6)
                 .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: {
                     if panelHeight == 0 { panelHeight = $0.height }
                     panelTop = $0.minY
                 }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { height = $0 }
         .background(Color(white: 0.08).ignoresSafeArea())
         .preferredColorScheme(.dark)
         .dynamicTypeSize(...EditorView.largestTextSize)
@@ -329,6 +332,10 @@ private struct Box: View {
 private struct TargetPanel: View {
     @Bindable var session: Session
     var composing: FocusState<Bool>.Binding
+    let maxFieldHeight: CGFloat
+    @ScaledMetric(relativeTo: .body) private var lineHeight = UIFont.preferredFont(
+        forTextStyle: .body, compatibleWith: UITraitCollection(preferredContentSizeCategory: .large)
+    ).lineHeight
 
     var body: some View {
         let target = session.target
@@ -338,24 +345,6 @@ private struct TargetPanel: View {
             } else {
                 Text("Tap the screenshot to pick a component.").font(.subheadline).foregroundStyle(.secondary)
             }
-            HStack(spacing: 8) {
-                if let source = session.capture.nearestComponent(from: target.id)?.source {
-                    Text(source.description)
-                        .lineLimit(1)
-                        .truncationMode(.head)
-                }
-                Spacer()
-                if !session.similar.isEmpty {
-                    Text("\(session.similar.count) similar").foregroundStyle(.yellow.opacity(0.7))
-                }
-            }
-            .font(.caption.monospaced())
-            .foregroundStyle(.secondary)
-            Text(target.data ?? session.capture.nearestComponent(from: target.id)?.data ?? " ")
-                .font(.caption2.monospaced())
-                .foregroundStyle(.secondary)
-                .lineLimit(3, reservesSpace: true)
-                .frame(maxWidth: .infinity, alignment: .leading)
             if session.isReferencing {
                 ReferencePicker(session: session)
             }
@@ -370,7 +359,7 @@ private struct TargetPanel: View {
                         .accessibilityLabel("Editing item \(index + 1)")
                 }
                 TextField("Feedback on \(target.name)…", text: $session.text, axis: .vertical)
-                    .lineLimit(1...4)
+                    .lineLimit(1...max(Int((maxFieldHeight - 16) / lineHeight), 1))
                     .focused(composing)
                     .accessibilityLabel("Feedback text")
                     .padding(.horizontal, 12)
@@ -436,6 +425,7 @@ private struct ReferencePicker: View {
 /// target, and the neighbors follow.
 private struct Chain: View {
     let session: Session
+    @State private var showsInfo = false
 
     var body: some View {
         let path = session.path
@@ -443,11 +433,20 @@ private struct Chain: View {
         HStack(spacing: 8) {
             neighbor(level + 1 < path.count ? path[level + 1] : nil, isParent: true) { session.step(to: level + 1) }
                 .frame(minWidth: 90, maxWidth: .infinity, alignment: .leading)
-            Text(session.target.title)
-                .font(.headline)
-                .foregroundStyle(.yellow)
-                .lineLimit(1)
-                .layoutPriority(1)
+            Button { showsInfo = true } label: {
+                Text(session.target.title)
+                    .font(.headline)
+                    .foregroundStyle(.yellow)
+                    .lineLimit(1)
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows its source and data")
+            .layoutPriority(1)
+            .popover(isPresented: $showsInfo, arrowEdge: .bottom) {
+                TargetInfo(session: session)
+                    .presentationCompactAdaptation(.popover)
+                    .presentationBackground(Color(white: 0.17))
+            }
             neighbor(level > 0 ? path[level - 1] : nil, isParent: false) { session.step(to: level - 1) }
                 .frame(minWidth: 90, maxWidth: .infinity, alignment: .trailing)
         }
@@ -473,6 +472,48 @@ private struct Chain: View {
         } else {
             Color.clear.frame(height: 1)
         }
+    }
+}
+
+/// The target's code location, how many sibling parts match it, and its data, kept out of the
+/// panel so the field has the room.
+private struct TargetInfo: View {
+    let session: Session
+
+    var body: some View {
+        let target = session.target
+        let component = session.capture.nearestComponent(from: target.id)
+        let data = target.data ?? component?.data
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                if component?.source != nil || !session.similar.isEmpty {
+                    HStack(alignment: .firstTextBaseline, spacing: 16) {
+                        if let source = component?.source {
+                            Text(source.description)
+                        }
+                        Spacer(minLength: 0)
+                        if !session.similar.isEmpty {
+                            Text("\(session.similar.count) similar").foregroundStyle(.yellow.opacity(0.7))
+                        }
+                    }
+                    .font(.caption.monospaced())
+                }
+                if let data {
+                    Text(data).font(.caption2.monospaced())
+                }
+                if component?.source == nil && session.similar.isEmpty && data == nil {
+                    Text("No source or data").font(.caption)
+                }
+            }
+            .foregroundStyle(.secondary)
+            .textSelection(.enabled)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .frame(idealWidth: 360, maxHeight: 320)
+        .fixedSize(horizontal: false, vertical: true)
+        .dynamicTypeSize(...EditorView.largestTextSize)
     }
 }
 

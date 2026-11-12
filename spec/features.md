@@ -108,12 +108,14 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | E15 | A referenced element keeps its number for the whole capture, and its box gets an `@N` tag. | shipped | shipped | shipped | |
 | E16 | The screenshot's scale stays fixed while the panel under it grows. | shipped | shipped | shipped | |
 | E17 | The editor's styles and the app's styles do not reach each other. | shipped | shipped | shipped | iOS: a separate window. Web: a shadow root. |
+| E18 | Tapping the selection's title shows its component's `file:line`, the number of similar parts, and its data in a popover. The panel itself shows only the title, so the field has the room. | shipped | shipped | shipped | iOS: a popover with its arrow on the title. Web: a tooltip above the title on a narrow screen, and below it beside the screenshot. A click elsewhere or Escape closes it. |
+| E19 | The feedback field grows with its text up to 60% of the editor's height, then scrolls. | shipped | shipped | shipped | iOS: the height above the keyboard. Web: the viewport's height. |
 
 ## Export and sharing
 
 | ID | Feature | iOS | Svelte | React | Notes |
 | --- | --- | --- | --- | --- | --- |
-| X1 | The image export is one `feedback.png` with numbered boxes, a card per item, and the environment. | shipped | shipped | shipped | Web: drawn on a canvas with the layout rules of `report.md`. |
+| X1 | The image export is one `feedback.png` with numbered boxes, a card per item, and the environment. Each card has the text at the top and the target with its `file:line` in a band at the bottom. | shipped | shipped | shipped | Web: drawn on a canvas with the layout rules of `report.md`. |
 | X2 | The JSON export is one `feedback.json` with the items, the tree, the component data, and the context. | shipped | shipped | shipped | |
 | X3 | Image and JSON export together as one `feedback.zip`. | shipped | shipped | shipped | |
 | X4 | **Copy Feedback** puts the image export on the clipboard as one PNG. | shipped | shipped | shipped | Web: `navigator.clipboard.write`, in a secure context. |
