@@ -30,7 +30,11 @@ export function report(capture: Capture, annotations: Annotations) {
 		size: { width: round(capture.size.width), height: round(capture.size.height) },
 		visible: rect(capture.visible),
 		environment: capture.environment.map(({ name, value }) => ({ name, value })),
-		items: annotations.items.map((item, index) => ({ number: index + 1, text: item.text, ...pointer(item.target) })),
+		items: annotations.items.map(item => ({
+			number: annotations.number(item.target),
+			text: item.text,
+			...pointer(item.target),
+		})),
 		references: annotations.used.map(reference => ({
 			number: reference.number,
 			token: reference.token,

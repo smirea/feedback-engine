@@ -22,9 +22,9 @@
 	const { capture } = session;
 	const items = $derived.by(() => {
 		void version;
-		return session.items.map((item, index) => ({
+		return session.items.map(item => ({
 			...item,
-			number: index + 1,
+			number: session.annotations.number(item.target),
 			color: paletteColor(session.colorIndex(item.target)),
 			segments: session.annotations.segments(item.text),
 		}));

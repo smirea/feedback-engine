@@ -42,11 +42,13 @@ The web writes JavaScript values with the same rules and these spellings:
 
 ## References
 
-Item text can name other nodes with reference tokens such as `@1_Dialog`: `@`, the reference's number, `_`, and the node's `name` with each run of characters other than letters and digits replaced by one `_`. Numbers count up from 1 across the whole capture, and a node referenced again keeps its first token. A token followed directly by more letters or digits is plain text. Items and references take colors from one palette, in the order their nodes were first given an item or a reference, so a node that has both shows one color.
+Item text can name other nodes with reference tokens such as `@1_Dialog`: `@`, the node's number, `_`, and the node's `name` with each run of characters other than letters and digits replaced by one `_`. A token followed directly by more letters or digits is plain text.
+
+Items and references share one count. A node takes the next number, from 1, and the next color of one palette the first time it is given an item or a reference, and keeps both for the whole capture. An item's number and a reference's number are its node's number, so a node with both shows one number and one color, and no two nodes show the same number. A node referenced again keeps its first token. Removing an item leaves its number unused, so numbers can have gaps.
 
 ## Image export
 
-The screenshot sits between two columns. Each item's target has a dashed box with no fill and a numbered round badge, matching the item numbers in the JSON export. Each node an item's text references has a box in its color too, with its `@N` in a square tag on the box's top-right corner. In the cards, each reference token is drawn in white on its color, with a space of that color before and after it. Each item goes in a card in the left column, with its text at the top beside the badge, and its target title over the nearest component's `file:line` at the bottom, in dark text of one small size on a band filled with the card's border color, as level with the target as the cards above it allow, with a line from the card to the nearest side of the box. A card moves to the right column only when that makes its line at least 80 points shorter, as for a target at the right edge. The app name and the environment entries go in the right column, in the first gap from the top that is tall enough for them. A tall capture is drawn at a lower scale, so the image stays under about 40 million pixels.
+The screenshot sits between two columns. Each item's target has a dashed box with no fill and a round badge with its number, matching the item numbers in the JSON export. Each node an item's text references has a box in its color too, with its `@N` in a square tag on the box's top-right corner. In the cards, each reference token is drawn in white on its color, with a space of that color before and after it. Each item goes in a card in the left column, with its text at the top beside the badge, and its target title over the nearest component's `file:line` at the bottom, in dark text of one small size on a band filled with the card's border color, as level with the target as the cards above it allow, with a line from the card to the nearest side of the box. A card moves to the right column only when that makes its line at least 80 points shorter, as for a target at the right edge. The app name and the environment entries go in the right column, in the first gap from the top that is tall enough for them. A tall capture is drawn at a lower scale, so the image stays under about 40 million pixels.
 
 ## JSON export
 
@@ -59,7 +61,7 @@ The JSON export carries everything the capture knows except the image, as one ob
 | `size` | `width` and `height` of the whole capture |
 | `visible` | `x`, `y`, `width`, `height` of the part that was on screen |
 | `environment`, `context` | Arrays of `name` and `value`, in the order the app registered them |
-| `items` | `number`, `text`, `target` (node id), `title`, `path` (node ids from the screen down to the target), and `code`, the `file:line` of the nearest node with a `source`, from the target up, when there is one |
+| `items` | In the order they were added: `number` (the target's number, see References), `text`, `target` (node id), `title`, `path` (node ids from the screen down to the target), and `code`, the `file:line` of the nearest node with a `source`, from the target up, when there is one |
 | `references` | Each reference some item's text uses, by number: `number`, `token`, and the same `target`, `title`, `path`, and `code` as an item |
 | `nodes` | Every node in id order: `id`, `parent`, `layer`, `kind`, `name`, `label`, `frame`, `source`, and `data`. Keys without a value are left out. |
 

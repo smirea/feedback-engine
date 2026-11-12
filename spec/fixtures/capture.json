@@ -290,14 +290,17 @@
 			"reference": 3
 		},
 		{
-			"submit": "Align with @1_Row and @2_Nope",
+			"submit": "Align with @2_Row and @3_Nope",
 			"on": 17
 		},
 		{
 			"reference": 4
 		},
 		{
-			"submit": "Move @2_Button left\nof the title",
+			"reference": 6
+		},
+		{
+			"submit": "Move @4_Button left\nof the title, like @1_Button",
 			"on": 1
 		},
 		{
@@ -314,7 +317,7 @@
 		[200, 130]
 	],
 	"similar": [6, 4, 3, 2, 16],
-	"segments": "See @1_Row, @1_Rows, @3_Sheet and @9_Row",
+	"segments": "See @2_Row, @2_Rows, @1_Row, @6_Sheet and @9_Row",
 	"cards": {
 		"targets": [
 			{
@@ -346,9 +349,9 @@
 		"colorIndexes": [6, 4, 6, 1, 3, 6, 0, 6, 6, 6, 6, 6, 6, 6, 5, 6, 6, 2],
 		"segments": [
 			["See ", 0],
-			["@1_Row", 1],
-			[", @1_Rows, ", 0],
-			["@3_Sheet", 3],
+			["@2_Row", 2],
+			[", @2_Rows, @1_Row, ", 0],
+			["@6_Sheet", 6],
 			[" and @9_Row", 0]
 		],
 		"report": {
@@ -384,16 +387,16 @@
 					"code": "App/Row.swift:40"
 				},
 				{
-					"number": 2,
-					"text": "Align with @1_Row and @2_Nope",
+					"number": 3,
+					"text": "Align with @2_Row and @3_Nope",
 					"target": 17,
 					"title": "Text field \"Title, Milk\"",
 					"path": [0, 14, 15, 17],
 					"code": "App/EditSheet.swift:8"
 				},
 				{
-					"number": 3,
-					"text": "Move @2_Button left\nof the title",
+					"number": 5,
+					"text": "Move @4_Button left\nof the title, like @1_Button",
 					"target": 1,
 					"title": "ListScreen",
 					"path": [0, 1],
@@ -403,15 +406,23 @@
 			"references": [
 				{
 					"number": 1,
-					"token": "@1_Row",
+					"token": "@1_Button",
+					"target": 6,
+					"title": "Button \"Info\"",
+					"path": [0, 1, 3, 6],
+					"code": "App/Row.swift:40"
+				},
+				{
+					"number": 2,
+					"token": "@2_Row",
 					"target": 3,
 					"title": "Row",
 					"path": [0, 1, 3],
 					"code": "App/Row.swift:40"
 				},
 				{
-					"number": 2,
-					"token": "@2_Button",
+					"number": 4,
+					"token": "@4_Button",
 					"target": 4,
 					"title": "Button \"Done\"",
 					"path": [0, 1, 3, 4],
@@ -719,7 +730,7 @@
 		},
 		"taskTitle": {
 			"placeholder": "Groceries Feedback: 3 changes",
-			"prompt": "- On Button \"Info\": Make it bigger\n- On Text field \"Title, Milk\": Align with @1_Row and @2_Nope\n- On ListScreen: Move @2_Button left of the title",
+			"prompt": "- On Button \"Info\": Make it bigger\n- On Text field \"Title, Milk\": Align with @2_Row and @3_Nope\n- On ListScreen: Move @4_Button left of the title, like @1_Button",
 			"summarized": "3 Groceries Feedback: Bigger info button, aligned title"
 		}
 	}

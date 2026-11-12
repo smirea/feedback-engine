@@ -159,8 +159,8 @@ private struct ScreenshotCanvas: View {
             ForEach(session.similar, id: \.self) { id in
                 Box(frame: capture.nodes[id].frame, scale: scale, zoom: zoom, color: .yellow.opacity(0.5), lineWidth: 1, fill: .yellow.opacity(0.08))
             }
-            ForEach(Array(session.items.enumerated()), id: \.element.id) { index, item in
-                Box(frame: capture.nodes[item.target].frame, scale: scale, zoom: zoom, color: Palette.color(session.colorIndex(of: item.target)), number: index + 1)
+            ForEach(session.items) { item in
+                Box(frame: capture.nodes[item.target].frame, scale: scale, zoom: zoom, color: Palette.color(session.colorIndex(of: item.target)), number: session.annotations.number(of: item.target))
             }
             ForEach(session.visibleReferences, id: \.self) { reference in
                 Box(frame: capture.nodes[reference.target].frame, scale: scale, zoom: zoom, color: Palette.color(session.colorIndex(of: reference.target)), tag: reference.tag)
@@ -349,14 +349,15 @@ private struct TargetPanel: View {
                 ReferencePicker(session: session)
             }
             HStack(alignment: .bottom, spacing: 8) {
-                if let editing = session.editing, let index = session.items.firstIndex(of: editing) {
-                    Text("\(index + 1)")
+                if let editing = session.editing {
+                    let number = session.annotations.number(of: editing.target)
+                    Text("\(number)")
                         .font(.caption.bold())
                         .foregroundStyle(.white)
                         .frame(width: 22, height: 22)
                         .background(Palette.color(session.colorIndex(of: editing.target)), in: Circle())
                         .padding(.bottom, 8)
-                        .accessibilityLabel("Editing item \(index + 1)")
+                        .accessibilityLabel("Editing item \(number)")
                 }
                 TextField("Feedback on \(target.name)…", text: $session.text, axis: .vertical)
                     .lineLimit(1...max(Int((maxFieldHeight - 16) / lineHeight), 1))
@@ -557,10 +558,10 @@ private struct ItemsSheet: View {
                     if session.items.isEmpty {
                         Text("No feedback yet. Tap a component, type, and press the arrow.").foregroundStyle(.secondary)
                     }
-                    ForEach(Array(session.items.enumerated()), id: \.element.id) { index, item in
+                    ForEach(session.items) { item in
                         let target = session.capture.nodes[item.target]
                         HStack(alignment: .top, spacing: 10) {
-                            Text("\(index + 1)")
+                            Text("\(session.annotations.number(of: item.target))")
                                 .font(.caption.bold())
                                 .foregroundStyle(.white)
                                 .frame(width: 22, height: 22)

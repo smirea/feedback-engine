@@ -86,7 +86,7 @@ enum AnnotatedImage {
     static func render(_ capture: Capture, _ annotations: Annotations) -> UIImage {
         let environment = environmentText(capture)
         let environmentHeight = measure(environment, width: column)
-        let cards = annotations.items.enumerated().map { index, item in
+        let cards = annotations.items.map { item in
             let node = capture.nodes[item.target]
             let text = NSMutableAttributedString()
             for segment in annotations.segments(item.text) {
@@ -111,7 +111,7 @@ enum AnnotatedImage {
             let footerHeight = measure(footer, width: column - padding * 2) + footerPadding * 2
             let color = Palette.uiColor(annotations.colorIndex(of: item.target))
             return (
-                number: index + 1, color: color, text: text, footer: footer,
+                number: annotations.number(of: item.target), color: color, text: text, footer: footer,
                 body: body, height: body + footerHeight, frame: node.frame
             )
         }

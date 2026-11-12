@@ -156,15 +156,19 @@ struct Reference: Hashable, Sendable {
     var tag: String { "@\(number)" }
 }
 
-/// Everything a share exports besides the capture. Items and references take colors from one
-/// palette, in the order their nodes were first flagged or referenced, so a node keeps one color
-/// whichever came first.
+/// Everything a share exports besides the capture. Items and references share one count: a node
+/// takes the next number and color the first time it is flagged or referenced, and keeps them for
+/// the capture, so no two boxes show the same number. Removing an item leaves its number unused,
+/// since tokens in other texts may still name it.
 struct Annotations: Sendable {
     private(set) var items: [FeedbackItem] = []
     private(set) var references: [Reference] = []
     private var marked: [Node.ID] = []
 
     func colorIndex(of node: Node.ID) -> Int { marked.firstIndex(of: node) ?? marked.count }
+
+    /// The node's number, or the one it would take next.
+    func number(of node: Node.ID) -> Int { colorIndex(of: node) + 1 }
 
     /// Updates the target's item, or adds one.
     mutating func submit(_ text: String, on target: Node.ID) {
@@ -184,10 +188,10 @@ struct Annotations: Sendable {
     mutating func reference(_ node: Node) -> Reference {
         if let reference = references.first(where: { $0.target == node.id }) { return reference }
         let words = node.name.split { !($0.isLetter || $0.isNumber) }.joined(separator: "_")
-        let number = references.count + 1
+        mark(node.id)
+        let number = number(of: node.id)
         let reference = Reference(number: number, target: node.id, token: "@\(number)_\(words.isEmpty ? "Node" : words)")
         references.append(reference)
-        mark(node.id)
         return reference
     }
 
@@ -200,7 +204,7 @@ struct Annotations: Sendable {
 
     func references(in texts: [String]) -> [Reference] {
         let tokens = Set(texts.flatMap { segments($0).compactMap(\.reference?.token) })
-        return references.filter { tokens.contains($0.token) }
+        return references.filter { tokens.contains($0.token) }.sorted { $0.number < $1.number }
     }
 
     /// The text split into plain runs and reference tokens. A token followed by more letters is

@@ -295,7 +295,7 @@ test('typing @ picks a node to reference without moving the target', () => {
 	expect(session.isReferencing).toBe(false);
 });
 
-test('references share the palette with items in the order their nodes were first used', () => {
+test('references share numbers and colors with items in the order their nodes were first used', () => {
 	const session = new Session(captureOf(rowScene()));
 	session.pick({ x: 50, y: 220 });
 	session.text = 'Align with @';
@@ -318,6 +318,13 @@ test('references share the palette with items in the order their nodes were firs
 	expect(JSON.parse(session.json).references).toEqual([
 		{ number: 1, token: '@1_Button', target: 3, title: 'Button "Delete"', path: [0, 1, 3], code: 'src/Row.svelte:200' },
 	]);
+	expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([2, 1]);
+
+	session.remove(session.items[1]!.id);
+	session.pick({ x: 50, y: 300 });
+	session.text = 'Too empty';
+	session.submit();
+	expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([2, 3]);
 });
 
 class Entry {

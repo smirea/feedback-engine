@@ -58,9 +58,9 @@
 			source: nearestSource(capture, target.id),
 			data: target.data ?? nearestComponent(capture, target.id)?.data,
 			similar: session.similar,
-			items: session.items.map((item, index) => ({
+			items: session.items.map(item => ({
 				...item,
-				number: index + 1,
+				number: session.annotations.number(item.target),
 				color: paletteColor(session.colorIndex(item.target)),
 			})),
 			references: session.visibleReferences.map(reference => ({

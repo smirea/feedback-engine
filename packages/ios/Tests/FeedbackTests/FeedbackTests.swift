@@ -383,7 +383,7 @@ private func rowScene() -> RawScene {
     #expect(!session.isReferencing)
 }
 
-@MainActor @Test func referencesShareThePaletteWithItemsInTheOrderTheirNodesWereFirstUsed() throws {
+@MainActor @Test func referencesShareNumbersAndColorsWithItemsInTheOrderTheirNodesWereFirstUsed() throws {
     let session = Session(capture: capture(rowScene()))
     session.pick(at: CGPoint(x: 50, y: 220))
     session.text = "Align with @"
@@ -403,6 +403,14 @@ private func rowScene() -> RawScene {
     #expect(document["references"] as? NSArray == [
         ["number": 1, "token": "@1_Button", "target": 3, "title": "Button \"Delete\"", "path": [0, 1, 3], "code": "App/Screen.swift:200"],
     ])
+    #expect((document["items"] as? [[String: Any]])?.map { $0["number"] as? Int } == [2, 1])
+
+    session.remove(session.items[1].id)
+    session.pick(at: CGPoint(x: 50, y: 300))
+    session.text = "Too empty"
+    session.submit()
+    let after = try #require(JSONSerialization.jsonObject(with: Data(session.json.utf8)) as? [String: Any])
+    #expect((after["items"] as? [[String: Any]])?.map { $0["number"] as? Int } == [2, 3])
 }
 
 @Test func onlyExactTokensOfKnownReferencesAreReferences() {

@@ -10,8 +10,9 @@ export type Segment = { text: string; reference?: Reference };
 export const tag = (reference: Reference) => `@${reference.number}`;
 
 /**
- * Everything a share exports besides the capture. Items and references take colors from one palette, in the order
- * their nodes were first flagged or referenced, so a node keeps one color whichever came first.
+ * Everything a share exports besides the capture. Items and references share one count: a node takes the next number
+ * and color the first time it is flagged or referenced, and keeps them for the capture, so no two boxes show the same
+ * number. Removing an item leaves its number unused, since tokens in other texts may still name it.
  */
 export class Annotations {
 	items: FeedbackItem[] = [];
@@ -21,6 +22,11 @@ export class Annotations {
 	colorIndex(node: number) {
 		const index = this.marked.indexOf(node);
 		return index === -1 ? this.marked.length : index;
+	}
+
+	/** The node's number, or the one it would take next. */
+	number(node: number) {
+		return this.colorIndex(node) + 1;
 	}
 
 	/** Updates the target's item, or adds one. */
@@ -46,10 +52,10 @@ export class Annotations {
 			.split(/[^\p{L}\p{N}]+/u)
 			.filter(Boolean)
 			.join('_');
-		const number = this.references.length + 1;
+		this.mark(node.id);
+		const number = this.number(node.id);
 		const reference = { number, target: node.id, token: `@${number}_${words || 'Node'}` };
 		this.references.push(reference);
-		this.mark(node.id);
 		return reference;
 	}
 
@@ -64,7 +70,7 @@ export class Annotations {
 
 	referencesIn(texts: string[]) {
 		const tokens = new Set(texts.flatMap(text => this.segments(text).map(segment => segment.reference?.token)));
-		return this.references.filter(reference => tokens.has(reference.token));
+		return this.references.filter(reference => tokens.has(reference.token)).toSorted((a, b) => a.number - b.number);
 	}
 
 	/** The text split into plain runs and reference tokens. A token followed by more letters is plain text, since it names nothing. */

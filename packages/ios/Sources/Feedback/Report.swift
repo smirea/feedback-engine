@@ -17,9 +17,9 @@ extension Report {
             size: .init(width: rounded(capture.screen.width), height: rounded(capture.screen.height)),
             visible: .init(capture.visible),
             environment: capture.environment.map { .init(name: $0.name, value: $0.value) },
-            items: annotations.items.enumerated().map { index, item in
+            items: annotations.items.map { item in
                 .init(
-                    number: index + 1, text: item.text, target: item.target, title: capture.nodes[item.target].title,
+                    number: annotations.number(of: item.target), text: item.text, target: item.target, title: capture.nodes[item.target].title,
                     path: capture.path(from: item.target).reversed().map(\.id),
                     code: capture.nearestComponent(from: item.target)?.source?.description
                 )

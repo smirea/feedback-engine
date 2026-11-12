@@ -307,6 +307,7 @@ for (const app of appNames) {
 					await page.getByRole('button', { name: 'Insert' }).click();
 					expect(await field(page).inputValue()).toBe('Smaller, like @1_ListRow ');
 					await field(page).press('Enter');
+					expect(await page.locator('.box.item .number').allInnerTexts()).toEqual(['1', '2']);
 					expect(await page.locator('.box.item .tag').allInnerTexts()).toEqual(['@1']);
 
 					await tap(page, groceries.x, groceries.y);
@@ -382,9 +383,9 @@ for (const app of appNames) {
 					await page.getByRole('button', { name: 'Share' }).click();
 					await page.getByRole('menuitem', { name: 'JSON', exact: true }).click();
 					await page.getByRole('dialog', { name: 'Share JSON' }).waitFor();
-					expect((await report()).items.map((item: { text: string }) => item.text)).toEqual([
-						'Smaller, like @1_ListRow',
-					]);
+					expect(
+						(await report()).items.map((item: { number: number; text: string }) => [item.number, item.text]),
+					).toEqual([[2, 'Smaller, like @1_ListRow']]);
 					await page.getByRole('dialog', { name: 'Share JSON' }).getByRole('button', { name: 'Cancel' }).click();
 
 					await page.getByRole('button', { name: 'Close' }).click();

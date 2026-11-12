@@ -191,7 +191,7 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 	);
 	const environmentHeight = heightOf(environment);
 
-	const items = annotations.items.map((item, index) => {
+	const items = annotations.items.map(item => {
 		const node = capture.nodes[item.target]!;
 		const source = nearestSource(capture, item.target);
 		const text = layout(
@@ -223,7 +223,7 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 		const body = Math.max(heightOf(text), badgeSize) + padding * 2;
 		const footerHeight = heightOf(footer) + footerPadding * 2;
 		return {
-			number: index + 1,
+			number: annotations.number(item.target),
 			color: paletteColor(annotations.colorIndex(item.target)),
 			text,
 			footer,
