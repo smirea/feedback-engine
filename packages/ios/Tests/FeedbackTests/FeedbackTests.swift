@@ -379,7 +379,7 @@ private func rowScene() -> RawScene {
     #expect(session.referenceTarget?.title == "Row")
     session.stepReference(to: 0)
     session.insertReference()
-    #expect(session.text == "Too close to @1_Button ")
+    #expect(session.text == "Too close to @2_Button ")
     #expect(!session.isReferencing)
 
     session.text += "and @"
@@ -388,7 +388,7 @@ private func rowScene() -> RawScene {
     session.text += "below @"
     session.pick(at: delete)
     session.insertReference()
-    #expect(session.text == "Too close to @1_Button and @2_Row below @1_Button ")
+    #expect(session.text == "Too close to @2_Button and @3_Row below @2_Button ")
     session.text += "x"
     session.pick(at: delete)
     #expect(session.target.title == "Button \"Delete\"")
@@ -398,7 +398,7 @@ private func rowScene() -> RawScene {
     #expect(!session.isReferencing)
 }
 
-@MainActor @Test func referencesShareNumbersAndColorsWithItemsInTheOrderTheirNodesWereFirstUsed() throws {
+@MainActor @Test func aNewItemHoldsItsNumberBeforeTheNodesItReferencesAndAnEditReferencesAfterTheLastNumber() throws {
     let session = Session(capture: capture(rowScene()))
     session.pick(at: CGPoint(x: 50, y: 220))
     session.text = "Align with @"
@@ -409,23 +409,30 @@ private func rowScene() -> RawScene {
     session.text = "Smaller"
     session.submit()
     let milk = session.items[0].target, delete = session.items[1].target
-    #expect([milk, delete].map(session.colorIndex) == [1, 0])
+    #expect([milk, delete].map(session.colorIndex) == [0, 1])
     #expect(session.annotations.segments(session.items[0].text).map { [$0.text, $0.reference?.tag ?? ""] } == [
-        ["Align with ", ""], ["@1_Button", "@1"],
+        ["Align with ", ""], ["@2_Button", "@2"],
     ])
 
     let document = try #require(JSONSerialization.jsonObject(with: Data(session.json.utf8)) as? [String: Any])
     #expect(document["references"] as? NSArray == [
-        ["number": 1, "token": "@1_Button", "target": 3, "title": "Button \"Delete\"", "path": [0, 1, 3], "code": "App/Screen.swift:200"],
+        ["number": 2, "token": "@2_Button", "target": 3, "title": "Button \"Delete\"", "path": [0, 1, 3], "code": "App/Screen.swift:200"],
     ])
-    #expect((document["items"] as? [[String: Any]])?.map { $0["number"] as? Int } == [2, 1])
+    #expect((document["items"] as? [[String: Any]])?.map { $0["number"] as? Int } == [1, 2])
+
+    session.pick(at: CGPoint(x: 50, y: 220))
+    session.text += " and @"
+    session.pick(at: CGPoint(x: 100, y: 255))
+    session.insertReference()
+    session.submit()
+    #expect(session.items[0].text == "Align with @2_Button and @3_Row")
 
     session.remove(session.items[1].id)
     session.pick(at: CGPoint(x: 50, y: 300))
     session.text = "Too empty"
     session.submit()
     let after = try #require(JSONSerialization.jsonObject(with: Data(session.json.utf8)) as? [String: Any])
-    #expect((after["items"] as? [[String: Any]])?.map { $0["number"] as? Int } == [2, 3])
+    #expect((after["items"] as? [[String: Any]])?.map { $0["number"] as? Int } == [1, 4])
 }
 
 @Test func onlyExactTokensOfKnownReferencesAreReferences() {
@@ -917,6 +924,7 @@ private struct Fixture: Decodable {
         let submit: String?
         let on: Int?
         let reference: Int?
+        let reserve: Bool?
     }
 
     struct Cards: Decodable {
@@ -1001,6 +1009,8 @@ private struct Fixture: Decodable {
     for step in fixture.annotate {
         if let text = step.submit, let target = step.on {
             annotations.submit(text, on: target)
+        } else if step.reserve == true {
+            annotations.reserve()
         } else if let node = step.reference {
             _ = annotations.reference(nodes[node])
         }

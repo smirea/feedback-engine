@@ -44,7 +44,7 @@ The web writes JavaScript values with the same rules and these spellings:
 
 Item text can name other nodes with reference tokens such as `@1_Dialog`: `@`, the node's number, `_`, and the node's `name` with each run of characters other than letters and digits replaced by one `_`. A token followed directly by more letters or digits is plain text.
 
-Items and references share one count. A node takes the next number, from 1, and the next color of one palette the first time it is given an item or a reference, and keeps both for the whole capture. An item's number and a reference's number are its node's number, so a node with both shows one number and one color, and no two nodes show the same number. A node referenced again keeps its first token. Removing an item leaves its number unused, so numbers can have gaps.
+Items and references share one count. A node takes the next number, from 1, and the next color of one palette the first time it is given an item or a reference, and keeps both for the whole capture. A new item holds its number from its first reference, so the nodes it references number after it: an item on a header that references two rows is 1, and the rows are 2 and 3. A reference added while editing an existing item takes the next number. An item's number and a reference's number are its node's number, so a node with both shows one number and one color, and no two nodes show the same number. A node referenced again keeps its first token. Removing an item leaves its number unused, so numbers can have gaps.
 
 ## Image export
 

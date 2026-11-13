@@ -476,6 +476,36 @@ for (const app of appNames) {
 			await context.close();
 		});
 
+		test('a new item takes its number before the elements it references', async () => {
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await present(page);
+			await tap(page, 40, 60);
+			expect(await selected(page)).toBe('Header "Lists"');
+			await field(page).fill('Smaller, like @');
+			await tap(page, 100, 270);
+			await page.getByRole('button', { name: 'Insert' }).click();
+			expect(await field(page).inputValue()).toBe('Smaller, like @2_ListRow ');
+			await field(page).press('Enter');
+			expect(await page.locator('.box.item .number').allInnerTexts()).toEqual(['1']);
+			expect(await page.locator('.box.item .tag').allInnerTexts()).toEqual(['@2']);
+
+			await tap(page, 40, 60);
+			await field(page).fill('Smaller, like @2_ListRow and @');
+			await tap(page, 100, 330);
+			await page.getByRole('button', { name: 'Insert' }).click();
+			expect(await field(page).inputValue()).toBe('Smaller, like @2_ListRow and @3_ListRow ');
+			await field(page).press('Enter');
+
+			const report = await exportReport(page);
+			expect(report.items.map(item => [item.number, item.title])).toEqual([
+				[1, 'Header "Lists"'],
+				[4, 'Screen'],
+			]);
+			expect(report.references.map(reference => reference.token)).toEqual(['@2_ListRow', '@3_ListRow']);
+			expect(errors).toEqual([]);
+			await context.close();
+		});
+
 		test('the screenshot zooms up to four times around the pointer', async () => {
 			const { page, context } = await open(app, 'chromium', 'dev', '/', { width: 1280, height: 800 });
 			await present(page);

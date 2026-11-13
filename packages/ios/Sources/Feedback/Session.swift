@@ -73,6 +73,7 @@ final class Session {
     /// Replaces the `@` with the reference target's token.
     func insertReference() {
         guard let node = referenceTarget else { return }
+        if editing == nil { annotations.reserve() }
         let reference = annotations.reference(node)
         text = String(text.dropLast()) + reference.token + " "
     }

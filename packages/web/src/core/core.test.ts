@@ -277,7 +277,7 @@ test('typing @ picks a node to reference without moving the target', () => {
 	expect(title(session.referenceTarget!)).toBe('Row');
 	session.stepReference(0);
 	session.insertReference();
-	expect(session.text).toBe('Too close to @1_Button ');
+	expect(session.text).toBe('Too close to @2_Button ');
 	expect(session.isReferencing).toBe(false);
 
 	session.text += 'and @';
@@ -286,7 +286,7 @@ test('typing @ picks a node to reference without moving the target', () => {
 	session.text += 'below @';
 	session.pick(remove);
 	session.insertReference();
-	expect(session.text).toBe('Too close to @1_Button and @2_Row below @1_Button ');
+	expect(session.text).toBe('Too close to @2_Button and @3_Row below @2_Button ');
 	session.text += 'x';
 	session.pick(remove);
 	expect(title(session.target)).toBe('Button "Delete"');
@@ -296,7 +296,7 @@ test('typing @ picks a node to reference without moving the target', () => {
 	expect(session.isReferencing).toBe(false);
 });
 
-test('references share numbers and colors with items in the order their nodes were first used', () => {
+test('a new item holds its number before the nodes it references, and an edit references after the last number', () => {
 	const session = new Session(captureOf(rowScene()));
 	session.pick({ x: 50, y: 220 });
 	session.text = 'Align with @';
@@ -307,25 +307,32 @@ test('references share numbers and colors with items in the order their nodes we
 	session.text = 'Smaller';
 	session.submit();
 	const [milk, remove] = session.items.map(item => item.target);
-	expect([session.colorIndex(milk!), session.colorIndex(remove!)]).toEqual([1, 0]);
+	expect([session.colorIndex(milk!), session.colorIndex(remove!)]).toEqual([0, 1]);
 	expect(
 		session.annotations
 			.segments(session.items[0]!.text)
 			.map(segment => [segment.text, segment.reference ? tag(segment.reference) : '']),
 	).toEqual([
 		['Align with ', ''],
-		['@1_Button', '@1'],
+		['@2_Button', '@2'],
 	]);
 	expect(JSON.parse(session.json).references).toEqual([
-		{ number: 1, token: '@1_Button', target: 3, title: 'Button "Delete"', path: [0, 1, 3], code: 'src/Row.svelte:200' },
+		{ number: 2, token: '@2_Button', target: 3, title: 'Button "Delete"', path: [0, 1, 3], code: 'src/Row.svelte:200' },
 	]);
-	expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([2, 1]);
+	expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([1, 2]);
+
+	session.pick({ x: 50, y: 220 });
+	session.text += ' and @';
+	session.pick({ x: 100, y: 255 });
+	session.insertReference();
+	session.submit();
+	expect(session.items[0]!.text).toBe('Align with @2_Button and @3_Row');
 
 	session.remove(session.items[1]!.id);
 	session.pick({ x: 50, y: 300 });
 	session.text = 'Too empty';
 	session.submit();
-	expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([2, 3]);
+	expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([1, 4]);
 });
 
 class Entry {

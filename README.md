@@ -140,7 +140,7 @@ bun add @stefan.inc/feedback-engine
 
 | The editor in the browser | The `feedback.png` it exports |
 | :---: | :---: |
-| <img src="docs/web-editor.png" alt="The Feedback editor in Google Chrome over the React example: the page's screenshot on the left with four notes numbered 1, 2, 3, and 5 and an @4 tag on the New List button, and the panel on the right with the Groceries row, a ListRow, selected and its note, Show a progress bar here." width="320"> | <img src="docs/web-export.png" alt="The feedback.png exported from the browser: the page with four numbered boxes and the New List button tagged @4. Each box links to a card with its note, the component or element, and its file:line, and the app's details sit at the top right. The note on Settings reads Move this next to @4_Button." width="520"> |
+| <img src="docs/web-editor.png" alt="The Feedback editor in Google Chrome over the React example: the page's screenshot on the left with four notes numbered 1 to 4 and an @5 tag on the New List button, and the panel on the right with the Groceries row, a ListRow, selected and its note, Show a progress bar here." width="320"> | <img src="docs/web-export.png" alt="The feedback.png exported from the browser: the page with four numbered boxes and the New List button tagged @5. Each box links to a card with its note, the component or element, and its file:line, and the app's details sit at the top right. The note on Settings reads Move this next to @5_Button." width="520"> |
 
 Four notes on the React example in Google Chrome, the last one with a reference to the New List button. Each card names its component or element and the `file:line` it comes from, such as `src/components/ListRow.tsx:4`.
 

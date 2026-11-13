@@ -158,12 +158,14 @@ struct Reference: Hashable, Sendable {
 
 /// Everything a share exports besides the capture. Items and references share one count: a node
 /// takes the next number and color the first time it is flagged or referenced, and keeps them for
-/// the capture, so no two boxes show the same number. Removing an item leaves its number unused,
-/// since tokens in other texts may still name it.
+/// the capture, so no two boxes show the same number. A new item that references other nodes holds
+/// its number before theirs. Removing an item leaves its number unused, since tokens in other texts
+/// may still name it.
 struct Annotations: Sendable {
     private(set) var items: [FeedbackItem] = []
     private(set) var references: [Reference] = []
-    private var marked: [Node.ID] = []
+    /// Nodes in the order they took their numbers. `nil` is the number held for the next new item.
+    private var marked: [Node.ID?] = []
 
     func colorIndex(of node: Node.ID) -> Int { marked.firstIndex(of: node) ?? marked.count }
 
@@ -176,8 +178,18 @@ struct Annotations: Sendable {
             items[index].text = text
         } else {
             items.append(FeedbackItem(target: target, text: text))
-            mark(target)
+            if let held = marked.firstIndex(of: nil), !marked.contains(target) {
+                marked[held] = target
+            } else {
+                mark(target)
+            }
         }
+    }
+
+    /// Holds the next number for the new item being written, so the nodes it references number
+    /// after it.
+    mutating func reserve() {
+        if !marked.contains(nil) { marked.append(nil) }
     }
 
     mutating func remove(_ id: FeedbackItem.ID) {

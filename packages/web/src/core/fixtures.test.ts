@@ -8,6 +8,7 @@ test('the shared fixture gives the same answers as on iOS', () => {
 	const annotations = new Annotations();
 	for (const step of fixture.annotate) {
 		if (step.submit !== undefined) annotations.submit(step.submit, step.on!);
+		else if (step.reserve) annotations.reserve();
 		else annotations.reference(nodes[step.reference!]!);
 	}
 	const { expected } = fixture;

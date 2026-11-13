@@ -12,12 +12,14 @@ export const tag = (reference: Reference) => `@${reference.number}`;
 /**
  * Everything a share exports besides the capture. Items and references share one count: a node takes the next number
  * and color the first time it is flagged or referenced, and keeps them for the capture, so no two boxes show the same
- * number. Removing an item leaves its number unused, since tokens in other texts may still name it.
+ * number. A new item that references other nodes holds its number before theirs. Removing an item leaves its number
+ * unused, since tokens in other texts may still name it.
  */
 export class Annotations {
 	items: FeedbackItem[] = [];
 	references: Reference[] = [];
-	private marked: number[] = [];
+	/** Nodes in the order they took their numbers. `undefined` is the number held for the next new item. */
+	private marked: (number | undefined)[] = [];
 
 	colorIndex(node: number) {
 		const index = this.marked.indexOf(node);
@@ -36,8 +38,15 @@ export class Annotations {
 			item.text = text;
 		} else {
 			this.items.push({ id: crypto.randomUUID(), target, text });
-			this.mark(target);
+			const held = this.marked.indexOf(undefined);
+			if (held !== -1 && !this.marked.includes(target)) this.marked[held] = target;
+			else this.mark(target);
 		}
+	}
+
+	/** Holds the next number for the new item being written, so the nodes it references number after it. */
+	reserve() {
+		if (!this.marked.includes(undefined)) this.marked.push(undefined);
 	}
 
 	remove(id: string) {

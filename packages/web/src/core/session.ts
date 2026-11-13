@@ -100,6 +100,7 @@ export class Session {
 	insertReference() {
 		const node = this.referenceTarget;
 		if (!node) return;
+		if (!this.editing) this.annotations.reserve();
 		this.text = `${this.text.slice(0, -1)}${this.annotations.reference(node).token} `;
 	}
 
