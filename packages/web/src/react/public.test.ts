@@ -12,7 +12,8 @@ test('the declarations an app compiles against match the entry point', () => {
 		Same<Real.FeedbackEngine, Declared.FeedbackEngine>,
 		Same<Real.FeedbackRepresentable, Declared.FeedbackRepresentable>,
 		Same<Real.Webhook, Declared.Webhook>,
+		Same<Real.WebhookValues, Declared.WebhookValues>,
 		Same<typeof Real.githubIcon, typeof Declared.githubIcon>,
-	] = [true, true, true, true, true, true, true];
-	expect(same).toEqual([true, true, true, true, true, true, true]);
+	] = [true, true, true, true, true, true, true, true];
+	expect(same).toEqual([true, true, true, true, true, true, true, true]);
 });

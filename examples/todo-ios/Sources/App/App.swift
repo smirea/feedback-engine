@@ -17,8 +17,9 @@ struct TodoDemoApp: App {
                     name: "GitHub Issue",
                     url: url,
                     image: Feedback.githubIcon,
-                    headers: ["Authorization": "Bearer \(environment["FEEDBACK_WEBHOOK_KEY"] ?? "")"],
-                    query: ["labels": "feedback"]
+                    // Closures run when the post is made, as an app that reads its session there needs.
+                    headers: { ["Authorization": "Bearer \(environment["FEEDBACK_WEBHOOK_KEY"] ?? "")"] },
+                    query: { ["labels": "feedback"] }
                 ),
             ]
         }

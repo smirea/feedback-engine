@@ -16,8 +16,9 @@
 						name: 'GitHub Issue',
 						image: githubIcon,
 						url: webhook,
-						headers: { Authorization: `Bearer ${import.meta.env.FEEDBACK_WEBHOOK_KEY}` },
-						query: { labels: 'feedback' },
+						// Functions run when the post is made, so the query names the page the user is on by then.
+						headers: () => ({ Authorization: `Bearer ${import.meta.env.FEEDBACK_WEBHOOK_KEY}` }),
+						query: () => ({ labels: 'feedback', page: location.pathname }),
 					},
 				]
 			: [],

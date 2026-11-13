@@ -10,11 +10,24 @@ public struct FeedbackWebhook {
     /// An icon beside the name, such as `Feedback.githubIcon`.
     public var image: Image?
     /// Sent with the post, such as `Authorization`. Whatever an app sends can be read out of it.
-    public var headers: [String: String]
+    public var headers: @MainActor () async throws -> [String: String]
     /// Added to the URL's query.
-    public var query: [String: String]
+    public var query: @MainActor () async throws -> [String: String]
 
     public init(name: String, url: URL, image: Image? = nil, headers: [String: String] = [:], query: [String: String] = [:]) {
+        self.init(name: name, url: url, image: image, headers: { headers }, query: { query })
+    }
+
+    /// `headers` and `query` run for every post and again on a retry, so they can read what did not
+    /// exist when the app started, such as the token of a user who signed in since. What they throw
+    /// is shown as the post's failure, under its `LocalizedError` description.
+    public init(
+        name: String,
+        url: URL,
+        image: Image? = nil,
+        headers: @escaping @MainActor () async throws -> [String: String],
+        query: @escaping @MainActor () async throws -> [String: String] = { [:] }
+    ) {
         self.name = name
         self.url = url
         self.image = image
@@ -45,8 +58,10 @@ extension FeedbackWebhook {
     }
 
     /// One `multipart/form-data` request with the fields `id` and `title` and the files `image` and
-    /// `report`, as a browser's `FormData` sends them.
-    func request(_ post: WebhookPost, boundary: String = "feedback-\(UUID().uuidString)") -> URLRequest {
+    /// `report`, as a browser's `FormData` sends them. Reads the headers and the query as they are now.
+    @MainActor
+    func request(_ post: WebhookPost, boundary: String = "feedback-\(UUID().uuidString)") async throws -> URLRequest {
+        let (headers, query) = (try await headers(), try await query())
         var components = URLComponents(url: url, resolvingAgainstBaseURL: false)!
         var items = (components.queryItems ?? []).filter { query[$0.name] == nil }
         items += query.sorted { $0.key < $1.key }.map { URLQueryItem(name: $0.key, value: $0.value) }

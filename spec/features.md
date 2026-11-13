@@ -152,6 +152,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | W5 | A post made without a connection waits in an outbox and goes out later. | no | no | no | A failed post waits for **Retry** while the editor is open and is gone once it closes. ProcrastiMate's outbox (P9) keeps ProcrastiMate's own requests, not a webhook's. |
 | W6 | GitHub's mark ships as an icon for a webhook that files issues. | shipped | shipped | shipped | iOS: `Feedback.githubIcon`. Web: `githubIcon`. Both draw one path. |
 | W7 | An example server files each post as a GitHub issue with the image, the items, and the report. | shipped | shipped | shipped | `examples/github-webhook`, a `fetch` handler for a Cloudflare Worker or Bun. The examples turn the entry on with `FEEDBACK_WEBHOOK_URL`. |
+| W8 | A webhook's headers and query can be functions that run when a post is made and again on **Retry**, so they read a session that began after the app did. What one throws is the post's failure, and nothing is sent. | shipped | shipped | shipped | iOS: closures on the main actor, for both or neither. Web: each one a record or a function, which may be asynchronous. |
 
 ## Agent workflow
 

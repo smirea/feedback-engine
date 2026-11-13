@@ -9,10 +9,16 @@ export type Webhook = {
 	/** An icon beside the name: anything an `<img>` loads, such as `githubIcon` or a data URL. */
 	image?: string;
 	/** Sent with the post, such as `Authorization`. Whatever a page sends is public. */
-	headers?: Record<string, string>;
+	headers?: WebhookValues;
 	/** Added to the URL's query. */
-	query?: Record<string, string>;
+	query?: WebhookValues;
 };
+
+/**
+ * Fixed values, or a function that runs for every post and again on a retry, so it can read what did not exist when
+ * the app started, such as the token of a user who signed in since. What it throws is shown as the post's failure.
+ */
+export type WebhookValues = Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>);
 
 export type WebhookPost = {
 	/** Made once per post and sent again on a retry, so a server can tell a retry from a second post. */
@@ -47,8 +53,11 @@ export function postId() {
  * choose, so only a web address is kept: the toast opens it.
  */
 export async function postWebhook(webhook: Webhook, post: WebhookPost): Promise<string | undefined> {
+	const values = async (source: WebhookValues | undefined) =>
+		typeof source === 'function' ? source() : (source ?? {});
+	const [headers, query] = await Promise.all([values(webhook.headers), values(webhook.query)]);
 	const url = new URL(webhook.url, location.href);
-	for (const [name, value] of Object.entries(webhook.query ?? {})) url.searchParams.set(name, value);
+	for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value);
 	const form = new FormData();
 	form.set('id', post.id);
 	form.set('title', post.title);
@@ -56,7 +65,7 @@ export async function postWebhook(webhook: Webhook, post: WebhookPost): Promise<
 	form.set('report', new File([post.report], 'feedback.json', { type: 'application/json' }));
 	let response: Response;
 	try {
-		response = await fetch(url, { method: 'POST', headers: webhook.headers, body: form });
+		response = await fetch(url, { method: 'POST', headers, body: form });
 	} catch (error) {
 		throw Problem.request('POST', url.href, undefined, undefined, error);
 	}

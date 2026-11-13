@@ -660,7 +660,7 @@ for (const app of appNames) {
 					report: { name: post!.report.name, type: post!.report.type },
 				}).toEqual({
 					authorization: 'Bearer test-key',
-					query: { labels: 'feedback' },
+					query: { labels: 'feedback', page: '/' },
 					title: 'Lists Feedback: 1 change',
 					image: { name: 'feedback.png', type: 'image/png' },
 					report: { name: 'feedback.json', type: 'application/json' },
@@ -684,6 +684,23 @@ for (const app of appNames) {
 			});
 		}
 
+		test('a webhook whose query is a function sends what is true when the post is made', async () => {
+			webhook.posts.length = 0;
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			// The example's query names the current page. The app started on the lists, and the post is made on the settings.
+			await page.getByRole('link', { name: 'Settings' }).click();
+			await page.getByRole('heading', { level: 1, name: 'Settings' }).waitFor();
+			await present(page);
+			await field(page).fill('Looks off');
+			await field(page).press('Enter');
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'GitHub Issue' }).click();
+			await page.locator('.toast').waitFor();
+			expect(webhook.posts.map(post => post.query)).toEqual([{ labels: 'feedback', page: '/settings' }]);
+			expect(errors).toEqual([]);
+			await context.close();
+		});
+
 		test('a webhook that refuses a post shows why, and Retry sends the same post again', async () => {
 			webhook.posts.length = 0;
 			webhook.refuse = { status: 502, body: JSON.stringify({ message: 'GitHub answered 401.' }) };
@@ -704,7 +721,7 @@ for (const app of appNames) {
 			expect(lines[0]).toBe('Step: Sending to GitHub Issue');
 			expect(lines[1]).toMatch(/^Elapsed: \d+\.\d s$/);
 			expect(lines.slice(2, 6)).toEqual([
-				`Request: POST ${webhookURL}?labels=feedback`,
+				`Request: POST ${webhookURL}?labels=feedback&page=%2F`,
 				'Status: 502',
 				'Response: {"message":"GitHub answered 401."}',
 				'Error: Error: GitHub Issue: GitHub answered 401.',

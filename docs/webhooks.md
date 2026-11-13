@@ -13,10 +13,10 @@ A webhook has the same five parts on every platform:
 | `name` | yes | The entry's name in the Share menu, such as `GitHub Issue`. |
 | `url` | yes | Where the post goes. |
 | `image` | no | An icon beside the name. |
-| `headers` | no | Sent with the post, such as `Authorization`. |
-| `query` | no | Added to the URL's query. A name already in the URL is replaced. |
+| `headers` | no | Sent with the post, such as `Authorization`. Fixed values, or a function that runs when the post is made. |
+| `query` | no | Added to the URL's query. A name already in the URL is replaced. Fixed values or a function, like `headers`. |
 
-Whatever an app sends can be read out of it, and a page's headers are public. Treat a key in `headers` or `query` as a way to turn away strangers, like an analytics write key, and not as a secret. Leave webhooks out of a public production build, or limit how often the server accepts a post.
+[Authentication](#authentication) covers what to put in `headers` and `query`.
 
 ### iOS
 
@@ -97,6 +97,53 @@ export function Feedback() {
 	return null;
 }
 ```
+
+## Authentication
+
+Feedback sends what you give it, and your server decides what to accept. There are three ways to tell the server who is posting.
+
+### A fixed key
+
+Give `headers` or `query` fixed values, as in the examples above. The key ships inside the app or the page, so anyone can read it out. Treat it as a way to turn away strangers, like an analytics write key, and not as a secret. Leave such a webhook out of a public production build, or limit how often the server accepts a post.
+
+### The user's own session
+
+A user is often signed out when the app starts, so a token cannot be fixed at setup. Give `headers` or `query` a function instead. It runs every time a post is made, and again on **Retry**, so it reads the session as it is by then. It can be asynchronous, for a token that has to be refreshed first.
+
+```ts
+setupFeedbackEngine({
+	webhooks: [
+		{
+			name: 'GitHub Issue',
+			url: 'https://hooks.example.com/feedback',
+			headers: async () => {
+				const token = await auth.token();
+				if (!token) throw new Error('Sign in to send feedback.');
+				return { Authorization: `Bearer ${token}` };
+			},
+			query: () => ({ team: auth.team }),
+		},
+	],
+});
+```
+
+```swift
+FeedbackWebhook(
+    name: "GitHub Issue",
+    url: URL(string: "https://hooks.example.com/feedback")!,
+    headers: {
+        guard let token = await auth.token() else { throw SignedOut() }
+        return ["Authorization": "Bearer \(token)"]
+    },
+    query: { ["team": auth.team] }
+)
+```
+
+What the function throws is the post's failure: the editor shows its message with **Retry**, and nothing is sent. So a signed-out user reads `Sign in to send feedback.`, signs in, and retries. On iOS the message is the error's `LocalizedError` description, and the closures run on the main actor. An iOS webhook takes either dictionaries or closures for the two, not one of each.
+
+### Cookies
+
+On the web, a `url` on the page's own origin, such as `/api/feedback`, gets the page's cookies from the browser, so a server that already knows the user by a session cookie needs nothing in `headers`. A `url` on another origin gets no cookies. Use a header there.
 
 ## The request
 

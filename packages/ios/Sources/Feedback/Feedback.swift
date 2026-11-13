@@ -144,11 +144,13 @@ public enum Feedback {
             image: AnnotatedImage.render(session.capture, session.annotations).pngData() ?? Data(),
             report: Data(session.compactJSON.utf8)
         )
-        let request = webhook.request(post)
         let started = Date.now
         Task {
             defer { isPosting = false }
+            var step = "Reading the headers and the query"
             do {
+                let request = try await webhook.request(post)
+                step = "Sending to \(webhook.name)"
                 let link = try await FeedbackWebhook.send(request, name: webhook.name)
                 session.shared.formUnion(items)
                 session.toast = Toast(text: "Sent to \(webhook.name)", link: link)
@@ -156,7 +158,7 @@ public enum Feedback {
                 session.toast = nil
                 let problem = Problem(error).with(
                     before: [
-                        .init(label: "Step", value: "Sending to \(webhook.name)"),
+                        .init(label: "Step", value: step),
                         .init(label: "Elapsed", value: "\(String(format: "%.1f", Date.now.timeIntervalSince(started))) s"),
                     ],
                     after: [

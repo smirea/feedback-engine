@@ -2,7 +2,7 @@ import type { Attachment } from 'svelte/attachments';
 import { tags } from '../dom/tags.ts';
 
 export type { FeedbackRepresentable } from '../core/index.ts';
-export { githubIcon, type Webhook } from '../dom/webhook.ts';
+export { githubIcon, type Webhook, type WebhookValues } from '../dom/webhook.ts';
 export type { FeedbackOptions } from '../editor/engine.ts';
 export { setupFeedbackEngine, type FeedbackEngine } from '../editor/setup.ts';
 
