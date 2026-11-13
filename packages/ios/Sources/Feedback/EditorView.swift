@@ -47,7 +47,8 @@ struct EditorView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                             .task(id: toast) {
                                 UIAccessibility.post(notification: .announcement, argument: toast.text)
-                                try? await Task.sleep(for: .seconds(toast.link == nil ? 3 : 5))
+                                // A toast that replaces this one cancels the sleep, and must not be cleared in its place.
+                                guard (try? await Task.sleep(for: .seconds(toast.link == nil ? 3 : 5))) != nil else { return }
                                 session.toast = nil
                             }
                         }
