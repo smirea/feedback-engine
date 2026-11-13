@@ -1,6 +1,6 @@
 # Feedback
 
-In-app feedback packages, one per platform. Read `README.md` for the integration API, `spec/report.md` for the shared export format, and `spec/features.md` for what each platform does. Keep every platform's output identical to `spec/report.md`, and update it in the same change when the format moves. That includes the webhook request, which `docs/webhooks.md` also describes.
+In-app feedback packages, one per platform. Read `README.md` for the integration API, which `packages/web/README.md` has for the web, `spec/report.md` for the shared export format, and `spec/features.md` for what each platform does. Keep every platform's output identical to `spec/report.md`, and update it in the same change when the format moves. That includes the webhook request, which `docs/webhooks.md` also describes.
 
 `spec/features.md` has one row per feature with a status for iOS, Svelte, and React. Add or update the row in the same change that adds, changes, or removes behavior on any platform. `bun test spec` fails on a row without a status for every platform.
 
@@ -41,6 +41,7 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
   - `next`: `withFeedbackEngine()`, which wraps a Next.js config, and `loader.js`, the one webpack loader it gives Turbopack and webpack. It runs `addReact` and compiles the editor, like the React plugin.
 - `spec/fixtures/capture.json`: one tree with the answers both platforms must give. `swift test` and `bun test` both read it. Change the fixture when shared logic changes, and both suites must pass on it.
 - `docs/web-plan.md`: what is left for the web package.
+- `docs/*.png`: the READMEs' images. `scripts/readme-images.ts` retakes the web pair from the React example in Google Chrome. The iOS pair comes from the iOS example on a simulator named after its model, so the export's device line reads `iPhone 18 Pro`: four notes on the Lists screen, the last on Settings referencing the + button, then the editor with the Groceries note selected.
 - `docs/webhooks.md`: how an app sets up webhooks, the request every platform sends, and the GitHub example.
 - `examples/github-webhook`: a webhook server that files each post as a GitHub issue. `worker.ts` is one `fetch` handler, `serve.ts` runs it with Bun, and `wrangler.toml` runs it as a Cloudflare Worker. It has no `package.json`, so the root's `bun test` and `bun check` cover it.
 - `examples/todo-svelte` and `examples/todo-react`: the web demo apps, a SvelteKit SPA and a React app with React Router. They mirror `examples/todo-ios` and each other: the same screens, markup, and styles, so one browser suite runs on both. Change them together.
