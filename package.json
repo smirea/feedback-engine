@@ -27,7 +27,7 @@
 		"@types/bun": "^1.4.4",
 		"@types/node": "^26.6.5",
 		"@types/pngjs": "^6.0.5",
-		"env-manager": "github:smirea/env-manager#1b0393e4423946c0be7c6156d69974314cedb294",
+		"env-manager": "github:smirea/env-manager#3d16babe8e4d11d3f131b0f8af8497bc0b8b7180",
 		"lefthook": "^2.2.1",
 		"oxfmt": "^0.72.0",
 		"oxlint": "^1.87.0",

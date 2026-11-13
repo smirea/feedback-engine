@@ -613,6 +613,41 @@ for (const app of appNames) {
 			await context.close();
 		});
 
+		test('ProcrastiMate and the GitHub webhook have buttons beside Share that start their posts', async () => {
+			webhook.posts.length = 0;
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await present(page);
+			const header = editor(page).locator('header button');
+			expect(await header.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual([
+				'Close',
+				'Feedback list, 0 items',
+				'ProcrastiMate',
+				'GitHub Issue',
+				'Share',
+			]);
+			const shortcut = (name: string) => editor(page).getByRole('button', { name, exact: true });
+			expect(await shortcut('ProcrastiMate').isDisabled()).toBe(true);
+			expect(
+				await shortcut('ProcrastiMate')
+					.locator('img')
+					.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.getBoundingClientRect().width]),
+			).toEqual([66, 22]);
+
+			await tap(page, 100, 270);
+			await field(page).fill('Row is too tall');
+			await field(page).press('Enter');
+			await shortcut('ProcrastiMate').click();
+			await page.getByRole('form', { name: 'Add to ProcrastiMate' }).waitFor();
+			await page.keyboard.press('Escape');
+			await page.getByRole('form', { name: 'Add to ProcrastiMate' }).waitFor({ state: 'detached' });
+
+			await shortcut('GitHub Issue').click();
+			await page.locator('.toast').waitFor();
+			expect(webhook.posts.length).toBe(1);
+			expect(errors).toEqual([]);
+			await context.close();
+		});
+
 		test('a failed post shows its error above the projects, with the request under Details and a copy', async () => {
 			procrastimate.tasks.length = 0;
 			procrastimate.refuseUpload = { status: 413, body: '<html><title>413 Request Entity Too Large</title></html>' };

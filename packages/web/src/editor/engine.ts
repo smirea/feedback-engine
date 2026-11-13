@@ -27,7 +27,8 @@ export type FeedbackOptions = {
 	procrastimate?: ProcrastimateConfig;
 	/**
 	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export and the JSON export to the
-	 * webhook's `url`, with nothing more to fill in.
+	 * webhook's `url`, with nothing more to fill in. The menu lists ProcrastiMate, then the webhooks with `githubIcon`,
+	 * then the others, and the first two of them also get a button beside Share.
 	 */
 	webhooks?: Webhook[];
 };

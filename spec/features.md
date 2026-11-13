@@ -125,6 +125,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | X8 | Each export is written to a file an agent can read without the share sheet. | shipped | shipped | shipped | iOS: `tmp/feedback.*` in the app's container. Web: `__feedbackEngine.lastExport` on the page holds the files. |
 | X9 | An item counts as shared once a share completes. | shipped | shipped | shipped | |
 | X10 | The exports carry the references. The image draws a box for each referenced node and highlights each token in its color. The JSON lists them under `references`. | shipped | shipped | shipped | |
+| X11 | The first two destinations beyond the exports also get a button left of Share, each with its icon, so a post takes one tap. ProcrastiMate comes first, then the webhooks with GitHub's icon, then the other webhooks, in the Share menu too. | shipped | shipped | shipped | ProcrastiMate's icon is its app icon without the tile, a 66 pixel PNG that `scripts/procrastimate-icon.ts` renders from ProcrastiMate's `app-icon.svg`. A webhook without an image gets a paper plane. |
 
 ## ProcrastiMate
 
@@ -145,7 +146,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 
 | ID | Feature | iOS | Svelte | React | Notes |
 | --- | --- | --- | --- | --- | --- |
-| W1 | The app lists any number of webhooks, each with a name, a URL, and optionally an image, headers, and query parameters. Each is an entry in the Share menu, after the built-in ones. | shipped | shipped | shipped | iOS: `Feedback.webhooks`. Web: `setupFeedbackEngine({ webhooks })`. |
+| W1 | The app lists any number of webhooks, each with a name, a URL, and optionally an image, headers, and query parameters. Each is an entry in the Share menu, after the exports and ProcrastiMate, with the ones that use GitHub's icon first (X11). | shipped | shipped | shipped | iOS: `Feedback.webhooks`. Web: `setupFeedbackEngine({ webhooks })`. |
 | W2 | Choosing a webhook sends one `multipart/form-data` POST with an `id`, the `title`, the image export, and the JSON export, with nothing to fill in. | shipped | shipped | shipped | `report.md` has the request, and `docs/webhooks.md` explains it to an app's developer. |
 | W3 | A toast confirms the post and opens the link the server answered with. | shipped | shipped | shipped | Only an `http` or `https` link is used. iOS: a toast also says the post is on its way. Web: a sheet shows the post's progress and closes when it lands. |
 | W4 | A failed post shows the server's message, with the request, status, and response under **Details**, **Copy Error**, and **Retry**, which sends the same `id` again. | shipped | shipped | shipped | iOS: a sheet that opens on the failure. Web: the sheet that shows the post's progress. |

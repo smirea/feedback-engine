@@ -238,10 +238,20 @@ enum ShareTarget: Hashable {
     /// One of `Feedback.webhooks`, by its place in the list.
     case webhook(Int)
 
-    /// What the Share menu lists. ProcrastiMate is there only in an app that can reach it, and the
-    /// app's webhooks come last.
+    /// What the Share menu lists: the exports, then the destinations.
     static var available: [ShareTarget] {
-        [.image, .json, .zip] + (Procrastimate.isAvailable ? [.procrastimate] : []) + Feedback.webhooks.indices.map { .webhook($0) }
+        [.image, .json, .zip] + destinations
+    }
+
+    /// How many destinations also get a button beside Share.
+    static let shortcutCount = 2
+
+    /// ProcrastiMate, only in an app that can reach it, then the webhooks with GitHub's icon, then the
+    /// other webhooks in the app's order.
+    static var destinations: [ShareTarget] {
+        let github = Feedback.webhooks.indices.filter { Feedback.webhooks[$0].image == Feedback.githubIcon }
+        let others = Feedback.webhooks.indices.filter { !github.contains($0) }
+        return (Procrastimate.isAvailable ? [.procrastimate] : []) + (github + others).map { .webhook($0) }
     }
 
     var title: String {
@@ -254,14 +264,22 @@ enum ShareTarget: Hashable {
         }
     }
 
+    /// ProcrastiMate's icon, or the image a webhook came with.
+    var image: Image? {
+        switch self {
+        case .procrastimate: Image(uiImage: ProcrastimateIcon.image)
+        case .webhook(let index): Feedback.webhooks[index].image
+        case .image, .json, .zip: nil
+        }
+    }
+
     /// The icon of an entry without an image of its own.
     var systemImage: String {
         switch self {
         case .image: "photo"
         case .json: "curlybraces"
         case .zip: "doc.zipper"
-        case .procrastimate: "checklist"
-        case .webhook: "paperplane"
+        case .procrastimate, .webhook: "paperplane"
         }
     }
 }

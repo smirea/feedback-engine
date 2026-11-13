@@ -23,6 +23,7 @@
 		type ExportFormat,
 	} from '../dom/share.ts';
 	import type { Webhook } from '../dom/webhook.ts';
+	import { destinations, shortcutCount, type Destination } from './destinations.ts';
 	import type { Engine } from './engine.ts';
 	import ItemsSheet from './ItemsSheet.svelte';
 	import ProcrastimateSheet from './ProcrastimateSheet.svelte';
@@ -91,6 +92,8 @@
 	let showsShare = $state(false);
 	let showsProcrastimate = $state(false);
 	let posting = $state<Webhook>();
+	// svelte-ignore state_referenced_locally
+	const targets = destinations(engine.options);
 	let confirmsClose = $state(false);
 	let pending = $state<{ format: ExportFormat; ready: Export }>();
 	let busy = $state(false);
@@ -209,6 +212,12 @@
 		}
 	}
 
+	function send(destination: Destination) {
+		showsShare = false;
+		if (destination.kind === 'procrastimate') showsProcrastimate = true;
+		else posting = destination.webhook;
+	}
+
 	async function choose(format: ExportFormat) {
 		showsShare = false;
 		busy = true;
@@ -271,6 +280,22 @@
 			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /></svg>
 			{#if view.items.length}<span class="count" aria-hidden="true">{view.items.length}</span>{/if}
 		</button>
+		{#each targets.slice(0, shortcutCount) as destination, index (index)}
+			<button
+				type="button"
+				class="round"
+				aria-label={destination.name}
+				title={destination.name}
+				disabled={!view.items.length || busy}
+				onclick={() => send(destination)}
+			>
+				{#if destination.image}
+					<img src={destination.image} alt="" />
+				{:else}
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
+				{/if}
+			</button>
+		{/each}
 		<div class="menu">
 			<button
 				type="button"
@@ -288,28 +313,10 @@
 					{#each Object.entries(exportTitles) as [format, name] (format)}
 						<button type="button" role="menuitem" onclick={() => void choose(format as ExportFormat)}>{name}</button>
 					{/each}
-					{#if engine.options.procrastimate}
-						<button
-							type="button"
-							role="menuitem"
-							onclick={() => {
-								showsShare = false;
-								showsProcrastimate = true;
-							}}>ProcrastiMate</button
-						>
-					{/if}
-					{#each engine.options.webhooks ?? [] as webhook, index (index)}
-						<button
-							type="button"
-							role="menuitem"
-							class="webhook"
-							onclick={() => {
-								showsShare = false;
-								posting = webhook;
-							}}
-						>
-							{#if webhook.image}<img src={webhook.image} alt="" />{/if}
-							{webhook.name}
+					{#each targets as destination, index (index)}
+						<button type="button" role="menuitem" class="destination" onclick={() => send(destination)}>
+							{#if destination.image}<img src={destination.image} alt="" />{/if}
+							{destination.name}
 						</button>
 					{/each}
 				</div>
@@ -624,7 +631,11 @@
 
 	h1 {
 		flex: 1;
+		min-width: 0;
 		margin: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		font-size: 17px;
 		font-weight: 600;
 		text-align: center;
@@ -639,6 +650,12 @@
 		border: 0;
 		border-radius: 50%;
 		background: #2c2c2e;
+	}
+
+	.round img {
+		width: 22px;
+		height: 22px;
+		object-fit: contain;
 	}
 
 	.round.small {
@@ -698,7 +715,7 @@
 		background: rgb(255 255 255 / 0.08);
 	}
 
-	.popup .webhook {
+	.popup .destination {
 		display: flex;
 		align-items: center;
 		gap: 10px;

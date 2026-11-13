@@ -107,6 +107,20 @@ struct EditorView: View {
                         .accessibilityHidden(true)
                 }
             }
+            ForEach(ShareTarget.destinations.prefix(ShareTarget.shortcutCount), id: \.self) { target in
+                Button {
+                    composing = false
+                    share(target)
+                } label: {
+                    if let image = target.image {
+                        image.resizable().scaledToFit().frame(width: 22, height: 22)
+                    } else {
+                        Image(systemName: target.systemImage)
+                    }
+                }
+                .accessibilityLabel(target.title)
+                .disabled(session.items.isEmpty)
+            }
             ShareMenu(share: share)
                 .labelStyle(.iconOnly)
                 .disabled(session.items.isEmpty)
@@ -528,7 +542,7 @@ private struct ShareMenu: View {
                 Button {
                     share(target)
                 } label: {
-                    if case .webhook(let index) = target, let image = Feedback.webhooks[index].image {
+                    if let image = target.image {
                         Label { Text(target.title) } icon: { image }
                     } else {
                         Label(target.title, systemImage: target.systemImage)

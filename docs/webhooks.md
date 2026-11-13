@@ -2,7 +2,7 @@
 
 A webhook is an entry in the Share menu that posts the feedback to a server of yours. Choosing it sends the image export and the JSON export in one request, with nothing to fill in. What the server does with them is up to you. The main use is filing a GitHub issue, and [GitHub issues](#github-issues) has a server for that.
 
-An app can list any number of webhooks. They appear after the built-in Share entries, in the order you give them.
+An app can list any number of webhooks. They appear after the built-in Share entries and ProcrastiMate. A webhook with GitHub's icon comes first, and the others follow in the order you give them. The first two of ProcrastiMate and the webhooks also get a button with their icon left of Share, so a post takes one tap.
 
 ## Set up the app
 
