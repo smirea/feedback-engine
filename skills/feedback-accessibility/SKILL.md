@@ -122,7 +122,7 @@ Agent-device's XCTest runner turns accessibility on for the whole simulator, whi
 ### A way to open Feedback
 
 - With a mouse, Alt+Meta+click on anything opens the editor with that element selected. There is nothing to build.
-- A phone has no modifier keys, and a shake does not work on the web yet. Add an entry to a menu the app already has, such as Settings or an account menu, that starts a countdown: `<button onclick={() => globalThis.__feedbackEngine?.countdown()}>Send Feedback</button>`. The page shows a pill that counts down from 5 and then captures, so the person has time to leave the menu and open the screen they mean.
+- A phone has no modifier keys, and a shake does not work on the web yet. The simplest trigger is `setupFeedbackEngine({ button: true })`, a round Feedback button in a corner of every screen that the person can drag out of the way. Where a button on every screen is in the way, add an entry to a menu the app already has, such as Settings or an account menu, that starts a countdown instead: `<button onclick={() => globalThis.__feedbackEngine?.countdown()}>Send Feedback</button>`. The page shows a pill that counts down from 5 and then captures, so the person has time to leave the menu and open the screen they mean.
 - Don't call `present()` from a menu. It captures at once, so the capture is the menu.
 - Show the entry only when `globalThis.__feedbackEngine` exists, so it is gone from a build that leaves Feedback out.
 
@@ -183,7 +183,7 @@ Every component of the app is in a capture already, under its own name, with its
 ### A way to open Feedback
 
 - With a mouse, Alt+Meta+click on anything opens the editor with that element selected. There is nothing to build.
-- A phone has no modifier keys, and a shake does not work on the web yet. Add an entry to a menu the app already has, such as Settings or an account menu, that starts a countdown: `<button onClick={() => globalThis.__feedbackEngine?.countdown()}>Send Feedback</button>`. The page shows a pill that counts down from 5 and then captures, so the person has time to leave the menu and open the screen they mean.
+- A phone has no modifier keys, and a shake does not work on the web yet. The simplest trigger is `setupFeedbackEngine({ button: true })`, a round Feedback button in a corner of every screen that the person can drag out of the way. Where a button on every screen is in the way, add an entry to a menu the app already has, such as Settings or an account menu, that starts a countdown instead: `<button onClick={() => globalThis.__feedbackEngine?.countdown()}>Send Feedback</button>`. The page shows a pill that counts down from 5 and then captures, so the person has time to leave the menu and open the screen they mean.
 - Don't call `present()` from a menu. It captures at once, so the capture is the menu.
 - Show the entry only when `globalThis.__feedbackEngine` exists, so it is gone from a build that leaves Feedback out.
 

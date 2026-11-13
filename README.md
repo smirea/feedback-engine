@@ -6,9 +6,9 @@ Shake the device, or Alt+Meta+click anything in the browser, tap any component o
 
 | Tap a component in the editor | The `feedback.png` it exports |
 | :---: | :---: |
-| <img src="docs/editor.png" alt="The Feedback editor on iOS: a frozen screenshot with four notes numbered 1, 2, 3, and 5 and an @4 tag on the New List button. The Groceries row, a ListRow, is selected, with its note, Show a progress bar here." width="250"> | <img src="docs/export.png" alt="The exported feedback.png: the screenshot with four numbered boxes and the New List button tagged @4. Each box links to a card with its note, the component or element, and its file:line, and the app's details sit at the top right. The note on Settings names the New List button as @4_Button, highlighted in the color of that button's box." width="520"> |
+| <img src="docs/editor.png" alt="The Feedback editor on iOS: a frozen screenshot with four notes numbered 1 to 4 and an @5 tag on the New List button. The Groceries row, a ListRow, is selected, with its note, Show a progress bar here." width="250"> | <img src="docs/export.png" alt="The exported feedback.png: the screenshot with four numbered boxes and the New List button tagged @5. Each box links to a card with its note, the component or element, and its file:line, and the app's details sit at the top right. The note on Settings names the New List button as @5_Button, highlighted in the color of that button's box." width="520"> |
 
-Four notes on one screen. The fourth points at a second element. Type `@`, tap the element, and the note reads `Move this next to @4_Button`. The export draws that element's box and highlights the token in the same color, so an agent knows which button you meant.
+Four notes on one screen. The fourth points at a second element. Type `@`, tap the element, and the note reads `Move this next to @5_Button`. The export draws that element's box and highlights the token in the same color, so an agent knows which button you meant.
 
 <p align="center">
   <img src="docs/demo.gif" alt="A shake, the Add Feedback pill, four pieces of feedback with one reference, the Share menu, and the exported image" width="270"><br>
