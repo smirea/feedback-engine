@@ -34,8 +34,8 @@ const length = (card: Card, target: Frame) => {
 /**
  * Where the image export puts each item's card. A card sits in the left column, as level with its target as the cards
  * above it allow. It moves to the right column when that makes its line to the target at least `rightColumnPenalty`
- * points shorter, as for a button at the right edge. The environment then takes the first gap in the right column
- * that is tall enough, from the top. `targets` are frames in the capture. The layout's frames are in the image.
+ * points shorter, as for a button at the right edge. The environment always sits at the top of the right column, and
+ * right-column cards start below it. `targets` are frames in the capture. The layout's frames are in the image.
  */
 export function place(targets: Frame[], heights: number[], screen: Size, environmentHeight: number): Layout {
 	const { margin, column, gutter, spacing, rightColumnPenalty } = cards;
@@ -45,7 +45,7 @@ export function place(targets: Frame[], heights: number[], screen: Size, environ
 	const midY = (index: number) => moved[index]!.y + moved[index]!.height / 2;
 	const placed: Card[] = moved.map(() => ({ isLeft: true, origin: { x: 0, y: 0 } }));
 	let nextLeft = margin;
-	let nextRight = margin;
+	let nextRight = margin + environmentHeight + spacing * 2;
 	const order = moved.map((_, index) => index).toSorted((a, b) => midY(a) - midY(b) || a - b);
 	for (const index of order) {
 		const desired = Math.max(midY(index) - heights[index]! / 2, margin);
@@ -57,21 +57,11 @@ export function place(targets: Frame[], heights: number[], screen: Size, environ
 		else nextRight = card.origin.y + heights[index]! + spacing;
 	}
 
-	let environmentY = margin;
-	const rightCards = placed
-		.map((card, index) => ({ card, index }))
-		.filter(({ card }) => !card.isLeft)
-		.toSorted((a, b) => a.card.origin.y - b.card.origin.y);
-	for (const { card, index } of rightCards) {
-		if (environmentY + environmentHeight + spacing * 2 <= card.origin.y) break;
-		environmentY = Math.max(environmentY, card.origin.y + heights[index]! + spacing * 2);
-	}
-	const height =
-		Math.max(shot.y + shot.height, nextLeft - spacing, nextRight - spacing, environmentY + environmentHeight) + margin;
+	const height = Math.max(shot.y + shot.height, nextLeft - spacing, nextRight - spacing) + margin;
 	return {
 		shot,
 		cards: placed,
-		environment: { x: rightX, y: environmentY },
+		environment: { x: rightX, y: margin },
 		size: { width: rightX + column + margin, height },
 	};
 }
