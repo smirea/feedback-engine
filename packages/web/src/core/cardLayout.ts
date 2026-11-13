@@ -35,9 +35,18 @@ const length = (card: Card, target: Frame) => {
  * Where the image export puts each item's card. A card sits in the left column, as level with its target as the cards
  * above it allow. It moves to the right column when that makes its line to the target at least `rightColumnPenalty`
  * points shorter, as for a button at the right edge. The environment always sits at the top of the right column, and
- * right-column cards start below it. `targets` are frames in the capture. The layout's frames are in the image.
+ * right-column cards start below it. A tall capture is cut half the height that was on screen below the lowest box or
+ * card, and never shorter than that height, and `shot` is the part that is drawn. `targets` and
+ * `references` are frames in the capture. The layout's frames are in the image.
  */
-export function place(targets: Frame[], heights: number[], screen: Size, environmentHeight: number): Layout {
+export function place(
+	targets: Frame[],
+	heights: number[],
+	screen: Size,
+	environmentHeight: number,
+	viewport: number,
+	references: Frame[] = [],
+): Layout {
 	const { margin, column, gutter, spacing, rightColumnPenalty } = cards;
 	const shot = { x: margin + column + gutter, y: margin, width: screen.width, height: screen.height };
 	const rightX = shot.x + shot.width + gutter;
@@ -57,6 +66,12 @@ export function place(targets: Frame[], heights: number[], screen: Size, environ
 		else nextRight = card.origin.y + heights[index]! + spacing;
 	}
 
+	const lowest = Math.max(
+		0,
+		...[...targets, ...references].map(frame => frame.y + frame.height),
+		...placed.map((card, index) => card.origin.y + heights[index]! - shot.y),
+	);
+	shot.height = Math.min(screen.height, Math.max(viewport, lowest + viewport / 2));
 	const height = Math.max(shot.y + shot.height, nextLeft - spacing, nextRight - spacing) + margin;
 	return {
 		shot,

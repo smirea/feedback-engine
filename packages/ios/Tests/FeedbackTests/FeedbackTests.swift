@@ -260,7 +260,8 @@ private final class Store {
         ],
         heights: [60, 60, 60],
         screen: screen,
-        environmentHeight: 150
+        environmentHeight: 150,
+        viewport: 800
     )
     #expect(layout.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
     #expect(layout.cards == [
@@ -274,10 +275,24 @@ private final class Store {
 
 @Test func theEnvironmentStaysAtTheTopWhenNoCardIsNearIt() {
     let layout = CardLayout.place(
-        targets: [CGRect(x: 360, y: 700, width: 30, height: 30)], heights: [50], screen: screen, environmentHeight: 200
+        targets: [CGRect(x: 360, y: 700, width: 30, height: 30)], heights: [50], screen: screen, environmentHeight: 200, viewport: 800
     )
     #expect(layout.cards == [.init(isLeft: false, origin: CGPoint(x: 776, y: 714))])
     #expect(layout.environment == CGPoint(x: 776, y: 24))
+}
+
+@Test func aTallCaptureIsCutHalfAScreenBelowTheLowestCardAndIsAtLeastOneScreenTall() {
+    let tall = CGSize(width: 400, height: 5000)
+    let near = CardLayout.place(targets: [CGRect(x: 0, y: 100, width: 60, height: 44)], heights: [60], screen: tall, environmentHeight: 150, viewport: 800)
+    #expect(near.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
+    #expect(near.size.height == 848)
+    let far = CardLayout.place(targets: [CGRect(x: 0, y: 3000, width: 60, height: 50)], heights: [60], screen: tall, environmentHeight: 150, viewport: 800)
+    #expect(far.shot.height == 3455)
+    let referenced = CardLayout.place(
+        targets: [CGRect(x: 0, y: 100, width: 60, height: 44)], heights: [60], screen: tall, environmentHeight: 150, viewport: 800,
+        references: [CGRect(x: 0, y: 4000, width: 60, height: 50)]
+    )
+    #expect(referenced.shot.height == 4450)
 }
 
 private func rowScene() -> RawScene {
@@ -908,6 +923,8 @@ private struct Fixture: Decodable {
         let targets: [Rect]
         let heights: [CGFloat]
         let environmentHeight: CGFloat
+        let viewport: CGFloat
+        let references: [Rect]
     }
 
     struct Layout: Decodable {
@@ -998,7 +1015,9 @@ private struct Fixture: Decodable {
     let report = try #require(JSONSerialization.jsonObject(with: Data(Report.json(capture, annotations).utf8)) as? NSDictionary)
     #expect(report == expected["report"] as? NSDictionary)
 
-    let layout = CardLayout.place(targets: fixture.cards.targets.map(\.cgRect), heights: fixture.cards.heights, screen: screen, environmentHeight: fixture.cards.environmentHeight)
+    let layout = CardLayout.place(targets: fixture.cards.targets.map(\.cgRect), heights: fixture.cards.heights, screen: screen, environmentHeight: fixture.cards.environmentHeight,
+        viewport: fixture.cards.viewport, references: fixture.cards.references.map(\.cgRect)
+    )
     let wanted = fixture.expected.cards
     #expect(layout.shot == wanted.shot.cgRect)
     #expect(layout.cards == wanted.cards.map { .init(isLeft: $0.isLeft, origin: CGPoint(x: $0.origin.x, y: $0.origin.y)) })
