@@ -3,6 +3,7 @@ import type { Point } from '../core/index.ts';
 import { captureScreen, type Screen } from '../dom/capture.ts';
 import type { ProcrastimateConfig } from '../dom/procrastimate.ts';
 import { hostAttribute } from '../dom/tags.ts';
+import type { Webhook } from '../dom/webhook.ts';
 
 export type FeedbackOptions = {
 	/** The app's name in exports. Defaults to the document's title. */
@@ -24,6 +25,11 @@ export type FeedbackOptions = {
 	 * which adds the entry by itself when it has a token. Set it for a proxy of your own.
 	 */
 	procrastimate?: ProcrastimateConfig;
+	/**
+	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export and the JSON export to the
+	 * webhook's `url`, with nothing more to fill in.
+	 */
+	webhooks?: Webhook[];
 };
 
 export const defaultShortcut = 'Alt+Meta+Click';

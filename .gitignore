@@ -18,3 +18,6 @@ build
 .env.override
 
 .DS_Store
+
+# Left by `wrangler dev` in examples/github-webhook.
+.wrangler

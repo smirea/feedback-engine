@@ -1060,3 +1060,62 @@ private struct Fixture: Decodable {
     #expect(plain.facts.map(\.label) == ["Error"])
     #expect(Problem(message: "Nothing else").text == "Nothing else")
 }
+
+@Test func aWebhookPostIsOneMultipartRequestWithTheFieldsAndBothFiles() {
+    let webhook = FeedbackWebhook(
+        name: "GitHub Issue",
+        url: URL(string: "https://hooks.example.com/feedback?repo=todo&labels=old")!,
+        headers: ["Authorization": "Bearer key"],
+        query: ["labels": "feedback", "app": "Todo"]
+    )
+    let post = WebhookPost(id: "post-1", title: "Lists Feedback: 1 change", image: Data("PNG".utf8), report: Data(#"{"items":[]}"#.utf8))
+    let request = webhook.request(post, boundary: "B")
+
+    #expect(request.url?.absoluteString == "https://hooks.example.com/feedback?repo=todo&app=Todo&labels=feedback")
+    #expect(request.httpMethod == "POST")
+    #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer key")
+    #expect(request.value(forHTTPHeaderField: "Content-Type") == "multipart/form-data; boundary=B")
+    #expect(String(decoding: request.httpBody ?? Data(), as: UTF8.self) == [
+        "--B",
+        #"Content-Disposition: form-data; name="id""#,
+        "",
+        "post-1",
+        "--B",
+        #"Content-Disposition: form-data; name="title""#,
+        "",
+        "Lists Feedback: 1 change",
+        "--B",
+        #"Content-Disposition: form-data; name="image"; filename="feedback.png""#,
+        "Content-Type: image/png",
+        "",
+        "PNG",
+        "--B",
+        #"Content-Disposition: form-data; name="report"; filename="feedback.json""#,
+        "Content-Type: application/json",
+        "",
+        #"{"items":[]}"#,
+        "--B--",
+        "",
+    ].joined(separator: "\r\n"))
+}
+
+@Test func aWebhookAnswerGivesTheLinkOfThePostOrTheServersReason() throws {
+    let request = URLRequest(url: URL(string: "https://hooks.example.com/feedback")!)
+    func link(_ status: Int, _ body: String) throws -> URL? {
+        try FeedbackWebhook.link(name: "GitHub Issue", request: request, status: status, body: Data(body.utf8))
+    }
+
+    #expect(try link(201, #"{"url":"https://github.com/example/app/issues/7"}"#) == URL(string: "https://github.com/example/app/issues/7"))
+    #expect(try link(204, "") == nil)
+    #expect(try link(200, #"{"url":"javascript:alert(1)"}"#) == nil)
+
+    let refused = #expect(throws: Problem.self) { try link(502, #"{"message":"GitHub answered 401."}"#) }
+    #expect(refused?.message == "GitHub Issue: GitHub answered 401.")
+    #expect(refused?.status == 502)
+    #expect(refused?.retryable == true)
+    #expect(refused?.details.hasPrefix("Request: POST https://hooks.example.com/feedback\nStatus: 502\nResponse: {\"message\":\"GitHub answered 401.\"}\n") == true)
+
+    let tooLarge = #expect(throws: Problem.self) { try link(413, "<html>413</html>") }
+    #expect(tooLarge?.message == "GitHub Issue answered 413.")
+    #expect(tooLarge?.retryable == false)
+}

@@ -1,0 +1,11 @@
+name = "feedback-github-webhook"
+main = "worker.ts"
+compatibility_date = "2026-01-01"
+
+[vars]
+# The repository the issues go to.
+GITHUB_REPO = "owner/name"
+
+# Secrets, set once with `bunx wrangler secret put <NAME>`:
+# GITHUB_TOKEN  a token that can write to the repository
+# WEBHOOK_KEY   optional: what a post must send as `Authorization: Bearer <key>`

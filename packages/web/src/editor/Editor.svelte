@@ -22,9 +22,11 @@
 		type Export,
 		type ExportFormat,
 	} from '../dom/share.ts';
+	import type { Webhook } from '../dom/webhook.ts';
 	import type { Engine } from './engine.ts';
 	import ItemsSheet from './ItemsSheet.svelte';
 	import ProcrastimateSheet from './ProcrastimateSheet.svelte';
+	import WebhookSheet from './WebhookSheet.svelte';
 
 	let { engine, screen }: { engine: Engine; screen: Screen } = $props();
 
@@ -88,6 +90,7 @@
 	let showsList = $state(false);
 	let showsShare = $state(false);
 	let showsProcrastimate = $state(false);
+	let posting = $state<Webhook>();
 	let confirmsClose = $state(false);
 	let pending = $state<{ format: ExportFormat; ready: Export }>();
 	let busy = $state(false);
@@ -196,9 +199,9 @@
 	}
 
 	function requestClose() {
-		if (showsInfo || showsList || showsShare || showsProcrastimate || pending) {
+		if (showsInfo || showsList || showsShare || showsProcrastimate || posting || pending) {
 			showsInfo = showsList = showsShare = showsProcrastimate = false;
-			pending = undefined;
+			posting = pending = undefined;
 		} else if (session.isTyping || session.unshared.length) {
 			confirmsClose = true;
 		} else {
@@ -295,6 +298,20 @@
 							}}>ProcrastiMate</button
 						>
 					{/if}
+					{#each engine.options.webhooks ?? [] as webhook, index (index)}
+						<button
+							type="button"
+							role="menuitem"
+							class="webhook"
+							onclick={() => {
+								showsShare = false;
+								posting = webhook;
+							}}
+						>
+							{#if webhook.image}<img src={webhook.image} alt="" />{/if}
+							{webhook.name}
+						</button>
+					{/each}
 				</div>
 			{/if}
 		</div>
@@ -505,6 +522,22 @@
 		/>
 	{/if}
 
+	{#if posting}
+		<WebhookSheet
+			{screen}
+			{session}
+			webhook={posting}
+			onclose={() => (posting = undefined)}
+			onposted={(items, toast) => {
+				posting = undefined;
+				act(() => {
+					session.markShared(items);
+					session.toast = toast;
+				});
+			}}
+		/>
+	{/if}
+
 	{#if pending}
 		<div
 			class="scrim"
@@ -663,6 +696,18 @@
 
 	.popup button:hover {
 		background: rgb(255 255 255 / 0.08);
+	}
+
+	.popup .webhook {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.popup img {
+		width: 18px;
+		height: 18px;
+		object-fit: contain;
 	}
 
 	.body {

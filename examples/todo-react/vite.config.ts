@@ -14,6 +14,11 @@ export default defineConfig({
 		feedbackEngineReact(),
 		react(),
 	],
+	// The example reads these in the page. Vite hands a page only `VITE_` variables by itself.
+	define: {
+		'import.meta.env.FEEDBACK_WEBHOOK_URL': JSON.stringify(env.FEEDBACK_WEBHOOK_URL ?? ''),
+		'import.meta.env.FEEDBACK_WEBHOOK_KEY': JSON.stringify(env.FEEDBACK_WEBHOOK_KEY ?? ''),
+	},
 	clearScreen: false,
 	server: { port, strictPort: true },
 	preview: { port, strictPort: true },

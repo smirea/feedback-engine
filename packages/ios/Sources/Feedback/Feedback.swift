@@ -23,6 +23,11 @@ public enum Feedback {
 
     private static var providers: [(name: String, value: @MainActor () -> Any)] = []
     private static var state = State.idle
+    private static var isPosting = false
+
+    /// The webhooks the Share menu lists after its own entries. Choosing one posts the image export
+    /// and the JSON export to its `url`, with nothing more to fill in.
+    public static var webhooks: [FeedbackWebhook] = []
 
     /// Turns on shake-to-feedback: shaking shows a button that captures the screen and opens
     /// the editor.
@@ -99,6 +104,10 @@ public enum Feedback {
             presenter.present(ProcrastimateSheet.controller(session: session), animated: true)
             return
         }
+        if case .webhook(let index) = target {
+            post(session, to: webhooks[index])
+            return
+        }
         var files: [(name: String, data: Data)] = []
         var pasteboard: [[String: Any]] = []
         if target != .json {
@@ -120,6 +129,49 @@ public enum Feedback {
         }
         sheet.popoverPresentationController?.sourceView = presenter.view
         presenter.present(sheet, animated: true)
+    }
+
+    /// Sends the feedback to a webhook. A failure opens a sheet with the reason and **Retry**, which
+    /// sends the same post again.
+    private static func post(_ session: Session, to webhook: FeedbackWebhook, retrying earlier: WebhookPost? = nil) {
+        guard !isPosting else { return }
+        isPosting = true
+        let items = session.items
+        session.toast = Toast(text: "Sending to \(webhook.name)…")
+        let post = earlier ?? WebhookPost(
+            id: UUID().uuidString.lowercased(),
+            title: TaskTitle(session.capture, items: items).placeholder,
+            image: AnnotatedImage.render(session.capture, session.annotations).pngData() ?? Data(),
+            report: Data(session.compactJSON.utf8)
+        )
+        let request = webhook.request(post)
+        let started = Date.now
+        Task {
+            defer { isPosting = false }
+            do {
+                let link = try await FeedbackWebhook.send(request, name: webhook.name)
+                session.shared.formUnion(items)
+                session.toast = Toast(text: "Sent to \(webhook.name)", link: link)
+            } catch {
+                session.toast = nil
+                let problem = Problem(error).with(
+                    before: [
+                        .init(label: "Step", value: "Sending to \(webhook.name)"),
+                        .init(label: "Elapsed", value: "\(String(format: "%.1f", Date.now.timeIntervalSince(started))) s"),
+                    ],
+                    after: [
+                        .init(label: "Post", value: post.id),
+                        .init(label: "Image", value: "\(post.image.count) bytes"),
+                        .init(label: "Report", value: "\(post.report.count) bytes"),
+                    ] + session.capture.environment.map { .init(label: $0.name, value: $0.value) }
+                )
+                guard case .editing(let editing) = state, var presenter = editing.overlay.rootViewController else { return }
+                while let presented = presenter.presentedViewController { presenter = presented }
+                presenter.present(WebhookFailureSheet.controller(name: webhook.name, problem: problem) {
+                    self.post(session, to: webhook, retrying: post)
+                }, animated: true)
+            }
+        }
     }
 
     private static func write(_ file: (name: String, data: Data)) throws -> URL {
@@ -174,16 +226,20 @@ public enum Feedback {
     }
 }
 
-enum ShareTarget: CaseIterable {
+@MainActor
+enum ShareTarget: Hashable {
     case image
     case json
     /// `feedback.png` and `feedback.json` in one `feedback.zip`.
     case zip
     case procrastimate
+    /// One of `Feedback.webhooks`, by its place in the list.
+    case webhook(Int)
 
-    /// What the Share menu lists. ProcrastiMate is there only in an app that can reach it.
+    /// What the Share menu lists. ProcrastiMate is there only in an app that can reach it, and the
+    /// app's webhooks come last.
     static var available: [ShareTarget] {
-        allCases.filter { $0 != .procrastimate || Procrastimate.isAvailable }
+        [.image, .json, .zip] + (Procrastimate.isAvailable ? [.procrastimate] : []) + Feedback.webhooks.indices.map { .webhook($0) }
     }
 
     var title: String {
@@ -192,15 +248,18 @@ enum ShareTarget: CaseIterable {
         case .json: "JSON"
         case .zip: "Image and JSON (ZIP)"
         case .procrastimate: "ProcrastiMate"
+        case .webhook(let index): Feedback.webhooks[index].name
         }
     }
 
+    /// The icon of an entry without an image of its own.
     var systemImage: String {
         switch self {
         case .image: "photo"
         case .json: "curlybraces"
         case .zip: "doc.zipper"
         case .procrastimate: "checklist"
+        case .webhook: "paperplane"
         }
     }
 }

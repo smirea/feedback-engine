@@ -1,6 +1,6 @@
 # Feedback
 
-In-app feedback packages, one per platform. Read `README.md` for the integration API, `spec/report.md` for the shared export format, and `spec/features.md` for what each platform does. Keep every platform's output identical to `spec/report.md`, and update it in the same change when the format moves.
+In-app feedback packages, one per platform. Read `README.md` for the integration API, `spec/report.md` for the shared export format, and `spec/features.md` for what each platform does. Keep every platform's output identical to `spec/report.md`, and update it in the same change when the format moves. That includes the webhook request, which `docs/webhooks.md` also describes.
 
 `spec/features.md` has one row per feature with a status for iOS, Svelte, and React. Add or update the row in the same change that adds, changes, or removes behavior on any platform. `bun test spec` fails on a row without a status for every platform.
 
@@ -29,6 +29,8 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
   - `next`: `withFeedbackEngine()`, which wraps a Next.js config, and `loader.js`, the one webpack loader it gives Turbopack and webpack. It runs `addReact` and compiles the editor, like the React plugin.
 - `spec/fixtures/capture.json`: one tree with the answers both platforms must give. `swift test` and `bun test` both read it. Change the fixture when shared logic changes, and both suites must pass on it.
 - `docs/web-plan.md`: what is left for the web package.
+- `docs/webhooks.md`: how an app sets up webhooks, the request every platform sends, and the GitHub example.
+- `examples/github-webhook`: a webhook server that files each post as a GitHub issue. `worker.ts` is one `fetch` handler, `serve.ts` runs it with Bun, and `wrangler.toml` runs it as a Cloudflare Worker. It has no `package.json`, so the root's `bun test` and `bun check` cover it.
 - `examples/todo-svelte` and `examples/todo-react`: the web demo apps, a SvelteKit SPA and a React app with React Router. They mirror `examples/todo-ios` and each other: the same screens, markup, and styles, so one browser suite runs on both. Change them together.
 
 # Development
@@ -39,6 +41,7 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
 - The root `package.json` is also the package apps install, so it has no install script: package managers run or flag a dependency's install scripts. Git hooks come from `bun run hooks`, which a T3 worktree runs through `worktree:setup`.
 - `Session` is plain TypeScript and not reactive. In the editor, change it only inside `act`, and draw only from `view`.
 - To check a ProcrastiMate post from the web against the real server code, run the scratch server described below, sign up with `POST /api/auth/sign-up/email`, and start the example with `PROCRASTIMATE_URL` and `PROCRASTIMATE_TOKEN` set to the scratch server and the `set-auth-token` header of the sign-up.
+- A webhook is tested against a stand-in server in the browser suite, and its request and answer in `swift test`. To post a real issue, run `examples/github-webhook/serve.ts` against a scratch repository and start an example with `FEEDBACK_WEBHOOK_URL` and `FEEDBACK_WEBHOOK_KEY`. The iOS example reads them from its launch environment: prefix each with `SIMCTL_CHILD_` for `./scripts/run`. After that launch, attach agent-device with `open <bundle id>` and no `--relaunch`, which would drop them.
 - `bun run dev` serves `examples/todo-svelte` on `UI_PORT` from the root `.env`, and `bun run dev:react` serves `examples/todo-react` on `UI_PORT + 5`. A worktree gets its own ports in `.env.local`. In the main checkout, localias forwards `https://feedback-engine.localhost` to `UI_PORT`, so the Svelte example answers there too. A worktree's ports have no name. After editing `.env`, run `bun run env:generate` and commit the root `env.ts` as generated.
 - A React component is a node only when the plugin registered it. Without a registration the fiber tree cannot tell the app's components from a library's, and a minified build has no names. Keep that rule: a fallback to React's own function names would give a development build and a production build different trees.
 - SvelteKit 3 has no `$lib` alias. The example imports with relative paths.

@@ -525,7 +525,15 @@ private struct ShareMenu: View {
     var body: some View {
         Menu {
             ForEach(ShareTarget.available, id: \.self) { target in
-                Button(target.title, systemImage: target.systemImage) { share(target) }
+                Button {
+                    share(target)
+                } label: {
+                    if case .webhook(let index) = target, let image = Feedback.webhooks[index].image {
+                        Label { Text(target.title) } icon: { image }
+                    } else {
+                        Label(target.title, systemImage: target.systemImage)
+                    }
+                }
             }
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")

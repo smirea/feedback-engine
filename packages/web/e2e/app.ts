@@ -22,6 +22,7 @@ export const engines = { chromium, webkit };
 export type EngineName = keyof typeof engines;
 
 const procrastimatePort = env.UI_PORT + 3;
+const webhookPort = env.UI_PORT + 4;
 export const url = (app: AppName, mode: Mode, path = '/') => `http://127.0.0.1:${apps[app][mode]}${path}`;
 
 /** A stand-in for ProcrastiMate's agent API that keeps what it was sent. The dev server's proxy forwards to it. */
@@ -98,21 +99,77 @@ function serveProcrastimate(port: number) {
 	});
 }
 
+/** A stand-in for an app's webhook server that keeps every post it was sent. The page posts to it from another origin. */
+export const webhook = {
+	key: 'test-key',
+	posts: [] as {
+		authorization: string | null;
+		query: Record<string, string>;
+		id: string;
+		title: string;
+		image: { name: string; type: string; bytes: Buffer };
+		report: { name: string; type: string; text: string };
+	}[],
+	/** The next post's answer instead of the link, as a server that could not file it. */
+	refuse: undefined as { status: number; body: string } | undefined,
+};
+
+export const webhookURL = `http://127.0.0.1:${webhookPort}/feedback`;
+const webhookEnv = {
+	FEEDBACK_WEBHOOK_URL: webhookURL,
+	FEEDBACK_WEBHOOK_KEY: webhook.key,
+};
+
+function serveWebhook(port: number) {
+	// A post with an `Authorization` header from another origin is preflighted, and its answer is read only with these.
+	const cors = {
+		'Access-Control-Allow-Origin': '*',
+		'Access-Control-Allow-Headers': 'Authorization',
+	};
+	return Bun.serve({
+		port,
+		hostname: '127.0.0.1',
+		async fetch(request) {
+			if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+			const form = await request.formData();
+			const image = form.get('image') as File;
+			const report = form.get('report') as File;
+			webhook.posts.push({
+				authorization: request.headers.get('authorization'),
+				query: Object.fromEntries(new URL(request.url).searchParams),
+				id: form.get('id') as string,
+				title: form.get('title') as string,
+				image: { name: image.name, type: image.type, bytes: Buffer.from(await image.arrayBuffer()) },
+				// Bun adds `;charset=utf-8` to a text part's type when it reads the form.
+				report: { name: report.name, type: report.type.split(';')[0]!, text: await report.text() },
+			});
+			if (webhook.refuse) {
+				const { status, body } = webhook.refuse;
+				webhook.refuse = undefined;
+				return new Response(body, { status, headers: cors });
+			}
+			return Response.json({ url: `https://github.com/example/app/issues/${webhook.posts.length}` }, { headers: cors });
+		},
+	});
+}
+
 const servers: ChildProcess[] = [];
 let stand: ReturnType<typeof serveProcrastimate> | undefined;
+let hook: ReturnType<typeof serveWebhook> | undefined;
 const browsers = new Map<EngineName, Browser>();
 
 export async function startServers() {
 	// `bun test` sets NODE_ENV to `test`, which would make this a development build.
 	const build = Bun.spawnSync(['bun', 'run', 'build'], {
 		cwd: root,
-		// The token is the switch for the Share menu's ProcrastiMate entry, and a build bakes that in.
-		env: { ...process.env, NODE_ENV: 'production', ...procrastimateEnv },
+		// The token is the switch for the Share menu's ProcrastiMate entry, and a build bakes that in, as it does the webhook's address.
+		env: { ...process.env, NODE_ENV: 'production', ...procrastimateEnv, ...webhookEnv },
 		stdout: 'pipe',
 		stderr: 'pipe',
 	});
 	if (build.exitCode !== 0) throw new Error(`The example apps did not build:\n${build.stdout}${build.stderr}`);
 	stand = serveProcrastimate(procrastimatePort);
+	hook = serveWebhook(webhookPort);
 	for (const [app, mode] of appNames.flatMap(name => modes.map(each => [name, each] as const))) {
 		const child = spawn(
 			'bun',
@@ -131,7 +188,7 @@ export async function startServers() {
 			{
 				cwd: join(root, apps[app].folder),
 				stdio: 'pipe',
-				env: { ...process.env, ...procrastimateEnv },
+				env: { ...process.env, ...procrastimateEnv, ...webhookEnv },
 			},
 		);
 		let log = '';
@@ -156,6 +213,7 @@ export async function stopServers() {
 	for (const browser of browsers.values()) await browser.close();
 	for (const server of servers) server.kill();
 	await stand?.stop(true);
+	await hook?.stop(true);
 }
 
 export type Opened = { page: Page; context: BrowserContext; errors: string[] };

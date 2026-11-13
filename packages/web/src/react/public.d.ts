@@ -30,7 +30,29 @@ export type FeedbackOptions = {
 		/** The ProcrastiMate web app, for the link to a posted task. */
 		app?: string;
 	};
+	/**
+	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export and the JSON export to the
+	 * webhook's `url`, with nothing more to fill in.
+	 */
+	webhooks?: Webhook[];
 };
+
+/** One entry of the Share menu that posts the feedback to a server of the app's own. `docs/webhooks.md` has the request. */
+export type Webhook = {
+	/** The entry's name in the Share menu, such as `GitHub Issue`. */
+	name: string;
+	/** Where the post goes. A path, such as `/api/feedback`, is on the page's own origin. */
+	url: string;
+	/** An icon beside the name: anything an `<img>` loads, such as `githubIcon` or a data URL. */
+	image?: string;
+	/** Sent with the post, such as `Authorization`. Whatever a page sends is public. */
+	headers?: Record<string, string>;
+	/** Added to the URL's query. */
+	query?: Record<string, string>;
+};
+
+/** GitHub's mark in white, for a webhook that files issues. */
+export const githubIcon: string;
 
 export type FeedbackEngine = {
 	/** Registers app state to attach to every capture. `value` runs when a capture is taken. Registering a name again replaces the earlier one. */

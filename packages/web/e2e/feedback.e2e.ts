@@ -21,7 +21,10 @@ import {
 	startServers,
 	stopServers,
 	tap,
+	webhook,
+	webhookURL,
 	type EngineName,
+	type Report,
 } from './app.ts';
 
 beforeAll(startServers, 120_000);
@@ -625,6 +628,95 @@ for (const app of appNames) {
 			expect(errors).toEqual([
 				'Failed to load resource: the server responded with a status of 413 (Payload Too Large)',
 			]);
+			await context.close();
+		});
+
+		for (const [engine, mode] of [
+			['chromium', 'dev'],
+			['webkit', 'preview'],
+		] as const) {
+			test(`a webhook entry posts the image and the JSON in one request, in ${engine} on a ${mode} server`, async () => {
+				webhook.posts.length = 0;
+				const { page, context, errors } = await open(app, engine, mode, '/');
+				await present(page);
+				await tap(page, 100, 270);
+				await field(page).fill('Row is too tall');
+				await field(page).press('Enter');
+				await page.getByRole('button', { name: 'Share' }).click();
+				const entry = page.getByRole('menuitem', { name: 'GitHub Issue' });
+				expect(await entry.locator('img').evaluate((image: HTMLImageElement) => image.naturalWidth > 0)).toBe(true);
+				await entry.click();
+
+				const toast = page.locator('.toast');
+				await toast.waitFor();
+				expect(await toast.innerText()).toBe('✓ Sent to GitHub Issue ↗');
+				expect(webhook.posts.length).toBe(1);
+				const [post] = webhook.posts;
+				expect({
+					authorization: post!.authorization,
+					query: post!.query,
+					title: post!.title,
+					image: { name: post!.image.name, type: post!.image.type },
+					report: { name: post!.report.name, type: post!.report.type },
+				}).toEqual({
+					authorization: 'Bearer test-key',
+					query: { labels: 'feedback' },
+					title: 'Lists Feedback: 1 change',
+					image: { name: 'feedback.png', type: 'image/png' },
+					report: { name: 'feedback.json', type: 'application/json' },
+				});
+				expect(post!.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+				// The image export: the 390 point screenshot between two 340 point columns, at 2x.
+				expect(PNG.sync.read(post!.image.bytes).width).toBe(2140);
+				const report = JSON.parse(post!.report.text) as Report;
+				expect(report.items.map(item => [item.number, item.text])).toEqual([[1, 'Row is too tall']]);
+				expect(report.nodes[0]!.kind).toBe('screen');
+
+				const popup = context.waitForEvent('page');
+				await toast.getByRole('button').click();
+				expect((await popup).url()).toBe('https://github.com/example/app/issues/1');
+
+				// The item counts as shared, so closing does not ask.
+				await page.getByRole('button', { name: 'Close' }).click();
+				await editor(page).waitFor({ state: 'detached' });
+				expect(errors).toEqual([]);
+				await context.close();
+			});
+		}
+
+		test('a webhook that refuses a post shows why, and Retry sends the same post again', async () => {
+			webhook.posts.length = 0;
+			webhook.refuse = { status: 502, body: JSON.stringify({ message: 'GitHub answered 401.' }) };
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await present(page);
+			await tap(page, 100, 270);
+			await field(page).fill('Row is too tall');
+			await field(page).press('Enter');
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'GitHub Issue' }).click();
+
+			const sheet = page.getByRole('dialog', { name: 'Send to GitHub Issue' });
+			const alert = sheet.getByRole('alert');
+			await alert.waitFor();
+			expect(await alert.locator('.message').innerText()).toBe('GitHub Issue: GitHub answered 401.');
+			await alert.getByText('Details').click();
+			const lines = (await alert.locator('pre').innerText()).split('\n');
+			expect(lines[0]).toBe('Step: Sending to GitHub Issue');
+			expect(lines[1]).toMatch(/^Elapsed: \d+\.\d s$/);
+			expect(lines.slice(2, 6)).toEqual([
+				`Request: POST ${webhookURL}?labels=feedback`,
+				'Status: 502',
+				'Response: {"message":"GitHub answered 401."}',
+				'Error: Error: GitHub Issue: GitHub answered 401.',
+			]);
+			expect(lines[6]).toBe(`Post: ${webhook.posts[0]!.id}`);
+			expect(await page.locator('.toast').count()).toBe(0);
+
+			await sheet.getByRole('button', { name: 'Retry' }).click();
+			await page.locator('.toast').waitFor();
+			expect(await page.locator('.toast').innerText()).toBe('✓ Sent to GitHub Issue ↗');
+			expect(webhook.posts.map(post => post.id)).toEqual([webhook.posts[0]!.id, webhook.posts[0]!.id]);
+			expect(errors).toEqual(['Failed to load resource: the server responded with a status of 502 (Bad Gateway)']);
 			await context.close();
 		});
 

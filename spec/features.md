@@ -141,6 +141,18 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | P9 | **Add** saves the post to an outbox on the device and closes at once. The outbox sends it, and keeps it through no connection, a timeout, and a relaunch until it lands. | shipped | planned | planned | iOS: files under Application Support, sent at launch, on foreground, when the network returns, and on a backoff up to 15 minutes. Every request is idempotent: the server keeps the first bytes stored under an image id, and `POST /api/tasks` with the client's task id returns that task, so a retry resumes where the last attempt stopped and never adds a second task. A task deleted before a retry heard back answers 410, and the post leaves the outbox. A post the server refuses for good waits for **Retry Now** or **Discard** in the sheet. Web: the page posts through the dev server on the same machine, so it waits on the post instead. An IndexedDB outbox retried on `online` would match iOS. |
 | P10 | A failure shows above the project list with its message, the step, request, status, response, and capture context under **Details**, and **Copy Error**. | shipped | shipped | shipped | A failure under a long project list once went unseen, so a failed post looked like a spinner that stopped. iOS: the sheet also lists each post still waiting, with its last failure. |
 
+## Webhooks
+
+| ID | Feature | iOS | Svelte | React | Notes |
+| --- | --- | --- | --- | --- | --- |
+| W1 | The app lists any number of webhooks, each with a name, a URL, and optionally an image, headers, and query parameters. Each is an entry in the Share menu, after the built-in ones. | shipped | shipped | shipped | iOS: `Feedback.webhooks`. Web: `setupFeedbackEngine({ webhooks })`. |
+| W2 | Choosing a webhook sends one `multipart/form-data` POST with an `id`, the `title`, the image export, and the JSON export, with nothing to fill in. | shipped | shipped | shipped | `report.md` has the request, and `docs/webhooks.md` explains it to an app's developer. |
+| W3 | A toast confirms the post and opens the link the server answered with. | shipped | shipped | shipped | Only an `http` or `https` link is used. iOS: a toast also says the post is on its way. Web: a sheet shows the post's progress and closes when it lands. |
+| W4 | A failed post shows the server's message, with the request, status, and response under **Details**, **Copy Error**, and **Retry**, which sends the same `id` again. | shipped | shipped | shipped | iOS: a sheet that opens on the failure. Web: the sheet that shows the post's progress. |
+| W5 | A post made without a connection waits in an outbox and goes out later. | no | no | no | A failed post waits for **Retry** while the editor is open and is gone once it closes. ProcrastiMate's outbox (P9) keeps ProcrastiMate's own requests, not a webhook's. |
+| W6 | GitHub's mark ships as an icon for a webhook that files issues. | shipped | shipped | shipped | iOS: `Feedback.githubIcon`. Web: `githubIcon`. Both draw one path. |
+| W7 | An example server files each post as a GitHub issue with the image, the items, and the report. | shipped | shipped | shipped | `examples/github-webhook`, a `fetch` handler for a Cloudflare Worker or Bun. The examples turn the entry on with `FEEDBACK_WEBHOOK_URL`. |
+
 ## Agent workflow
 
 | ID | Feature | iOS | Svelte | React | Notes |

@@ -13,6 +13,7 @@
 		type Place,
 		type ProcrastimateConfig,
 	} from '../dom/procrastimate.ts';
+	import ProblemCard from './ProblemCard.svelte';
 
 	let {
 		screen,
@@ -98,28 +99,6 @@
 	});
 </script>
 
-{#snippet problemCard(problem: Problem)}
-	<div class="problem" role="alert">
-		<p class="message">{problem.message}</p>
-		{#if problem.facts.length}
-			<details>
-				<summary>Details</summary>
-				<pre>{problem.details}</pre>
-			</details>
-		{/if}
-		<button
-			type="button"
-			class="link"
-			onclick={async event => {
-				const button = event.currentTarget;
-				await navigator.clipboard.writeText(problem.text);
-				button.textContent = 'Copied';
-				setTimeout(() => (button.textContent = 'Copy Error'), 2000);
-			}}>Copy Error</button
-		>
-	</div>
-{/snippet}
-
 {#snippet row(label: string, picked: boolean, indented: boolean, pick: () => void)}
 	<button
 		type="button"
@@ -153,8 +132,8 @@
 		<div class="scroll">
 			<div class="status" bind:this={status}>
 				{#if step}<p class="step" role="status">{step}…</p>{/if}
-				{#if postProblem}{@render problemCard(postProblem)}{/if}
-				{#if loadProblem}{@render problemCard(loadProblem)}{/if}
+				{#if postProblem}<ProblemCard problem={postProblem} />{/if}
+				{#if loadProblem}<ProblemCard problem={loadProblem} />{/if}
 			</div>
 			<label>
 				<span class="caption">Name</span>
@@ -311,37 +290,6 @@
 	.step {
 		margin: 0;
 		color: #aeaeb2;
-	}
-
-	.problem {
-		display: grid;
-		justify-items: start;
-		gap: 6px;
-		border-radius: 10px;
-		padding: 10px 12px;
-		background: #2c2c2e;
-	}
-
-	.message {
-		margin: 0;
-		color: #ff453a;
-	}
-
-	details {
-		width: 100%;
-	}
-
-	summary {
-		color: #aeaeb2;
-		cursor: pointer;
-	}
-
-	pre {
-		margin: 6px 0 0;
-		font-size: 12px;
-		white-space: pre-wrap;
-		overflow-wrap: anywhere;
-		user-select: text;
 	}
 
 	@media (min-width: 900px) {

@@ -15,7 +15,7 @@ Four notes on one screen. The fourth points at a second element. Type `@`, tap t
   <sub>Four notes, one with a reference, then the exported image. Played at 3.5× speed. <a href="docs/demo.mp4">Full quality video</a></sub>
 </p>
 
-Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. With the optional [ProcrastiMate](#procrastimate) integration, the Share menu also posts the feedback as a task.
+Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. A [webhook](#webhooks) adds a Share entry that posts both to a server of yours in one tap, such as one that files a GitHub issue. With the optional [ProcrastiMate](#procrastimate) integration, the Share menu also posts the feedback as a task.
 
 Platform packages live under `packages/`: `Feedback` for iOS and `@smirea/feedback-engine` for the web, with an entry point for Svelte and one for React. All of them produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform.
 
@@ -381,6 +381,26 @@ The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows
 
 `setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.present()` opens the editor without the click, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `packages/web/e2e/feedback.e2e.ts` does both with Playwright, for the Svelte app and the React app.
 
+## Webhooks
+
+A webhook is a Share entry of your own. Choosing it posts the image export and the JSON export to your server in one request, with nothing to fill in, and a toast links to whatever the server made. List any number of them when you set Feedback up:
+
+```swift
+Feedback.webhooks = [
+    FeedbackWebhook(name: "GitHub Issue", url: URL(string: "https://hooks.example.com/feedback")!, image: Feedback.githubIcon),
+]
+```
+
+```ts
+import { githubIcon, setupFeedbackEngine } from '@smirea/feedback-engine/svelte'; // or '/react'
+
+setupFeedbackEngine({
+	webhooks: [{ name: 'GitHub Issue', url: 'https://hooks.example.com/feedback', image: githubIcon }],
+});
+```
+
+Each webhook also takes `headers` and `query`. [docs/webhooks.md](docs/webhooks.md) has the request, the answer a server gives, and a server that files every post as a GitHub issue, in `examples/github-webhook`.
+
 ## ProcrastiMate
 
 [ProcrastiMate](https://github.com/smirea/procrastimate) is the task app that Feedback's author files feedback into. The integration is optional and off until you set it up. Without it, the Share menu has **Image**, **JSON**, and **Image and JSON (ZIP)**, and nothing in the editor mentions ProcrastiMate.
@@ -436,7 +456,7 @@ bunx playwright install chromium webkit
 
 ### Environment
 
-`.env` is tracked and holds the defaults: `UI_PORT` for the Svelte example, with the React example five ports above it, and where ProcrastiMate is. To change a value on your machine, put it in `.env.local`, which git ignores and which the example apps read after `.env`. A `PROCRASTIMATE_TOKEN` there turns on the [ProcrastiMate](#procrastimate) entry in both examples.
+`.env` is tracked and holds the defaults: `UI_PORT` for the Svelte example, with the React example five ports above it, where ProcrastiMate is, and the examples' [webhook](docs/webhooks.md#try-it-in-the-example-apps). To change a value on your machine, put it in `.env.local`, which git ignores and which the example apps read after `.env`. A `PROCRASTIMATE_TOKEN` there turns on the [ProcrastiMate](#procrastimate) entry in both examples.
 
 ### A name instead of a port
 

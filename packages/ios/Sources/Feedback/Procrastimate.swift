@@ -541,7 +541,7 @@ private struct ProblemSection: View {
 }
 
 /// A failure's message, with its facts under **Details** and a button that copies both.
-private struct ProblemRows: View {
+struct ProblemRows: View {
     let problem: Problem
     @State private var expanded = false
     @State private var copied = false
