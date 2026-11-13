@@ -46,10 +46,16 @@ export type Webhook = {
 	/** An icon beside the name: anything an `<img>` loads, such as `githubIcon` or a data URL. */
 	image?: string;
 	/** Sent with the post, such as `Authorization`. Whatever a page sends is public. */
-	headers?: Record<string, string>;
+	headers?: WebhookValues;
 	/** Added to the URL's query. */
-	query?: Record<string, string>;
+	query?: WebhookValues;
 };
+
+/**
+ * Fixed values, or a function that runs for every post and again on a retry, so it can read what did not exist when
+ * the app started, such as the token of a user who signed in since. What it throws is shown as the post's failure.
+ */
+export type WebhookValues = Record<string, string> | (() => Record<string, string> | Promise<Record<string, string>>);
 
 /** GitHub's mark in white, for a webhook that files issues. */
 export const githubIcon: string;

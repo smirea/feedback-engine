@@ -1061,7 +1061,7 @@ private struct Fixture: Decodable {
     #expect(Problem(message: "Nothing else").text == "Nothing else")
 }
 
-@Test func aWebhookPostIsOneMultipartRequestWithTheFieldsAndBothFiles() {
+@MainActor @Test func aWebhookPostIsOneMultipartRequestWithTheFieldsAndBothFiles() async throws {
     let webhook = FeedbackWebhook(
         name: "GitHub Issue",
         url: URL(string: "https://hooks.example.com/feedback?repo=todo&labels=old")!,
@@ -1069,7 +1069,7 @@ private struct Fixture: Decodable {
         query: ["labels": "feedback", "app": "Todo"]
     )
     let post = WebhookPost(id: "post-1", title: "Lists Feedback: 1 change", image: Data("PNG".utf8), report: Data(#"{"items":[]}"#.utf8))
-    let request = webhook.request(post, boundary: "B")
+    let request = try await webhook.request(post, boundary: "B")
 
     #expect(request.url?.absoluteString == "https://hooks.example.com/feedback?repo=todo&app=Todo&labels=feedback")
     #expect(request.httpMethod == "POST")
@@ -1097,6 +1097,35 @@ private struct Fixture: Decodable {
         "--B--",
         "",
     ].joined(separator: "\r\n"))
+}
+
+@MainActor @Test func aWebhooksClosuresRunForEveryPostSoARetrySendsWhatIsTrueByThen() async throws {
+    struct SignedOut: LocalizedError {
+        var errorDescription: String? { "Sign in to send feedback." }
+    }
+    var token: String?
+    let webhook = FeedbackWebhook(
+        name: "GitHub Issue",
+        url: URL(string: "https://hooks.example.com/feedback")!,
+        headers: {
+            guard let token else { throw SignedOut() }
+            return ["Authorization": "Bearer \(token)"]
+        },
+        query: { ["user": token ?? "nobody"] }
+    )
+    let post = WebhookPost(id: "post-1", title: "Lists Feedback: 1 change", image: Data(), report: Data())
+
+    await #expect(throws: SignedOut.self) { try await webhook.request(post) }
+
+    token = "first"
+    let first = try await webhook.request(post)
+    token = "second"
+    let second = try await webhook.request(post)
+    #expect([first, second].map { $0.url?.absoluteString } == [
+        "https://hooks.example.com/feedback?user=first",
+        "https://hooks.example.com/feedback?user=second",
+    ])
+    #expect([first, second].map { $0.value(forHTTPHeaderField: "Authorization") } == ["Bearer first", "Bearer second"])
 }
 
 @Test func aWebhookAnswerGivesTheLinkOfThePostOrTheServersReason() throws {

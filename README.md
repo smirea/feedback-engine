@@ -399,7 +399,7 @@ setupFeedbackEngine({
 });
 ```
 
-Each webhook also takes `headers` and `query`. [docs/webhooks.md](docs/webhooks.md) has the request, the answer a server gives, and a server that files every post as a GitHub issue, in `examples/github-webhook`.
+Each webhook also takes `headers` and `query`, as fixed values or as a function that runs when the post is made, for a token the user only has once signed in. [docs/webhooks.md](docs/webhooks.md) has the request, the answer a server gives, and a server that files every post as a GitHub issue, in `examples/github-webhook`.
 
 ## ProcrastiMate
 
