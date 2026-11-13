@@ -1,5 +1,5 @@
 /**
- * The types of `@smirea/feedback-engine/react`, written out so an app's compiler never reads the package's source
+ * The types of `@stefan.inc/feedback-engine/react`, written out so an app's compiler never reads the package's source
  * under the app's own options. `public.test.ts` fails the type check when they drift from `index.ts`.
  */
 

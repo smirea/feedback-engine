@@ -1,6 +1,6 @@
 # Web package: what is left
 
-The web package, `@smirea/feedback-engine`, is in `packages/web/src` and on par with the iOS package wherever a browser allows it. [`spec/features.md`](../spec/features.md) is the row-by-row record. This file lists the rows that are still `planned` for the web, and the risks that tests do not cover. Delete an item when it lands.
+The web package, `@stefan.inc/feedback-engine`, is in `packages/web/src` and on par with the iOS package wherever a browser allows it. [`spec/features.md`](../spec/features.md) is the row-by-row record. This file lists the rows that are still `planned` for the web, and the risks that tests do not cover. Delete an item when it lands.
 
 ## Planned
 

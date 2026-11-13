@@ -1,4 +1,4 @@
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 import { Link } from 'react-router';
 import { useStore, type SortOrder } from '../store.ts';
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { githubIcon, setupFeedbackEngine } from '@smirea/feedback-engine/svelte';
+	import { githubIcon, setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte';
 	import { store } from '../lib/store.svelte';
 	import TabBar from '../lib/TabBar.svelte';
 	import './layout.css';

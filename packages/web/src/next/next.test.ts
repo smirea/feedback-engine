@@ -6,7 +6,7 @@ test("withFeedbackEngine keeps the app's own config and calls its webpack functi
 	const config = withFeedbackEngine(
 		{
 			reactStrictMode: true,
-			transpilePackages: ['ui', '@smirea/feedback-engine'],
+			transpilePackages: ['ui', '@stefan.inc/feedback-engine'],
 			turbopack: { rules: { '*.svg': { loaders: ['@svgr/webpack'], as: '*.js' } } },
 			webpack: (webpackConfig: { module: { rules: { test: RegExp }[] } }) => {
 				seen.push(...webpackConfig.module.rules.map(rule => String(rule.test)));
@@ -16,7 +16,7 @@ test("withFeedbackEngine keeps the app's own config and calls its webpack functi
 		{ elementSources: true, root: '/app' },
 	);
 	expect(config.reactStrictMode).toBe(true);
-	expect(config.transpilePackages).toEqual(['ui', '@smirea/feedback-engine']);
+	expect(config.transpilePackages).toEqual(['ui', '@stefan.inc/feedback-engine']);
 	expect(Object.keys(config.turbopack.rules)).toEqual(['*.svg', '*.svelte', '*.{jsx,tsx}']);
 	const rules = config.turbopack.rules as unknown as Record<string, { loaders: { options: object }[] }[]>;
 	expect(rules['*.{jsx,tsx}']!.map(rule => rule.loaders[0]!.options)).toEqual([

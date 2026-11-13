@@ -1,4 +1,4 @@
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 import { store } from '../store.ts';
 
 /** Reads as one line in a capture instead of its fields. */

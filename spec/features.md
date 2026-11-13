@@ -14,7 +14,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 
 | ID | Feature | iOS | Svelte | React | Notes |
 | --- | --- | --- | --- | --- | --- |
-| T1 | One call at launch turns Feedback on. | shipped | shipped | shipped | iOS: `Feedback.enable()`. Web: `setupFeedbackEngine()` from `@smirea/feedback-engine/svelte` or `/react`. On a server it returns an engine that does nothing. |
+| T1 | One call at launch turns Feedback on. | shipped | shipped | shipped | iOS: `Feedback.enable()`. Web: `setupFeedbackEngine()` from `@stefan.inc/feedback-engine/svelte` or `/react`. On a server it returns an engine that does nothing. |
 | T2 | A deliberate gesture shows an **Add Feedback** pill at the top center. Tapping the pill captures the screen and opens the editor. | shipped | shipped | shipped | iOS: a shake. Web: the default gesture is a click and needs no pill (T10). A keyboard chord, such as `shortcut: 'Alt+Shift+F'`, shows the pill, and so does `showPill()`. |
 | T3 | The pill morphs out of a capsule the size of the Dynamic Island. | shipped | no | no | A browser has no Dynamic Island. The web pill drops in at the top center. |
 | T4 | The pill leaves by itself after 5 seconds. Triggering again restarts the timer. | shipped | shipped | shipped | |
@@ -41,7 +41,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | G9 | Untagged controls and text still appear, as elements from the accessibility tree. | shipped | shipped | shipped | iOS: `UIAccessibility` elements. Web: DOM elements with a control's ARIA role or their own text. |
 | G10 | Every element reports its own `file:line`, tagged or not. | no | shipped | shipped | iOS: SwiftUI exposes no source location at runtime. Development builds only. Svelte records it on every element. React 19 no longer does, so the Vite plugin or the Next.js config writes it into a `data-feedback-source` attribute on the dev server. `elementSources: false` turns that off, and `elementSources: true` keeps it in a production build, for a deployed preview. |
 | G11 | The app's components are in the capture without a tag, under their own names. | no | no | shipped | iOS: SwiftUI exposes no view hierarchy at runtime. Svelte: a compiled component leaves no record of itself in the page. React keeps a component tree, which a capture reads. The Vite plugin registers each component of the app with its name and `file:line`, because a minified build renames the functions React knows them by. Being registered also tells the app's components from a library's, which stay out of the tree. |
-| G12 | A React app built with Next.js gets the same capture as one built with Vite. | no | no | shipped | iOS: not a web app. Svelte: SvelteKit builds with Vite. React: `withFeedbackEngine()` from `@smirea/feedback-engine/next` gives Turbopack and webpack one loader, which registers the components and compiles the editor. A server component leaves no component in the page, so only the elements it draws are nodes. |
+| G12 | A React app built with Next.js gets the same capture as one built with Vite. | no | no | shipped | iOS: not a web app. Svelte: SvelteKit builds with Vite. React: `withFeedbackEngine()` from `@stefan.inc/feedback-engine/next` gives Turbopack and webpack one loader, which registers the components and compiles the editor. A server component leaves no component in the page, so only the elements it draws are nodes. |
 
 ## Component data
 
@@ -130,7 +130,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 
 | ID | Feature | iOS | Svelte | React | Notes |
 | --- | --- | --- | --- | --- | --- |
-| P1 | The Share menu posts the feedback to ProcrastiMate as one task. | shipped | shipped | shipped | Web: through the dev server. ProcrastiMate's API sends no CORS headers, so `feedbackProcrastimate()` from `@smirea/feedback-engine/vite` forwards the page's calls and adds the token there. A deployed static site has no such server and no ProcrastiMate entry. |
+| P1 | The Share menu posts the feedback to ProcrastiMate as one task. | shipped | shipped | shipped | Web: through the dev server. ProcrastiMate's API sends no CORS headers, so `feedbackProcrastimate()` from `@stefan.inc/feedback-engine/vite` forwards the page's calls and adds the token there. A deployed static site has no such server and no ProcrastiMate entry. |
 | P2 | The post uses the session ProcrastiMate shares with the team's other apps. | shipped | no | no | iOS: the shared keychain group. Web: browsers share no storage across origins. The dev server holds a token instead, from its own environment. |
 | P3 | A picker lists projects with their icons and sections, with the last project already selected. | shipped | shipped | shipped | Web: without the icons, which are SF Symbols on iOS. |
 | P4 | The task name starts as the screen's name, `Feedback`, and the item count. | shipped | shipped | shipped | |

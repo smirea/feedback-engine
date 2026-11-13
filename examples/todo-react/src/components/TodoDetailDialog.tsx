@@ -1,4 +1,4 @@
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 import { useState } from 'react';
 import type { Priority, TodoItem } from '../store.ts';
 

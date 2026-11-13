@@ -14,7 +14,7 @@ test('a component is named after its file, and a route file after its folders', 
 test('every tag gets its file:line and name, and a bare tag also reports props and state', () => {
 	const source = [
 		'<script lang="ts">',
-		"	import { feedback as tag } from '@smirea/feedback-engine/svelte';",
+		"	import { feedback as tag } from '@stefan.inc/feedback-engine/svelte';",
 		'	let { item, onedit, size = 2, class: klass, ...rest }: Props = $props();',
 		'	let open = $state(false);',
 		'	const total = $derived(item.count * size);',
@@ -51,7 +51,7 @@ test('a component that does not import feedback is left alone', () => {
 
 const reactModule = [
 	"import { memo, forwardRef, useState } from 'react';",
-	"import { feedback as tag } from '@smirea/feedback-engine/react';",
+	"import { feedback as tag } from '@stefan.inc/feedback-engine/react';",
 	'',
 	'// café ☕ 🙂',
 	"const LIMIT = 'ten';",

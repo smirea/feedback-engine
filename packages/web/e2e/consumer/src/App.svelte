@@ -1,5 +1,5 @@
 <script>
-	import { feedback } from '@smirea/feedback-engine/svelte';
+	import { feedback } from '@stefan.inc/feedback-engine/svelte';
 
 	let count = $state(3);
 </script>

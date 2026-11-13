@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { feedback } from '@smirea/feedback-engine/svelte';
+	import { feedback } from '@stefan.inc/feedback-engine/svelte';
 	import type { Priority, TodoItem } from './store.svelte';
 
 	let {

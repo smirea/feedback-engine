@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { feedback } from '@smirea/feedback-engine/svelte';
+	import { feedback } from '@stefan.inc/feedback-engine/svelte';
 
 	const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 	const sessions = [

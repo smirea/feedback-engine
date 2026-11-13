@@ -1,4 +1,4 @@
-import { githubIcon, setupFeedbackEngine } from '@smirea/feedback-engine/react';
+import { githubIcon, setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';

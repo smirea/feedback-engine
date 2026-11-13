@@ -163,7 +163,7 @@ Every component of the app is in a capture already, under its own name, with its
 
 ### Tags
 
-`feedback(name, data)` from `@smirea/feedback-engine/react` returns a ref.
+`feedback(name, data)` from `@stefan.inc/feedback-engine/react` returns a ref.
 
 - Tag a region drawn inline where it is drawn: `<figure ref={feedback('Chart', () => plot)}>`. Extracting the region into a component is just as good when it has its own inputs.
 - Always give drawings that expose no elements a component or a tag: an `<svg>` chart, a `<canvas>`, a photo.

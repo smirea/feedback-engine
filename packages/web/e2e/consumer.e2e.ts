@@ -8,7 +8,7 @@ import env from '../../../env.ts';
 import { root } from './app.ts';
 
 /**
- * Apps outside this repository, as ones that install the package from GitHub: plain Vite, run by Node. The example
+ * Apps outside this repository, as ones that install the package from npm: plain Vite, run by Node. The example
  * apps link the package from the workspace, which skips what Vite does to a package in `node_modules`.
  */
 const servers: ChildProcess[] = [];
@@ -50,7 +50,8 @@ async function consume(
 ) {
 	const app = mkdtempSync(join(tmpdir(), `feedback-${fixture}-`));
 	cpSync(join(import.meta.dir, fixture), app, { recursive: true });
-	run(['bun', 'pm', 'pack', '--destination', app], root);
+	// The release publishes with npm, so the apps install what npm packs.
+	run(['npm', 'pack', '--pack-destination', app], join(root, 'packages/web'));
 	renameSync(
 		join(
 			app,

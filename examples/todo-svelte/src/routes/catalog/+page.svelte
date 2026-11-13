@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { feedback } from '@smirea/feedback-engine/svelte';
+	import { feedback } from '@stefan.inc/feedback-engine/svelte';
 	import CatalogRow from '../../lib/CatalogRow.svelte';
 
 	const sections = ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms'];

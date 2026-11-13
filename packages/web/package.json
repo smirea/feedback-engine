@@ -1,0 +1,58 @@
+{
+	"name": "@stefan.inc/feedback-engine",
+	"version": "0.0.0",
+	"description": "In-app feedback for Svelte and React: point at a component, write what should change, and export its name, file:line, and data for an agent.",
+	"keywords": [
+		"accessibility",
+		"agents",
+		"annotation",
+		"feedback",
+		"nextjs",
+		"react",
+		"screenshot",
+		"svelte",
+		"vite"
+	],
+	"homepage": "https://github.com/smirea/feedback-engine#web",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/smirea/feedback-engine.git",
+		"directory": "packages/web"
+	},
+	"files": [
+		"src",
+		"!src/**/*.test.ts"
+	],
+	"type": "module",
+	"exports": {
+		"./react": {
+			"types": "./src/react/public.d.ts",
+			"default": "./src/react/index.ts"
+		},
+		"./svelte": {
+			"svelte": "./src/svelte/index.ts",
+			"default": "./src/svelte/index.ts"
+		},
+		"./vite": {
+			"types": "./src/vite/index.d.ts",
+			"default": "./src/vite/index.js"
+		},
+		"./next": {
+			"types": "./src/next/index.d.ts",
+			"default": "./src/next/index.js"
+		},
+		"./core": "./src/core/index.ts"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"dependencies": {
+		"dom-accessibility-api": "^0.7.1",
+		"modern-screenshot": "^4.7.0",
+		"oxc-parser": "^0.158.0"
+	},
+	"peerDependencies": {
+		"svelte": "^5.29.0"
+	}
+}

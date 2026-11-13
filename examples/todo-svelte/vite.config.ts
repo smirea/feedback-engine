@@ -1,7 +1,7 @@
 import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
-import { feedbackEngine, feedbackProcrastimate } from '@smirea/feedback-engine/vite';
+import { feedbackEngine, feedbackProcrastimate } from '@stefan.inc/feedback-engine/vite';
 import env from '../../env.ts';
 import { defineConfig } from 'vite';
 

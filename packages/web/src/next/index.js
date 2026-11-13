@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
 const loader = fileURLToPath(new URL('./loader.js', import.meta.url));
-const packageName = '@smirea/feedback-engine';
+const packageName = '@stefan.inc/feedback-engine';
 
 /**
  * Adds Feedback to a Next.js config, for Turbopack and for webpack.

@@ -1,4 +1,4 @@
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 
 const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const sessions = ['Warm-up', 'Squat', 'Bench press', 'Row', 'Overhead press', 'Deadlift', 'Pull-up', 'Core', 'Stretch'];

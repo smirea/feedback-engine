@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { feedback } from '@smirea/feedback-engine/svelte';
+	import { feedback } from '@stefan.inc/feedback-engine/svelte';
 	import { store } from '../../lib/store.svelte';
 
 	/** Reads as one line in a capture instead of its fields. */

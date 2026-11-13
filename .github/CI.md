@@ -8,4 +8,17 @@ Bun tasks run the root `lint:ci` and `typecheck`, `test`, and `build` scripts. T
 
 CI regenerates the ignored `.env.local` from the tracked `.env` defaults with the pinned env-manager. Keep the defaults harmless and complete enough for CI. Never commit `.env.local`.
 
+Pull requests also run `changeset`, which fails when the web package changed without a changeset since the base. `.changeset/config.json` counts `packages/web/src`, tests aside, and `packages/web/package.json` as changes. The pre-push hook runs the same check against `origin/master`.
+
 Swift tasks run when `Package.swift`, `packages/ios`, `examples/todo-ios`, or `spec/fixtures` change. Both platforms' tests read `spec/fixtures`, so a change there runs the Bun tasks too. Checks compile the package for macOS with `swift build`. Tests run `swift test`. Builds compile `examples/todo-ios` for a generic iOS simulator without signing, which also compiles the package's UIKit files that `swift build` skips. Swift jobs run on GitHub's `xcode-27` image with its installed Xcode and Swift.
+
+## Releases
+
+`workflows/release.yml` runs after every CI run on a push to `master` and acts only when CI passed. It runs `scripts/release.ts`, which:
+
+1. Stops when `master` has moved past the commit CI tested. The CI run for the newer commit releases it.
+2. Runs `changeset version` when changesets are pending, which bumps `packages/web/package.json`, writes `packages/web/CHANGELOG.md`, and deletes the changesets. `bun install` then updates the workspace's version in `bun.lock`.
+3. Publishes the package with `npm publish` unless npm already has that version.
+4. Commits the version as `github-actions[bot]` and pushes it to `master`. A push made with the workflow's token starts no CI run, so a release never triggers another.
+
+Publishing comes before the push so a rerun converges: npm skips a version it has, and the commit is pushed then. npm trusts this workflow by its file name through [trusted publishing](https://docs.npmjs.com/trusted-publishers), so no token is stored anywhere, and every version carries provenance. Renaming `release.yml` breaks publishing until the trusted publisher on npmjs.com names the new file. The package's npm settings disallow publishing with tokens.

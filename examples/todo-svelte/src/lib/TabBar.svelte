@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { feedback } from '@smirea/feedback-engine/svelte';
+	import { feedback } from '@stefan.inc/feedback-engine/svelte';
 	import { page } from '$app/state';
 
 	const tabs = [

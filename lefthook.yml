@@ -32,3 +32,6 @@ pre-push:
     test:
       glob: '*.{js,mjs,mts,ts,tsx}'
       run: bun --no-env-file scripts/test-changed.ts {push_files}
+    # A push to master releases what its changesets name, so a web package change without one is never published.
+    changeset:
+      run: bunx changeset status --since=origin/master

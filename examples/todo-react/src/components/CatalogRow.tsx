@@ -1,4 +1,4 @@
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 
 export function CatalogRow({ name, detail }: { name: string; detail: string }) {
 	const initials = name

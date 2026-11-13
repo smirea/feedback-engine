@@ -1,4 +1,4 @@
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 import { useState, type FormEvent } from 'react';
 import { useParams } from 'react-router';
 import { TodoDetailDialog } from '../components/TodoDetailDialog.tsx';

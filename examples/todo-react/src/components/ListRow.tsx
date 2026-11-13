@@ -1,4 +1,4 @@
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 import { remaining, type TodoList } from '../store.ts';
 
 export function ListRow({ list }: { list: TodoList }) {

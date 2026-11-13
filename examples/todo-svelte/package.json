@@ -9,7 +9,7 @@
 		"preview": "bun --env-file=../../.env --env-file=../../.env.local --bun vite preview"
 	},
 	"dependencies": {
-		"@smirea/feedback-engine": "workspace:*",
+		"@stefan.inc/feedback-engine": "workspace:*",
 		"@sveltejs/adapter-static": "^4.0.0",
 		"@sveltejs/kit": "^3.0.1",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",

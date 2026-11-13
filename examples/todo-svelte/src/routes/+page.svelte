@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { feedback } from '@smirea/feedback-engine/svelte';
+	import { feedback } from '@stefan.inc/feedback-engine/svelte';
 	import ListRow from '../lib/ListRow.svelte';
 	import { store } from '../lib/store.svelte';
 	import SummaryCard from '../lib/SummaryCard.svelte';

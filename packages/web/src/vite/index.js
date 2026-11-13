@@ -3,7 +3,7 @@ import { parse } from 'svelte/compiler';
 
 export { addReact, feedbackEngineReact, sourceAttribute } from './react.js';
 
-const entry = '@smirea/feedback-engine/svelte';
+const entry = '@stefan.inc/feedback-engine/svelte';
 
 /** What `setupFeedbackEngine()` reads for the proxy's path. `editor/setup.ts` spells the same name. */
 const procrastimateDefine = 'import.meta.env.FEEDBACK_PROCRASTIMATE';

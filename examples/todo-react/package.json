@@ -9,7 +9,7 @@
 		"preview": "bun --env-file=../../.env --env-file=../../.env.local --bun vite preview"
 	},
 	"dependencies": {
-		"@smirea/feedback-engine": "workspace:*",
+		"@stefan.inc/feedback-engine": "workspace:*",
 		"@vitejs/plugin-react": "^6.3.0",
 		"react": "^19.3.1",
 		"react-dom": "^19.3.1",

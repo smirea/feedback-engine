@@ -42,7 +42,7 @@ Feedback.webhooks = [
 ```svelte
 <!-- src/routes/+layout.svelte -->
 <script lang="ts">
-	import { setupFeedbackEngine } from '@smirea/feedback-engine/svelte';
+	import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte';
 
 	setupFeedbackEngine({
 		webhooks: [
@@ -64,7 +64,7 @@ Feedback.webhooks = [
 
 ```tsx
 // src/main.tsx
-import { setupFeedbackEngine } from '@smirea/feedback-engine/react';
+import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
 
 setupFeedbackEngine({
 	webhooks: [
@@ -87,7 +87,7 @@ Pass the same `webhooks` to `setupFeedbackEngine()` in the client component from
 // app/Feedback.tsx
 'use client';
 
-import { setupFeedbackEngine } from '@smirea/feedback-engine/react';
+import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
 import { useEffect } from 'react';
 
 const webhooks = [{ name: 'Triage', url: 'https://hooks.example.com/feedback' }];
@@ -249,7 +249,7 @@ Feedback.webhooks = [
 Svelte, React, and Next.js, with `githubIcon` from the entry point the app already imports:
 
 ```ts
-import { githubIcon, setupFeedbackEngine } from '@smirea/feedback-engine/svelte'; // or '/react'
+import { githubIcon, setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte'; // or '/react'
 
 setupFeedbackEngine({
 	webhooks: [

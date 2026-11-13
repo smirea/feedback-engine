@@ -17,9 +17,9 @@ Four notes on one screen. The fourth points at a second element. Type `@`, tap t
 
 Prefer structured data? Share JSON for the whole component tree, each component's data, and the app context you attached, or both in one ZIP. A [webhook](#webhooks) adds a Share entry that posts both to a server of yours in one tap, such as one that files a GitHub issue. With the optional [ProcrastiMate](#procrastimate) integration, the Share menu also posts the feedback as a task.
 
-Platform packages live under `packages/`: `Feedback` for iOS and `@smirea/feedback-engine` for the web, with an entry point for Svelte and one for React. All of them produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform.
+Platform packages live under `packages/`: `Feedback` for iOS and `@stefan.inc/feedback-engine` for the web, with an entry point for Svelte and one for React. All of them produce the same report ([spec/report.md](spec/report.md)). [spec/features.md](spec/features.md) lists every feature with its status on each platform.
 
-There are no tagged releases yet. `master` is the release, so pin a commit when a build has to stay put.
+The web package is on npm, with a version for every change and a [changelog](packages/web/CHANGELOG.md). The iOS package has no tagged releases: `master` is the release, so pin a commit when a build has to stay put.
 
 ## iOS
 
@@ -132,10 +132,10 @@ While the editor is open, VoiceOver and UI automation see only the editor. Its t
 
 ## Web
 
-`@smirea/feedback-engine` has one entry point per framework, `/svelte` and `/react`. A Svelte app builds with Vite. A React app builds with Vite or with [Next.js](#nextjs). The package ships TypeScript and Svelte source, and your app's bundler compiles it. The editor is the same in both: Svelte components in a shadow root. A React app needs no Svelte setup, because the package's Vite plugin or Next.js config compiles the editor.
+`@stefan.inc/feedback-engine` has one entry point per framework, `/svelte` and `/react`. A Svelte app builds with Vite. A React app builds with Vite or with [Next.js](#nextjs). The package ships TypeScript and Svelte source, and your app's bundler compiles it. The editor is the same in both: Svelte components in a shadow root. A React app needs no Svelte setup, because the package's Vite plugin or Next.js config compiles the editor.
 
 ```sh
-bun add github:smirea/feedback-engine
+bun add @stefan.inc/feedback-engine
 ```
 
 | The editor in the browser | The `feedback.png` it exports |
@@ -153,7 +153,7 @@ Requires Svelte 5.29 or later.
 ```svelte
 <!-- src/routes/+layout.svelte -->
 <script lang="ts">
-	import { setupFeedbackEngine } from '@smirea/feedback-engine/svelte';
+	import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte';
 	import { store } from '../lib/store.svelte';
 
 	const feedback = setupFeedbackEngine({ app: 'Todo', version: '1.0' });
@@ -171,7 +171,7 @@ Requires Svelte 5.29 or later.
 
   ```ts
   if (import.meta.env.DEV) {
-  	void import('@smirea/feedback-engine/svelte').then(({ setupFeedbackEngine }) => setupFeedbackEngine());
+  	void import('@stefan.inc/feedback-engine/svelte').then(({ setupFeedbackEngine }) => setupFeedbackEngine());
   }
   ```
 
@@ -179,7 +179,7 @@ Add the plugin to your Vite config. JavaScript has no `#fileID` and `#line`, so 
 
 ```ts
 // vite.config.ts
-import { feedbackEngine } from '@smirea/feedback-engine/vite';
+import { feedbackEngine } from '@stefan.inc/feedback-engine/vite';
 
 export default defineConfig({
 	plugins: [sveltekit({ preprocess: [feedbackEngine()] })],
@@ -194,7 +194,7 @@ Attach a tag to each component's root element:
 
 ```svelte
 <script lang="ts">
-	import { feedback } from '@smirea/feedback-engine/svelte';
+	import { feedback } from '@stefan.inc/feedback-engine/svelte';
 
 	let { item }: { item: TodoItem } = $props();
 	let isExpanded = $state(false);
@@ -215,7 +215,7 @@ Add the plugin to your Vite config, before the React plugin:
 
 ```ts
 // vite.config.ts
-import { feedbackEngineReact } from '@smirea/feedback-engine/vite';
+import { feedbackEngineReact } from '@stefan.inc/feedback-engine/vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
@@ -225,7 +225,7 @@ export default defineConfig({
 
 ```tsx
 // src/main.tsx
-import { setupFeedbackEngine } from '@smirea/feedback-engine/react';
+import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
 import { store } from './store';
 
 const feedback = setupFeedbackEngine({ app: 'Todo', version: '1.0' });
@@ -262,7 +262,7 @@ A capture shows `TodoRow` with `item: {id: "…", title: "Oat milk", …}` at `s
 `feedback(name, data)` returns a ref. Use it for a region that is drawn inline, without a component of its own:
 
 ```tsx
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 
 <figure ref={feedback('Chart', () => plot)}>…</figure>;
 ```
@@ -284,7 +284,7 @@ Requires Next.js 16 and React 19. Turbopack, the default, and webpack (`--webpac
 
 ```ts
 // next.config.ts
-import { withFeedbackEngine } from '@smirea/feedback-engine/next';
+import { withFeedbackEngine } from '@stefan.inc/feedback-engine/next';
 
 export default withFeedbackEngine({
 	// your config
@@ -299,7 +299,7 @@ Turn Feedback on from a client component in your root layout:
 // app/Feedback.tsx
 'use client';
 
-import { setupFeedbackEngine } from '@smirea/feedback-engine/react';
+import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
 import { useEffect } from 'react';
 
 export function Feedback() {
@@ -346,7 +346,7 @@ Optional, and off until the dev server has a token. See [ProcrastiMate](#procras
 
 ```ts
 // vite.config.ts
-import { feedbackProcrastimate } from '@smirea/feedback-engine/vite';
+import { feedbackProcrastimate } from '@stefan.inc/feedback-engine/vite';
 
 export default defineConfig({
 	plugins: [feedbackProcrastimate({ token: process.env.PROCRASTIMATE_TOKEN }) /* and the plugins above */],
@@ -392,7 +392,7 @@ Feedback.webhooks = [
 ```
 
 ```ts
-import { githubIcon, setupFeedbackEngine } from '@smirea/feedback-engine/svelte'; // or '/react'
+import { githubIcon, setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte'; // or '/react'
 
 setupFeedbackEngine({
 	webhooks: [{ name: 'GitHub Issue', url: 'https://hooks.example.com/feedback', image: githubIcon }],
@@ -453,6 +453,20 @@ bun run test:web    # both example apps in Chromium and WebKit, on a dev server 
 ```sh
 bunx playwright install chromium webkit
 ```
+
+### Releases
+
+Every push to `master` that passes CI releases the web package. A change to `packages/web` carries a changeset, a file in `.changeset/` that names the level of the release and the line for the changelog:
+
+```md
+---
+'@stefan.inc/feedback-engine': minor
+---
+
+Webhooks post the image and the report to an app's own server from the Share menu.
+```
+
+`bunx changeset add` writes one. A major release is only for a change that breaks an app that upgrades without editing its code. The release workflow versions the package, writes `packages/web/CHANGELOG.md`, publishes to npm with provenance, and commits the version to `master`. A pull request or a push that changes the package without a changeset fails its check.
 
 ### Environment
 

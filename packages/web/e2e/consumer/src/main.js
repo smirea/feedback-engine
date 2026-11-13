@@ -1,4 +1,4 @@
-import { setupFeedbackEngine } from '@smirea/feedback-engine/svelte';
+import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte';
 import { mount } from 'svelte';
 import App from './App.svelte';
 

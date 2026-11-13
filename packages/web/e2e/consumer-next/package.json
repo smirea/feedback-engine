@@ -3,7 +3,7 @@
 	"private": true,
 	"type": "module",
 	"dependencies": {
-		"@smirea/feedback-engine": "file:./feedback-engine.tgz",
+		"@stefan.inc/feedback-engine": "file:./feedback-engine.tgz",
 		"@types/node": "^24.0.0",
 		"@types/react": "^19.2.0",
 		"@types/react-dom": "^19.2.0",

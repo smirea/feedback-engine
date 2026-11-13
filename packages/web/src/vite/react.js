@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parseSync } from 'oxc-parser';
 import { compile } from 'svelte/compiler';
 
-const entry = '@smirea/feedback-engine/react';
+const entry = '@stefan.inc/feedback-engine/react';
 /** The same name as `sourceAttribute` in `dom/tags.ts`. Node cannot import that file from `node_modules`, so a test compares the two. */
 export const sourceAttribute = 'data-feedback-source';
 /** The package's own source folder. Only its Svelte files are compiled, and its modules are never registered. */
@@ -143,7 +143,7 @@ export function feedbackEngineReact(options = {}) {
 		name: 'feedback-engine-react',
 		enforce: /** @type {const} */ ('pre'),
 		// Pre-bundling would meet the editor's Svelte files without this plugin to compile them.
-		config: () => ({ optimizeDeps: { exclude: ['@smirea/feedback-engine'] } }),
+		config: () => ({ optimizeDeps: { exclude: ['@stefan.inc/feedback-engine'] } }),
 		/** @param {import('vite').ResolvedConfig} config */
 		configResolved(config) {
 			root = config.root;

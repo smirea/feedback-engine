@@ -1,4 +1,4 @@
-import { setupFeedbackEngine } from '@smirea/feedback-engine/react';
+import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';

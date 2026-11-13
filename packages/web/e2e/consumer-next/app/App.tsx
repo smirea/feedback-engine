@@ -1,6 +1,6 @@
 'use client';
 
-import { feedback } from '@smirea/feedback-engine/react';
+import { feedback } from '@stefan.inc/feedback-engine/react';
 import { Component, forwardRef, memo, useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
