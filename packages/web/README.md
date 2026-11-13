@@ -42,8 +42,9 @@ Requires Svelte 5.29 or later.
 - `setupFeedbackEngine()` turns on the trigger. Alt+Meta+click on anything, which is Option+Command+click on a Mac, captures the page and opens the editor with what you clicked selected. The app never gets that click, so a link does not navigate, and a disabled button can be clicked too. Pass `shortcut: 'Ctrl+Shift+Click'` for another chord, or `shortcut: false` for none. On a server the call returns an engine that does nothing, so a layout needs no guard.
 - A chord that ends in a key, such as `shortcut: 'Alt+Shift+F'`, drops an **Add Feedback** pill in at the top center instead, and clicking the pill captures the page. Left alone, the pill leaves after 5 seconds, and it leaves at once when the tab goes to the background.
 - `feedback.context(name, () => value)` attaches app state to every JSON export. The function runs when a capture is taken.
-- `button: true` shows a round Feedback button in the bottom right corner of every screen. It is the trigger for a phone, which has no modifier keys, and for an app opened from the home screen. Tapping it captures the page. Drag it to move it up or down, or to the other side. It stays where you leave it.
-- `feedback.countdown()` is the other trigger for a phone, where a shake does not work yet. Call it from an entry in one of your app's menus, such as Settings. The pill shows **Feedback in 5** and counts down, so you have 5 seconds to leave the menu and open the screen you mean. Then it captures. Tapping the pill captures at once, and `countdown(10)` gives more time.
+- `button: true` shows a round Feedback button in the bottom right corner of every screen, for a phone, which has no modifier keys, and for an app opened from the home screen. Tapping it captures the page. Drag it to move it up or down, or to the other side. It stays where you leave it.
+- On a phone, hold three fingers still on the screen. A capsule grows at the top center while you hold, and after 0.7 seconds the page is captured and the editor opens. Lifting or sliding a finger cancels it, so pans and pinches stay the app's. Pass `threeFingerHold: false` to turn it off.
+- `feedback.countdown()` is another trigger for a phone, where a shake does not work yet. Call it from an entry in one of your app's menus, such as Settings. The pill shows **Feedback in 5** and counts down, so you have 5 seconds to leave the menu and open the screen you mean. Then it captures. Tapping the pill captures at once, and `countdown(10)` gives more time.
 - `feedback.present()` captures at once, with no countdown. It suits a control that is on the screen you want to capture.
 - To keep Feedback out of production, call it behind `import.meta.env.DEV` with a dynamic import. The production bundle then has the tags and none of the editor.
 
@@ -257,7 +258,7 @@ The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows
 - A minified production build shows a class's minified name in component data, such as `a(count: 2)`.
 - Element locations for untagged content exist only in development builds, unless a React app turns on `elementSources`. Components keep theirs in every build.
 - React: a capture reads fields that are internal to React, the ones React's own developer tools read. If React renames them, components found without a tag are missing, and tagged regions and elements still appear. Bundlers other than Vite and Next.js are not supported.
-- A shake does not trigger Feedback on phones, where `button: true` or `countdown()` from a menu stands in for it, and the task name is not summarized by an on-device model. [spec/features.md](https://github.com/smirea/feedback-engine/blob/master/spec/features.md) lists both as planned.
+- A shake does not trigger Feedback on phones, where a three-finger hold, `button: true`, or `countdown()` from a menu stands in for it, and the task name is not summarized by an on-device model. [spec/features.md](https://github.com/smirea/feedback-engine/blob/master/spec/features.md) lists both as planned.
 
 ## Drive it from a script
 

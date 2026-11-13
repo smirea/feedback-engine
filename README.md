@@ -2,7 +2,7 @@
 
 **Point at your app. Say what's wrong. Hand an agent the exact component and line of code.**
 
-Shake the device, or Alt+Meta+click anything in the browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
+Shake the device, Alt+Meta+click anything in the browser, or hold three fingers on a phone's browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
 
 | Tap a component in the editor | The `feedback.png` it exports |
 | :---: | :---: |

@@ -32,6 +32,8 @@ afterAll(stopServers);
 
 const engineNames: EngineName[] = ['chromium', 'webkit'];
 const selected = (page: Parameters<typeof editor>[0]) => page.locator('.selected').innerText();
+/** Three touch points in a row, for CDP's `Input.dispatchTouchEvent`. `dy` slides the first one down. */
+const fingers = (dy = 0) => [100, 180, 260].map((x, id) => ({ x, y: 400 + (id === 0 ? dy : 0), id }));
 
 /** What differs between the two example apps: where each component is declared, and React's `App` around every screen. */
 const expected = {
@@ -466,6 +468,68 @@ for (const app of appNames) {
 			expect(errors).toEqual([]);
 			await context.close();
 		}, 30_000);
+
+		test('holding three fingers still on a phone grows a capsule, then opens the editor', async () => {
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			const cdp = await context.newCDPSession(page);
+			await cdp.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+			const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', touchPoints = fingers()) =>
+				cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : touchPoints });
+			const hold = page.locator('.hold');
+
+			// Lifted before the hold is done: nothing opens.
+			await touch('touchStart');
+			await hold.waitFor();
+			await touch('touchEnd');
+			await hold.waitFor({ state: 'detached' });
+
+			// A finger that slides is a pan or a pinch, which belongs to the app.
+			await touch('touchStart');
+			await hold.waitFor();
+			await touch('touchMove', fingers(60));
+			await hold.waitFor({ state: 'detached' });
+			await touch('touchEnd');
+			await page.waitForTimeout(800);
+			expect(await editor(page).count()).toBe(0);
+
+			await touch('touchStart');
+			await editor(page).waitFor({ timeout: 3000 });
+			await touch('touchEnd');
+			expect(await hold.count()).toBe(0);
+			const report = await exportReport(page);
+			expect(report.nodes.some(node => node.name === 'ListsScreen')).toBe(true);
+
+			// Three fingers on the editor, such as a zoom on the screenshot, start no hold.
+			await touch('touchStart');
+			await page.waitForTimeout(800);
+			expect(await hold.count()).toBe(0);
+			await touch('touchEnd');
+			expect(errors).toEqual([]);
+			await context.close();
+		}, 30_000);
+
+		test('a long component name wraps instead of widening the panel on a phone', async () => {
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await page.evaluate(() => {
+				const button = document.createElement('button');
+				button.textContent = 'An_extremely_long_label_with_no_spaces_that_never_fits_on_a_phone '.repeat(2);
+				button.style.cssText = 'display: block; width: 100%; height: 120px; word-break: break-all';
+				document.querySelector('main')!.prepend(button);
+			});
+			await present(page);
+			await tap(page, 200, 80);
+			expect(await selected(page)).toStartWith('Button "An_extremely_long');
+			const overflow = await page.evaluate(() => {
+				const shadow = document.querySelector('[data-feedback-engine]')!.shadowRoot!;
+				const panel = shadow.querySelector('.panel')!;
+				const send = shadow.querySelector('.send')!.getBoundingClientRect();
+				return { panel: panel.scrollWidth - panel.clientWidth, send: send.right - innerWidth };
+			});
+			expect(overflow.panel).toBe(0);
+			expect(overflow.send).toBeLessThanOrEqual(0);
+			expect(errors).toEqual([]);
+			await context.close();
+		});
 
 		test('hovering shows which node a click would select', async () => {
 			const { page, context } = await open(app, 'chromium', 'dev', '/', { width: 1280, height: 800 });

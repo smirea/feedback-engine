@@ -19,6 +19,11 @@ export type FeedbackOptions = {
 	 */
 	button?: boolean;
 	/**
+	 * Holding three fingers still on the screen for a moment captures the page, for a phone, which has no keyboard. A
+	 * capsule grows at the top center while the fingers are down. On unless `false`.
+	 */
+	threeFingerHold?: boolean;
+	/**
 	 * Adds ProcrastiMate to the Share menu. Leave it out behind `feedbackProcrastimate()` from the Vite entry point,
 	 * which adds the entry by itself when it has a token. Set it for a proxy of your own.
 	 */
@@ -84,8 +89,9 @@ export type FeedbackEngine = {
 export type FeedbackRepresentable = { toFeedback(): unknown };
 
 /**
- * Turns Feedback on: Alt+Meta+click on anything captures the page and opens the editor on what was clicked. Call it
- * once, in the browser, before or after React renders. On a server it returns an engine that does nothing.
+ * Turns Feedback on: Alt+Meta+click on anything captures the page and opens the editor on what was clicked, and so
+ * does a three-finger hold on a phone. Call it once, in the browser, before or after React renders. On a server it
+ * returns an engine that does nothing.
  */
 export function setupFeedbackEngine(options?: FeedbackOptions): FeedbackEngine;
 

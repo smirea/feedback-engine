@@ -4,7 +4,7 @@ The web package, `@stefan.inc/feedback-engine`, is in `packages/web/src` and on 
 
 ## Planned
 
-- **A shake on phones (T8).** It needs the `devicemotion` permission, which iOS Safari grants only from a tap, and a physical phone to check it on. Until then a phone starts a countdown from one of the app's menus.
+- **A shake on phones (T8).** It needs the `devicemotion` permission, which iOS Safari grants only from a tap, and a physical phone to check it on. Until then a phone holds three fingers still on the screen (T12).
 - **A task name from an on-device model (P5).** Chrome has a built-in model behind `LanguageModel`. On the machine this was developed on, Chrome 156 reported it as `unavailable`, so the code could not be checked and was not written. `taskTitle` in the core already has the prompt and the cleanup of the reply.
 - **A container that reports its caller's location (G4).** The Vite plugin would have to pass the `file:line` of each `<Legend />` to the component.
 - **Hook state in a React component's data.** React keeps hook state without names. The plugin could write the names of a component's `useState` variables into its registration, and the reader could match them to the fiber's hooks in order. A custom hook that calls `useState` shifts that order, so it is not built. A tag under the component's name reports state until then.
@@ -30,4 +30,5 @@ The web package, `@stefan.inc/feedback-engine`, is in `packages/web/src` and on 
 - **React's fiber fields.** Components are read from `__reactContainer$…` on the root element and from each fiber's `tag`, `type`, `elementType`, `child`, `sibling`, `stateNode`, and `memoizedProps`. They are internal to React and are the fields its developer tools read. The browser tests cover React 18.3 and React 19. If React renames one, components found without a tag are missing, and tagged regions and elements still appear.
 - **React features the tests do not render.** Suspense boundaries, `<Activity>`, and a second React root on one page are untested. A server component is rendered only in the Next.js consumer app.
 - **Next.js on webpack, and `next dev`.** The browser suite builds the Next.js consumer app with Turbopack and serves it with `next start`. `next dev` with Turbopack and `next build --webpack` gave the same tree when checked by hand, and are not in the suite.
+- **The three-finger hold on a real phone.** The suite sends real touch input through Chromium. Whether iOS Safari or an Android browser claims three resting fingers for a gesture of its own was not checked on a phone, and the simulator cannot touch with three fingers.
 - **The Feedback button on a real phone.** The suite taps it in Chromium at a phone's width. Dragging it with a finger, and the safe-area insets of an app opened from the home screen, were not checked on a phone.

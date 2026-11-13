@@ -21,6 +21,11 @@ export type FeedbackOptions = {
 	 */
 	button?: boolean;
 	/**
+	 * Holding three fingers still on the screen for a moment captures the page, for a phone, which has no keyboard. A
+	 * capsule grows at the top center while the fingers are down. On unless `false`.
+	 */
+	threeFingerHold?: boolean;
+	/**
 	 * Adds ProcrastiMate to the Share menu. Leave it out behind `feedbackProcrastimate()` from the Vite entry point,
 	 * which adds the entry by itself when it has a token. Set it for a proxy of your own.
 	 */
@@ -44,12 +49,14 @@ export class Engine {
 	readonly options: FeedbackOptions;
 	readonly providers: { name: string; value: () => unknown }[] = [];
 	pill = false;
+	/** Whether the three-finger hold's capsule shows, from a moment into the hold until the editor opens. */
+	holding = false;
 	/** The seconds left before the pill captures by itself, while a countdown runs. */
 	remaining: number | undefined;
 	screen: Screen | undefined;
 	/** Where the user pointed to open the editor, in the capture's coordinates. The editor starts with that node selected. */
 	pointed: Point | undefined;
-	/** Called after `pill`, `remaining`, or `screen` changes, so the host draws again. */
+	/** Called after `pill`, `holding`, `remaining`, or `screen` changes, so the host draws again. */
 	onchange = () => {};
 	/** The files of the last export, for automation that cannot use the clipboard or a download. */
 	lastExport: { name: string; blob: Blob }[] = [];
@@ -93,6 +100,12 @@ export class Engine {
 		this.timer = setTimeout(count, 1000);
 	}
 
+	showHold(shown: boolean) {
+		if (this.screen || this.holding === shown) return;
+		this.holding = shown;
+		this.onchange();
+	}
+
 	hidePill() {
 		clearTimeout(this.timer);
 		this.pill = false;
@@ -113,9 +126,10 @@ export class Engine {
 				version: this.options.version,
 				context: this.providers,
 			});
-			this.onchange();
 		} finally {
 			this.capturing = false;
+			this.holding = false;
+			this.onchange();
 		}
 	}
 

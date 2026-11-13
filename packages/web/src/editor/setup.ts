@@ -1,4 +1,5 @@
 import { mount, unmount } from 'svelte';
+import { watchHold } from '../dom/hold.ts';
 import { hostAttribute } from '../dom/tags.ts';
 import { defaultShortcut, Engine, matchesShortcut, type FeedbackOptions } from './engine.ts';
 import Host from './Host.svelte';
@@ -30,8 +31,9 @@ declare global {
 let current: { engine: FeedbackEngine; destroy: () => void } | undefined;
 
 /**
- * Turns Feedback on: Alt+Meta+click on anything captures the page and opens the editor on what was clicked. Call it
- * once, in the browser. On a server it returns an engine that does nothing, so a layout can call it without a guard.
+ * Turns Feedback on: Alt+Meta+click on anything captures the page and opens the editor on what was clicked, and so
+ * does a three-finger hold on a phone. Call it once, in the browser. On a server it returns an engine that does
+ * nothing, so a layout can call it without a guard.
  */
 export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngine {
 	if (typeof document === 'undefined') {
@@ -77,6 +79,15 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 	// In the capture phase, so the chord reaches Feedback before the element under the pointer.
 	for (const type of pointerEvents) addEventListener(type, pointer, true);
 	document.addEventListener('visibilitychange', hidden);
+	const unwatchHold =
+		options.threeFingerHold === false
+			? () => {}
+			: watchHold({
+					onshow: () => engine.showHold(true),
+					oncancel: () => engine.showHold(false),
+					ondone: () => void engine.present(),
+					ignores: event => engine.screen !== undefined || event.composedPath().includes(host),
+				});
 
 	const api: FeedbackEngine = {
 		context(name, value) {
@@ -94,6 +105,7 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 			removeEventListener('keydown', keydown);
 			for (const type of pointerEvents) removeEventListener(type, pointer, true);
 			document.removeEventListener('visibilitychange', hidden);
+			unwatchHold();
 			void unmount(component);
 			host.remove();
 			if (current?.engine === api) current = undefined;

@@ -601,6 +601,7 @@
 			'Segoe UI',
 			sans-serif;
 		overflow: hidden;
+		overflow-wrap: anywhere;
 	}
 
 	.editor::backdrop {
@@ -696,7 +697,9 @@
 		right: 0;
 		z-index: 3;
 		display: grid;
+		width: max-content;
 		min-width: 220px;
+		max-width: calc(100vw - 32px);
 		border-radius: 12px;
 		background: #2c2c2e;
 		box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
@@ -713,6 +716,10 @@
 
 	.popup button:hover {
 		background: rgb(255 255 255 / 0.08);
+	}
+
+	.popup img {
+		flex: none;
 	}
 
 	.popup .destination {
@@ -825,22 +832,24 @@
 
 	.panel {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: 10px;
 		padding: 16px;
 		padding-bottom: max(16px, env(safe-area-inset-bottom));
 		background: #1f1f1f;
 	}
 
+	/* A long title takes the space it needs, but never all of it: each neighbor keeps its longest word, up to 35%. */
 	.chain {
 		display: flex;
 		align-items: center;
 		gap: 8px;
+		container-type: inline-size;
 	}
 
 	.side {
 		display: flex;
-		flex: 1;
-		min-width: 0;
+		flex: 1 1 0;
 	}
 
 	.side.end {
@@ -848,16 +857,14 @@
 	}
 
 	.neighbor {
-		max-width: 100%;
+		max-width: 35cqi;
 		border: 0;
-		border-radius: 999px;
+		border-radius: 16px;
 		padding: 6px 10px;
 		background: #333336;
 		color: #aeaeb2;
 		font-size: 14px;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+		overflow-wrap: break-word;
 	}
 
 	.title {
@@ -874,9 +881,6 @@
 		color: #ffd60a;
 		font-size: 16px;
 		font-weight: 700;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	/* Above the title, so on a phone it covers the screenshot and not the field being typed in. */
@@ -919,10 +923,6 @@
 			monospace;
 	}
 
-	.source {
-		overflow-wrap: anywhere;
-	}
-
 	.similar-count {
 		flex: none;
 		color: rgb(255 214 10 / 0.7);
@@ -950,10 +950,8 @@
 
 	.picked {
 		flex: 1;
+		min-width: 0;
 		color: #32ade6;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 
 	.insert {
@@ -1004,6 +1002,8 @@
 		top: 60px;
 		left: 50%;
 		z-index: 4;
+		width: max-content;
+		max-width: calc(100% - 32px);
 		translate: -50% 0;
 	}
 
