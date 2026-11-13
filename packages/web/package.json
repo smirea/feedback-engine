@@ -1,6 +1,6 @@
 {
 	"name": "@stefan.inc/feedback-engine",
-	"version": "0.0.0",
+	"version": "1.0.0",
 	"description": "In-app feedback for Svelte and React: point at a component, write what should change, and export its name, file:line, and data for an agent.",
 	"keywords": [
 		"accessibility",
