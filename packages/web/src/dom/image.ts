@@ -238,6 +238,8 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 		items.map(item => item.height),
 		capture.size,
 		environmentHeight,
+		capture.visible.height,
+		annotations.used.map(reference => capture.nodes[reference.target]!.frame),
 	);
 	const { shot, size } = placed;
 	const exportScale = Math.min(scale, Math.sqrt(pixelBudget / (size.width * size.height)));
@@ -250,7 +252,7 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 	context.save();
 	roundedRect(context, shot, 12);
 	context.clip();
-	context.drawImage(image, shot.x, shot.y, shot.width, shot.height);
+	context.drawImage(image, shot.x, shot.y, capture.size.width, capture.size.height);
 	context.restore();
 	roundedRect(context, shot, 12);
 	context.lineWidth = 1;

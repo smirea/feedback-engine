@@ -4,6 +4,8 @@ import CoreGraphics
 /// target as the cards above it allow. It moves to the right column when that makes its line to
 /// the target at least `rightColumnPenalty` points shorter, as for a button at the trailing edge.
 /// The environment always sits at the top of the right column, and right-column cards start below it.
+/// A tall capture is cut half the height that was on screen below the lowest box or card, and
+/// never shorter than that height, and `shot` is the part that is drawn.
 enum CardLayout {
     static let margin: CGFloat = 24
     static let column: CGFloat = 280
@@ -25,9 +27,11 @@ enum CardLayout {
         let size: CGSize
     }
 
-    /// `targets` are frames in the capture; the layout's frames are in the image.
-    static func place(targets: [CGRect], heights: [CGFloat], screen: CGSize, environmentHeight: CGFloat) -> Layout {
-        let shot = CGRect(x: margin + column + gutter, y: margin, width: screen.width, height: screen.height)
+    /// `targets` and `references` are frames in the capture; the layout's frames are in the image.
+    static func place(
+        targets: [CGRect], heights: [CGFloat], screen: CGSize, environmentHeight: CGFloat, viewport: CGFloat, references: [CGRect] = []
+    ) -> Layout {
+        var shot = CGRect(x: margin + column + gutter, y: margin, width: screen.width, height: screen.height)
         let rightX = shot.maxX + gutter
         let targets = targets.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
         var cards = targets.map { _ in Card(isLeft: true, origin: .zero) }
@@ -41,6 +45,9 @@ enum CardLayout {
             if card.isLeft { nextLeft = card.origin.y + heights[index] + spacing } else { nextRight = card.origin.y + heights[index] + spacing }
         }
 
+        let bottoms = (targets + references.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }).map(\.maxY) + cards.indices.map { cards[$0].origin.y + heights[$0] }
+        let lowest = bottoms.max().map { $0 - shot.minY } ?? 0
+        shot.size.height = min(screen.height, max(viewport, lowest + viewport / 2))
         let height = max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin
         return Layout(
             shot: shot, cards: cards, environment: CGPoint(x: rightX, y: margin),
@@ -110,7 +117,10 @@ enum AnnotatedImage {
                 body: body, height: body + footerHeight, frame: node.frame
             )
         }
-        let layout = CardLayout.place(targets: cards.map(\.frame), heights: cards.map(\.height), screen: capture.screen, environmentHeight: environmentHeight)
+        let layout = CardLayout.place(
+            targets: cards.map(\.frame), heights: cards.map(\.height), screen: capture.screen, environmentHeight: environmentHeight,
+            viewport: capture.visible.height, references: annotations.used.map { capture.nodes[$0.target].frame }
+        )
         let shot = layout.shot
         let size = layout.size
 
@@ -123,7 +133,7 @@ enum AnnotatedImage {
             let frame = UIBezierPath(roundedRect: shot, cornerRadius: 12)
             context.cgContext.saveGState()
             frame.addClip()
-            UIImage(cgImage: capture.image, scale: capture.scale, orientation: .up).draw(in: shot)
+            UIImage(cgImage: capture.image, scale: capture.scale, orientation: .up).draw(in: CGRect(origin: shot.origin, size: capture.screen))
             context.cgContext.restoreGState()
             UIColor(white: 0.8, alpha: 1).setStroke()
             frame.lineWidth = 1

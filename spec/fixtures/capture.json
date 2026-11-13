@@ -340,7 +340,16 @@
 			}
 		],
 		"heights": [60, 60, 60],
-		"environmentHeight": 150
+		"environmentHeight": 150,
+		"viewport": 100,
+		"references": [
+			{
+				"x": 0,
+				"y": 710,
+				"width": 100,
+				"height": 20
+			}
+		]
 	},
 	"summary": "\"Bigger info button, aligned title.\"\nThat covers all.",
 	"expected": {
@@ -694,7 +703,7 @@
 				"x": 340,
 				"y": 24,
 				"width": 400,
-				"height": 800
+				"height": 780
 			},
 			"cards": [
 				{
@@ -725,7 +734,7 @@
 			},
 			"size": {
 				"width": 1080,
-				"height": 848
+				"height": 828
 			}
 		},
 		"taskTitle": {

@@ -19,9 +19,16 @@ test('the shared fixture gives the same answers as on iOS', () => {
 		expected.segments,
 	);
 	expect(JSON.parse(JSON.stringify(report(capture, annotations)))).toEqual(expected.report);
-	expect(place(fixture.cards.targets, fixture.cards.heights, fixture.size, fixture.cards.environmentHeight)).toEqual(
-		expected.cards,
-	);
+	expect(
+		place(
+			fixture.cards.targets,
+			fixture.cards.heights,
+			fixture.size,
+			fixture.cards.environmentHeight,
+			fixture.cards.viewport,
+			fixture.cards.references,
+		),
+	).toEqual(expected.cards);
 	const name = taskTitle(capture, annotations.items);
 	expect({
 		placeholder: name.placeholder,
