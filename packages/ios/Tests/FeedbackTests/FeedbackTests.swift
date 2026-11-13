@@ -251,7 +251,7 @@ private final class Store {
     #expect(capture.similar(to: capture.hitTest(CGPoint(x: 100, y: 340))).map { capture.nodes[$0].frame.minY } == [379])
 }
 
-@Test func imageCardsGoBesideTheSideTheirTargetIsOnAndTheEnvironmentFillsAGap() {
+@Test func imageCardsGoBesideTheSideTheirTargetIsOnUnderTheEnvironment() {
     let layout = CardLayout.place(
         targets: [
             CGRect(x: 0, y: 50, width: 60, height: 44),
@@ -265,14 +265,14 @@ private final class Store {
     #expect(layout.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
     #expect(layout.cards == [
         .init(isLeft: true, origin: CGPoint(x: 24, y: 66)),
-        .init(isLeft: false, origin: CGPoint(x: 776, y: 66)),
+        .init(isLeft: false, origin: CGPoint(x: 776, y: 198)),
         .init(isLeft: true, origin: CGPoint(x: 24, y: 644)),
     ])
-    #expect(layout.environment == CGPoint(x: 776, y: 150))
+    #expect(layout.environment == CGPoint(x: 776, y: 24))
     #expect(layout.size == CGSize(width: 1080, height: 848))
 }
 
-@Test func theEnvironmentStaysAtTheTopWhenTheRightColumnHasRoom() {
+@Test func theEnvironmentStaysAtTheTopWhenNoCardIsNearIt() {
     let layout = CardLayout.place(
         targets: [CGRect(x: 360, y: 700, width: 30, height: 30)], heights: [50], screen: screen, environmentHeight: 200
     )

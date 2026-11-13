@@ -3,7 +3,7 @@ import CoreGraphics
 /// Where the image export puts each item's card. A card sits in the left column, as level with its
 /// target as the cards above it allow. It moves to the right column when that makes its line to
 /// the target at least `rightColumnPenalty` points shorter, as for a button at the trailing edge.
-/// The environment then takes the first gap in the right column that is tall enough, from the top.
+/// The environment always sits at the top of the right column, and right-column cards start below it.
 enum CardLayout {
     static let margin: CGFloat = 24
     static let column: CGFloat = 280
@@ -31,7 +31,7 @@ enum CardLayout {
         let rightX = shot.maxX + gutter
         let targets = targets.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
         var cards = targets.map { _ in Card(isLeft: true, origin: .zero) }
-        var nextLeft = margin, nextRight = margin
+        var nextLeft = margin, nextRight = margin + environmentHeight + spacing * 2
         for index in targets.indices.sorted(by: { (targets[$0].midY, $0) < (targets[$1].midY, $1) }) {
             let desired = max(targets[index].midY - heights[index] / 2, margin)
             let left = Card(isLeft: true, origin: CGPoint(x: margin, y: max(desired, nextLeft)))
@@ -41,14 +41,9 @@ enum CardLayout {
             if card.isLeft { nextLeft = card.origin.y + heights[index] + spacing } else { nextRight = card.origin.y + heights[index] + spacing }
         }
 
-        var environmentY = margin
-        for index in cards.indices.filter({ !cards[$0].isLeft }).sorted(by: { cards[$0].origin.y < cards[$1].origin.y }) {
-            if environmentY + environmentHeight + spacing * 2 <= cards[index].origin.y { break }
-            environmentY = max(environmentY, cards[index].origin.y + heights[index] + spacing * 2)
-        }
-        let height = max(shot.maxY, nextLeft - spacing, nextRight - spacing, environmentY + environmentHeight) + margin
+        let height = max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin
         return Layout(
-            shot: shot, cards: cards, environment: CGPoint(x: rightX, y: environmentY),
+            shot: shot, cards: cards, environment: CGPoint(x: rightX, y: margin),
             size: CGSize(width: rightX + column + margin, height: height)
         )
     }
