@@ -60,7 +60,7 @@
     },
     "packages/web": {
       "name": "@stefan.inc/feedback-engine",
-      "version": "1.2.2",
+      "version": "1.2.3",
       "dependencies": {
         "dom-accessibility-api": "^0.7.1",
         "modern-screenshot": "^4.7.0",
