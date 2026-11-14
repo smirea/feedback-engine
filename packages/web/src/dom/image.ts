@@ -7,10 +7,12 @@ import {
 	tag,
 	title,
 	type Annotations,
+	type Card,
 	type Frame,
 	type Point,
 } from '../core/index.ts';
 import type { Screen } from './capture.ts';
+import { githubPath } from './webhook.ts';
 
 /** Keeps a tall full-length capture shareable. */
 const pixelBudget = 40_000_000;
@@ -18,6 +20,7 @@ const secondary = '#6b6b6b';
 const primary = '#141414';
 const sans = 'system-ui, -apple-system, "Segoe UI", sans-serif';
 const mono = 'ui-monospace, "SF Mono", Menlo, Consolas, monospace';
+const repository = 'github.com/smirea/feedback-engine';
 
 type Run = { text: string; font: string; color: string; background?: string; spacing?: number };
 type Piece = Run & { x: number; width: number };
@@ -25,10 +28,18 @@ type Line = { pieces: Piece[]; height: number; gap: number };
 
 const fontSize = (font: string) => Number(/(\d+(?:\.\d+)?)px/.exec(font)![1]);
 
-/** Breaks runs of styled text into lines no wider than `width`. A paragraph ends at each newline, with `gap` points after it. */
-function layout(context: CanvasRenderingContext2D, paragraphs: { runs: Run[]; gap?: number }[], width: number): Line[] {
+/**
+ * Breaks runs of styled text into lines no wider than `width`. A paragraph ends at each newline, with `gap` points after
+ * it, and `before` points more before it.
+ */
+function layout(
+	context: CanvasRenderingContext2D,
+	paragraphs: { runs: Run[]; gap?: number; before?: number }[],
+	width: number,
+): Line[] {
 	const lines: Line[] = [];
 	for (const paragraph of paragraphs) {
+		if (paragraph.before && lines.length) lines.at(-1)!.gap += paragraph.before;
 		let current: Line = { pieces: [], height: 0, gap: 0 };
 		let x = 0;
 		const wrap = () => {
@@ -163,6 +174,22 @@ function referenceTag(context: CanvasRenderingContext2D, text: string, color: st
 	label(context, text, center);
 }
 
+/** GitHub's mark and the repository, faint, against the strip's left or right edge. */
+function watermark(context: CanvasRenderingContext2D, { isLeft, origin }: Card) {
+	const side = metrics.watermark;
+	context.font = `11px ${sans}`;
+	const width = side + 6 + context.measureText(repository).width;
+	const x = isLeft ? origin.x : origin.x + metrics.column - width;
+	context.fillStyle = withAlpha(secondary, 0.5);
+	context.save();
+	context.translate(x, origin.y);
+	const mark = new Path2D(githubPath);
+	context.fill(mark);
+	context.restore();
+	context.textBaseline = 'middle';
+	context.fillText(repository, x + side + 6, origin.y + side / 2);
+}
+
 /**
  * The image export: the screenshot with numbered boxes, each item's text and code location in a card beside it, a
  * tagged box for each referenced node, and the capture's environment, so the one file is enough on its own.
@@ -175,6 +202,7 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 
 	const app = capture.environment.find(entry => entry.name === 'App')?.value ?? 'App';
 	const flagged = new Set(annotations.items.map(item => item.target));
+	const unflagged = annotations.used.filter(reference => !flagged.has(reference.target));
 	const environment = layout(
 		context,
 		[
@@ -188,24 +216,31 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 					],
 					gap: 4,
 				})),
-			...annotations.used
-				.filter(reference => !flagged.has(reference.target))
-				.map(reference => {
-					const source = nearestSource(capture, reference.target);
-					return {
-						runs: [
-							{
-								text: ` ${tag(reference)} `,
-								font: `700 11px ${sans}`,
-								color: 'white',
-								background: paletteColor(annotations.colorIndex(reference.target)),
-							},
-							...(source ? [{ text: ` ${source}`, font: `11px ${mono}`, color: primary }] : []),
-							{ text: ` ${title(capture.nodes[reference.target]!)}`, font: `12.5px ${sans}`, color: primary },
-						],
-						gap: 4,
-					};
-				}),
+			...(unflagged.length
+				? [
+						{
+							runs: [{ text: 'REFERENCES', font: `700 11px ${sans}`, color: secondary, spacing: 0.6 }],
+							before: 6,
+							gap: 4,
+						},
+					]
+				: []),
+			...unflagged.map(reference => {
+				const source = nearestSource(capture, reference.target);
+				return {
+					runs: [
+						{
+							text: ` ${tag(reference)} `,
+							font: `700 11px ${sans}`,
+							color: 'white',
+							background: paletteColor(annotations.colorIndex(reference.target)),
+						},
+						...(source ? [{ text: ` ${source}`, font: `11px ${mono}`, color: primary }] : []),
+						{ text: ` ${title(capture.nodes[reference.target]!)}`, font: `12.5px ${sans}`, color: primary },
+					],
+					gap: 4,
+				};
+			}),
 		],
 		column,
 	);
@@ -331,5 +366,6 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 	}
 
 	drawText(context, environment, placed.environment);
+	watermark(context, placed.watermark);
 	return canvas;
 }

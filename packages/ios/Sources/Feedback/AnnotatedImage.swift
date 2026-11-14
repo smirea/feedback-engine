@@ -5,7 +5,9 @@ import CoreGraphics
 /// for each other box or earlier path it crosses, as level with the target as the cards above
 /// allow. The environment sits at the top of the right column, and right-column cards start below
 /// it. When one column holds the environment and every card with no crossing and no taller image,
-/// the image drops the other column and keeps only a margin on that side. A tall capture is cut
+/// not counting the watermark, the image drops the other column and keeps only a margin on that side, and of the two sides it
+/// takes the one whose paths are shorter in total. The watermark sits at the bottom of the left
+/// column, or of the right one when that is the only column, below the column's last card. A tall capture is cut
 /// half the height that was on screen below the lowest box or card, and never shorter than that
 /// height, and `shot` is the part that is drawn.
 enum CardLayout {
@@ -17,6 +19,7 @@ enum CardLayout {
     static let padding: CGFloat = 10
     static let rightColumnPenalty: CGFloat = 80
     static let crossingPenalty: CGFloat = 500
+    static let watermark: CGFloat = 16
 
     struct Card: Equatable {
         var isLeft: Bool
@@ -27,6 +30,8 @@ enum CardLayout {
         let shot: CGRect
         let cards: [Card]
         let environment: CGPoint
+        /// The top-left of a column-wide strip `watermark` tall, aligned to its left or right edge.
+        let watermark: Card
         let size: CGSize
     }
 
@@ -45,7 +50,7 @@ enum CardLayout {
         }
         let both = build(.both)
         let single = [build(.left), build(.right)]
-            .filter { $0.crossings == 0 && $0.layout.size.height <= both.layout.size.height }
+            .filter { $0.crossings == 0 && $0.fit <= both.fit }
             .reduce(nil as Arrangement?) { chosen, option in
                 if let chosen, chosen.cost <= option.cost { return chosen }
                 return option
@@ -66,6 +71,8 @@ enum CardLayout {
         let layout: Layout
         let cost: CGFloat
         let crossings: Int
+        /// The height without the watermark, so the watermark never costs the image its single column.
+        let fit: CGFloat
     }
 
     private static func arrange(
@@ -105,12 +112,15 @@ enum CardLayout {
         let bottoms = (targets + references).map(\.maxY) + cards.indices.map { cards[$0].origin.y + heights[$0] - shot.minY }
         let lowest = max(0, bottoms.max() ?? 0)
         shot.size.height = min(screen.height, max(viewport, lowest + viewport / 2))
-        let height = max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin
+        let last = columns == .right ? nextRight : nextLeft
+        let fit = max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin
+        let height = max(fit, last + watermark + margin)
         let layout = Layout(
             shot: shot, cards: cards, environment: CGPoint(x: columns == .left ? margin : rightX, y: margin),
+            watermark: Card(isLeft: columns != .right, origin: CGPoint(x: columns == .right ? rightX : margin, y: height - margin - watermark)),
             size: CGSize(width: columns == .left ? shot.maxX + margin : rightX + column + margin, height: height)
         )
-        return Arrangement(layout: layout, cost: cost, crossings: crossed)
+        return Arrangement(layout: layout, cost: cost, crossings: crossed, fit: fit)
     }
 
     private static let samples = 16
@@ -187,6 +197,7 @@ enum AnnotatedImage {
 
     private static let secondary = UIColor(white: 0.42, alpha: 1)
     private static let primary = UIColor(white: 0.08, alpha: 1)
+    private static let repository = "github.com/smirea/feedback-engine"
 
     static func render(_ capture: Capture, _ annotations: Annotations) -> UIImage {
         let environment = environmentText(capture, annotations)
@@ -308,7 +319,23 @@ enum AnnotatedImage {
             }
 
             environment.draw(with: CGRect(origin: layout.environment, size: CGSize(width: column, height: environmentHeight)), options: [.usesLineFragmentOrigin], context: nil)
+            drawWatermark(layout.watermark)
         }
+    }
+
+    /// GitHub's mark and the repository, faint, against the strip's left or right edge.
+    private static func drawWatermark(_ anchor: CardLayout.Card) {
+        let side = CardLayout.watermark
+        let color = secondary.withAlphaComponent(0.5)
+        let label = NSAttributedString(string: repository, attributes: [.font: UIFont.systemFont(ofSize: 11), .foregroundColor: color])
+        let size = label.size()
+        let width = side + 6 + size.width
+        let x = anchor.isLeft ? anchor.origin.x : anchor.origin.x + column - width
+        let mark = GitHubIcon.outline
+        mark.apply(CGAffineTransform(translationX: x, y: anchor.origin.y))
+        color.setFill()
+        mark.fill()
+        label.draw(at: CGPoint(x: x + side + 6, y: anchor.origin.y + (side - size.height) / 2))
     }
 
     private static var textWidth: CGFloat { column - padding * 3 - badge }
@@ -322,8 +349,8 @@ enum AnnotatedImage {
         return UIColor(red: red * 0.45 + 0.55, green: green * 0.45 + 0.55, blue: blue * 0.45 + 0.55, alpha: 1)
     }
 
-    /// The app's name, then one `Name: value` line per entry, then one `@N file:line title` line per
-    /// reference that has no card of its own.
+    /// The app's name, then one `Name: value` line per entry, then under a References header one
+    /// `@N file:line title` line per reference that has no card of its own.
     private static func environmentText(_ capture: Capture, _ annotations: Annotations) -> NSAttributedString {
         let title = NSMutableParagraphStyle()
         title.paragraphSpacing = 8
@@ -342,7 +369,16 @@ enum AnnotatedImage {
             ]))
         }
         let flagged = Set(annotations.items.map(\.target))
-        for reference in annotations.used where !flagged.contains(reference.target) {
+        let unflagged = annotations.used.filter { !flagged.contains($0.target) }
+        if !unflagged.isEmpty {
+            let header = NSMutableParagraphStyle()
+            header.paragraphSpacingBefore = 6
+            header.paragraphSpacing = 4
+            text.append(NSAttributedString(string: "\nREFERENCES", attributes: [
+                .font: UIFont.systemFont(ofSize: 11, weight: .bold), .foregroundColor: secondary, .kern: 0.6, .paragraphStyle: header,
+            ]))
+        }
+        for reference in unflagged {
             text.append(NSAttributedString(string: "\n", attributes: [.font: UIFont.systemFont(ofSize: 12.5), .paragraphStyle: entry]))
             text.append(NSAttributedString(string: "\u{00A0}\(reference.tag)\u{00A0}", attributes: [
                 .font: UIFont.systemFont(ofSize: 11, weight: .bold), .foregroundColor: UIColor.white,

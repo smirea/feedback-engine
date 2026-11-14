@@ -949,6 +949,7 @@ private struct Fixture: Decodable {
         let shot: Rect
         let cards: [Card]
         let environment: Point
+        let watermark: Card
         let size: Size
     }
 
@@ -1039,6 +1040,8 @@ private struct Fixture: Decodable {
         #expect(layout.shot == wanted.shot.cgRect, "\(cards.name)")
         #expect(layout.cards == wanted.cards.map { .init(isLeft: $0.isLeft, origin: CGPoint(x: $0.origin.x, y: $0.origin.y)) }, "\(cards.name)")
         #expect(layout.environment == CGPoint(x: wanted.environment.x, y: wanted.environment.y), "\(cards.name)")
+        let watermark = wanted.watermark
+        #expect(layout.watermark == .init(isLeft: watermark.isLeft, origin: CGPoint(x: watermark.origin.x, y: watermark.origin.y)), "\(cards.name)")
         #expect(layout.size == CGSize(width: wanted.size.width, height: wanted.size.height), "\(cards.name)")
     }
 

@@ -46,7 +46,11 @@ try {
 		if (attempt === 150) throw new Error('The React example did not start');
 		await Bun.sleep(100);
 	}
-	const page = await browser.newPage({ viewport: { width: 900, height: 600 }, deviceScaleFactor: 2 });
+	const page = await browser.newPage({
+		viewport: { width: 900, height: 600 },
+		deviceScaleFactor: 2,
+		colorScheme: 'dark',
+	});
 	await page.goto(`http://127.0.0.1:${port}/`);
 	await page.getByRole('heading', { level: 1 }).waitFor();
 

@@ -9,10 +9,12 @@ export const cards = {
 	padding: 10,
 	rightColumnPenalty: 80,
 	crossingPenalty: 500,
+	watermark: 16,
 };
 
 export type Card = { isLeft: boolean; origin: Point };
-export type Layout = { shot: Frame; cards: Card[]; environment: Point; size: Size };
+/** `watermark` is the top-left of a column-wide strip `cards.watermark` tall, aligned to its left or right edge. */
+export type Layout = { shot: Frame; cards: Card[]; environment: Point; watermark: Card; size: Size };
 export type Curve = { start: Point; control1: Point; control2: Point; end: Point };
 
 /**
@@ -92,7 +94,8 @@ function crossings(path: Point[], target: Frame, boxes: Frame[], earlier: Point[
 }
 
 type Columns = 'both' | 'left' | 'right';
-type Arrangement = Layout & { cost: number; crossings: number };
+/** `fit` is the height without the watermark, so the watermark never costs the image its single column. */
+type Arrangement = Layout & { cost: number; crossings: number; fit: number };
 
 function arrange(
 	columns: Columns,
@@ -103,7 +106,7 @@ function arrange(
 	viewport: number,
 	references: Frame[],
 ): Arrangement {
-	const { margin, column, gutter, spacing, rightColumnPenalty, crossingPenalty } = cards;
+	const { margin, column, gutter, spacing, rightColumnPenalty, crossingPenalty, watermark } = cards;
 	const shot = {
 		x: columns === 'right' ? margin : margin + column + gutter,
 		y: margin,
@@ -152,14 +155,21 @@ function arrange(
 		...placed.map((card, index) => card.origin.y + heights[index]! - shot.y),
 	);
 	shot.height = Math.min(screen.height, Math.max(viewport, lowest + viewport / 2));
-	const height = Math.max(shot.y + shot.height, nextLeft - spacing, nextRight - spacing) + margin;
+	const last = columns === 'right' ? nextRight : nextLeft;
+	const fit = Math.max(shot.y + shot.height, nextLeft - spacing, nextRight - spacing) + margin;
+	const height = Math.max(fit, last + watermark + margin);
 	return {
 		shot,
 		cards: placed,
 		environment: { x: columns === 'left' ? margin : rightX, y: margin },
+		watermark: {
+			isLeft: columns !== 'right',
+			origin: { x: columns === 'right' ? rightX : margin, y: height - margin - watermark },
+		},
 		size: { width: columns === 'left' ? shot.x + shot.width + margin : rightX + column + margin, height },
 		cost,
 		crossings: crossed,
+		fit,
 	};
 }
 
@@ -168,7 +178,9 @@ function arrange(
  * length, `rightColumnPenalty` points for the right column, and `crossingPenalty` for each other box or earlier path
  * it crosses, as level with the target as the cards above allow. The environment sits at the top of the right column,
  * and right-column cards start below it. When one column holds the environment and every card with no crossing and no
- * taller image, the image drops the other column and keeps only a margin on that side. A tall capture is cut half the
+ * taller image, not counting the watermark, the image drops the other column and keeps only a margin on that side, and of the two sides it takes
+ * the one whose paths are shorter in total. The watermark sits at the bottom of the left column, or of the right one
+ * when that is the only column, below the column's last card. A tall capture is cut half the
  * height that was on screen below the lowest box or card, and never shorter than that height, and `shot` is the part
  * that is drawn. `targets` and `references` are frames in the capture. The layout's frames are in the image.
  */
@@ -184,11 +196,11 @@ export function place(
 		arrange(columns, targets, heights, screen, environmentHeight, viewport, references);
 	const both = build('both');
 	const single = [build('left'), build('right')]
-		.filter(option => option.crossings === 0 && option.size.height <= both.size.height)
+		.filter(option => option.crossings === 0 && option.fit <= both.fit)
 		.reduce<Arrangement | undefined>(
 			(chosen, option) => (chosen && chosen.cost <= option.cost ? chosen : option),
 			undefined,
 		);
-	const { shot, cards: placed, environment, size } = single ?? both;
-	return { shot, cards: placed, environment, size };
+	const { shot, cards: placed, environment, watermark, size } = single ?? both;
+	return { shot, cards: placed, environment, watermark, size };
 }
