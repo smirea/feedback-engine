@@ -260,23 +260,23 @@ private final class Store {
         viewport: 800,
         references: [CGRect(x: 150, y: 280, width: 100, height: 80)]
     )
-    #expect(layout.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
+    #expect(layout.shot == CGRect(x: 340, y: 49, width: 400, height: 800))
     #expect(layout.cards == [
-        .init(isLeft: true, origin: CGPoint(x: 24, y: 314)),
-        .init(isLeft: false, origin: CGPoint(x: 776, y: 314)),
+        .init(isLeft: true, origin: CGPoint(x: 24, y: 339)),
+        .init(isLeft: false, origin: CGPoint(x: 776, y: 339)),
     ])
-    #expect(layout.environment == CGPoint(x: 776, y: 24))
-    #expect(layout.size == CGSize(width: 1080, height: 848))
+    #expect(layout.environment == CGPoint(x: 776, y: 49))
+    #expect(layout.size == CGSize(width: 1080, height: 873))
 }
 
 @Test func oneColumnKeepsOnlyAMarginOnTheOtherSide() {
     let layout = CardLayout.place(
         targets: [CGRect(x: 360, y: 700, width: 30, height: 30)], heights: [50], screen: screen, environmentHeight: 200, viewport: 800
     )
-    #expect(layout.shot == CGRect(x: 24, y: 24, width: 400, height: 800))
-    #expect(layout.cards == [.init(isLeft: false, origin: CGPoint(x: 460, y: 714))])
-    #expect(layout.environment == CGPoint(x: 460, y: 24))
-    #expect(layout.size == CGSize(width: 764, height: 848))
+    #expect(layout.shot == CGRect(x: 24, y: 49, width: 400, height: 800))
+    #expect(layout.cards == [.init(isLeft: false, origin: CGPoint(x: 460, y: 739))])
+    #expect(layout.environment == CGPoint(x: 460, y: 49))
+    #expect(layout.size == CGSize(width: 764, height: 873))
 }
 
 @Test func aCardIsJoinedToItsTargetByAnSCurveThatMeetsItLevel() {
@@ -287,8 +287,8 @@ private final class Store {
 @Test func aTallCaptureIsCutHalfAScreenBelowTheLowestCardAndIsAtLeastOneScreenTall() {
     let tall = CGSize(width: 400, height: 5000)
     let near = CardLayout.place(targets: [CGRect(x: 0, y: 100, width: 60, height: 44)], heights: [60], screen: tall, environmentHeight: 150, viewport: 800)
-    #expect(near.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
-    #expect(near.size.height == 848)
+    #expect(near.shot == CGRect(x: 340, y: 49, width: 400, height: 800))
+    #expect(near.size.height == 873)
     let far = CardLayout.place(targets: [CGRect(x: 0, y: 3000, width: 60, height: 50)], heights: [60], screen: tall, environmentHeight: 150, viewport: 800)
     #expect(far.shot.height == 3455)
     let referenced = CardLayout.place(

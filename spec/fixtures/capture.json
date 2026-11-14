@@ -448,25 +448,6 @@
 					"height": 80
 				}
 			]
-		},
-		{
-			"name": "one column on the right, grown for the watermark under its last card, which does not count against the single column",
-			"screen": {
-				"width": 400,
-				"height": 300
-			},
-			"targets": [
-				{
-					"x": 340,
-					"y": 260,
-					"width": 60,
-					"height": 30
-				}
-			],
-			"heights": [60],
-			"environmentHeight": 100,
-			"viewport": 300,
-			"references": []
 		}
 	],
 	"summary": "\"Bigger info button, aligned title.\"\nThat covers all.",
@@ -836,7 +817,7 @@
 			{
 				"shot": {
 					"x": 340,
-					"y": 24,
+					"y": 49,
 					"width": 400,
 					"height": 780
 				},
@@ -845,44 +826,44 @@
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 198
+							"y": 223
 						}
 					},
 					{
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 270
+							"y": 295
 						}
 					},
 					{
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 644
+							"y": 669
 						}
 					}
 				],
 				"environment": {
 					"x": 24,
-					"y": 24
+					"y": 49
 				},
 				"watermark": {
 					"isLeft": true,
 					"origin": {
 						"x": 24,
-						"y": 788
+						"y": 24
 					}
 				},
 				"size": {
 					"width": 764,
-					"height": 828
+					"height": 853
 				}
 			},
 			{
 				"shot": {
 					"x": 24,
-					"y": 24,
+					"y": 49,
 					"width": 393,
 					"height": 852
 				},
@@ -891,37 +872,37 @@
 						"isLeft": false,
 						"origin": {
 							"x": 453,
-							"y": 621.5
+							"y": 646.5
 						}
 					},
 					{
 						"isLeft": false,
 						"origin": {
 							"x": 453,
-							"y": 466.5
+							"y": 491.5
 						}
 					}
 				],
 				"environment": {
 					"x": 453,
-					"y": 24
+					"y": 49
 				},
 				"watermark": {
 					"isLeft": false,
 					"origin": {
 						"x": 453,
-						"y": 860
+						"y": 24
 					}
 				},
 				"size": {
 					"width": 757,
-					"height": 900
+					"height": 925
 				}
 			},
 			{
 				"shot": {
 					"x": 340,
-					"y": 24,
+					"y": 49,
 					"width": 393,
 					"height": 852
 				},
@@ -930,77 +911,45 @@
 						"isLeft": false,
 						"origin": {
 							"x": 769,
-							"y": 533.5
+							"y": 558.5
 						}
 					},
 					{
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 466.5
+							"y": 491.5
 						}
 					},
 					{
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 114
+							"y": 139
 						}
 					},
 					{
 						"isLeft": false,
 						"origin": {
 							"x": 769,
-							"y": 278
+							"y": 303
 						}
 					}
 				],
 				"environment": {
 					"x": 769,
-					"y": 24
-				},
-				"watermark": {
-					"isLeft": true,
-					"origin": {
-						"x": 24,
-						"y": 860
-					}
-				},
-				"size": {
-					"width": 1073,
-					"height": 900
-				}
-			},
-			{
-				"shot": {
-					"x": 24,
-					"y": 24,
-					"width": 400,
-					"height": 300
-				},
-				"cards": [
-					{
-						"isLeft": false,
-						"origin": {
-							"x": 460,
-							"y": 269
-						}
-					}
-				],
-				"environment": {
-					"x": 460,
-					"y": 24
+					"y": 49
 				},
 				"watermark": {
 					"isLeft": false,
 					"origin": {
-						"x": 460,
-						"y": 341
+						"x": 769,
+						"y": 24
 					}
 				},
 				"size": {
-					"width": 764,
-					"height": 381
+					"width": 1073,
+					"height": 925
 				}
 			}
 		],

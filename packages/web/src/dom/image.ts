@@ -128,9 +128,18 @@ const footerPadding = 6;
 
 const clamp = (value: number, low: number, high: number) => Math.min(Math.max(value, low), high);
 
+const stroke = 1.5;
+
+function dot(context: CanvasRenderingContext2D, center: Point, color: string) {
+	context.beginPath();
+	context.arc(center.x, center.y, 2.5, 0, Math.PI * 2);
+	context.fillStyle = color;
+	context.fill();
+}
+
 function dashedBox(context: CanvasRenderingContext2D, target: Frame, color: string) {
 	roundedRect(context, { x: target.x - 1, y: target.y - 1, width: target.width + 2, height: target.height + 2 }, 4);
-	context.lineWidth = 1.5;
+	context.lineWidth = stroke;
 	context.setLineDash([6, 4]);
 	context.strokeStyle = withAlpha(color, 0.9);
 	context.stroke();
@@ -183,6 +192,7 @@ function watermark(context: CanvasRenderingContext2D, { isLeft, origin }: Card) 
 	context.fillStyle = withAlpha(secondary, 0.5);
 	context.save();
 	context.translate(x, origin.y);
+	context.scale(side / 16, side / 16);
 	const mark = new Path2D(githubPath);
 	context.fill(mark);
 	context.restore();
@@ -322,13 +332,10 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 		context.beginPath();
 		context.moveTo(start.x, start.y);
 		context.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y);
-		context.lineWidth = 1.25;
+		context.lineWidth = stroke;
 		context.strokeStyle = withAlpha(item.color, 0.6);
 		context.stroke();
-		context.beginPath();
-		context.arc(end.x, end.y, 2.5, 0, Math.PI * 2);
-		context.fillStyle = item.color;
-		context.fill();
+		dot(context, end, item.color);
 		badge(context, item.number, item.color, {
 			x: clamp(target.x, shot.x + badgeSize / 2 + 2, shot.x + shot.width - badgeSize / 2 - 2),
 			y: clamp(target.y, shot.y + badgeSize / 2 + 2, shot.y + shot.height - badgeSize / 2 - 2),
@@ -363,6 +370,7 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 		});
 		drawText(context, item.text, { x: origin.x + padding * 2 + badgeSize, y: origin.y + padding });
 		drawText(context, item.footer, { x: origin.x + padding, y: origin.y + item.body + footerPadding });
+		dot(context, connector(placed.cards[index]!, inShot(item.frame)).start, item.color);
 	}
 
 	drawText(context, environment, placed.environment);

@@ -1,15 +1,14 @@
 import CoreGraphics
 
-/// Where the image export puts each item's card. Cards go in the column whose path to the target
-/// costs least: its length, `rightColumnPenalty` points for the right column, and `crossingPenalty`
-/// for each other box or earlier path it crosses, as level with the target as the cards above
-/// allow. The environment sits at the top of the right column, and right-column cards start below
-/// it. When one column holds the environment and every card with no crossing and no taller image,
-/// not counting the watermark, the image drops the other column and keeps only a margin on that side, and of the two sides it
-/// takes the one whose paths are shorter in total. The watermark sits at the bottom of the left
-/// column, or of the right one when that is the only column, below the column's last card. A tall capture is cut
-/// half the height that was on screen below the lowest box or card, and never shorter than that
-/// height, and `shot` is the part that is drawn.
+/// Where the image export puts each item's card. Cards go in the column whose path to the target costs
+/// least: its length, `rightColumnPenalty` points for the right column, and `crossingPenalty` for each
+/// other box or earlier path it crosses, as level with the target as the cards above allow. The
+/// watermark has a strip across the top of the image, in the outer corner of the environment's column.
+/// The environment sits at the top of the right column, and right-column cards start below it. When one
+/// column holds the environment and every card with no crossing and no taller image, the image drops
+/// the other column and keeps only a margin on that side, and of the two sides it takes the one whose
+/// paths are shorter in total. A tall capture is cut half the height that was on screen below the
+/// lowest box or card, and never shorter than that height, and `shot` is the part that is drawn.
 enum CardLayout {
     static let margin: CGFloat = 24
     static let column: CGFloat = 280
@@ -19,7 +18,7 @@ enum CardLayout {
     static let padding: CGFloat = 10
     static let rightColumnPenalty: CGFloat = 80
     static let crossingPenalty: CGFloat = 500
-    static let watermark: CGFloat = 16
+    static let watermark: CGFloat = 13
 
     struct Card: Equatable {
         var isLeft: Bool
@@ -50,7 +49,7 @@ enum CardLayout {
         }
         let both = build(.both)
         let single = [build(.left), build(.right)]
-            .filter { $0.crossings == 0 && $0.fit <= both.fit }
+            .filter { $0.crossings == 0 && $0.layout.size.height <= both.layout.size.height }
             .reduce(nil as Arrangement?) { chosen, option in
                 if let chosen, chosen.cost <= option.cost { return chosen }
                 return option
@@ -71,25 +70,25 @@ enum CardLayout {
         let layout: Layout
         let cost: CGFloat
         let crossings: Int
-        /// The height without the watermark, so the watermark never costs the image its single column.
-        let fit: CGFloat
     }
 
     private static func arrange(
         _ columns: Columns, targets: [CGRect], heights: [CGFloat], screen: CGSize, environmentHeight: CGFloat, viewport: CGFloat, references: [CGRect]
     ) -> Arrangement {
-        var shot = CGRect(x: columns == .right ? margin : margin + column + gutter, y: margin, width: screen.width, height: screen.height)
+        let top = margin + watermark + spacing
+        var shot = CGRect(x: columns == .right ? margin : margin + column + gutter, y: top, width: screen.width, height: screen.height)
         let rightX = shot.maxX + gutter
         let moved = targets.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
         let boxes = moved + references.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
         var cards = moved.map { _ in Card(isLeft: true, origin: .zero) }
         var paths: [[CGPoint]] = []
-        let underEnvironment = margin + environmentHeight + spacing * 2
-        var nextLeft = columns == .left ? underEnvironment : margin, nextRight = underEnvironment
+        let environment = CGPoint(x: columns == .left ? margin : rightX, y: top)
+        let underEnvironment = top + environmentHeight + spacing * 2
+        var nextLeft = columns == .left ? underEnvironment : top, nextRight = underEnvironment
         var cost: CGFloat = 0, crossed = 0
         for index in moved.indices.sorted(by: { (moved[$0].midY, $0) < (moved[$1].midY, $1) }) {
             let target = moved[index]
-            let desired = max(target.midY - heights[index] / 2, margin)
+            let desired = max(target.midY - heights[index] / 2, top)
             var options: [Card] = []
             if columns != .right { options.append(Card(isLeft: true, origin: CGPoint(x: margin, y: max(desired, nextLeft)))) }
             if columns != .left { options.append(Card(isLeft: false, origin: CGPoint(x: rightX, y: max(desired, nextRight)))) }
@@ -112,15 +111,15 @@ enum CardLayout {
         let bottoms = (targets + references).map(\.maxY) + cards.indices.map { cards[$0].origin.y + heights[$0] - shot.minY }
         let lowest = max(0, bottoms.max() ?? 0)
         shot.size.height = min(screen.height, max(viewport, lowest + viewport / 2))
-        let last = columns == .right ? nextRight : nextLeft
-        let fit = max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin
-        let height = max(fit, last + watermark + margin)
         let layout = Layout(
-            shot: shot, cards: cards, environment: CGPoint(x: columns == .left ? margin : rightX, y: margin),
-            watermark: Card(isLeft: columns != .right, origin: CGPoint(x: columns == .right ? rightX : margin, y: height - margin - watermark)),
-            size: CGSize(width: columns == .left ? shot.maxX + margin : rightX + column + margin, height: height)
+            shot: shot, cards: cards, environment: environment,
+            watermark: Card(isLeft: columns == .left, origin: CGPoint(x: environment.x, y: margin)),
+            size: CGSize(
+                width: columns == .left ? shot.maxX + margin : rightX + column + margin,
+                height: max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin
+            )
         )
-        return Arrangement(layout: layout, cost: cost, crossings: crossed, fit: fit)
+        return Arrangement(layout: layout, cost: cost, crossings: crossed)
     }
 
     private static let samples = 16
@@ -198,6 +197,7 @@ enum AnnotatedImage {
     private static let secondary = UIColor(white: 0.42, alpha: 1)
     private static let primary = UIColor(white: 0.08, alpha: 1)
     private static let repository = "github.com/smirea/feedback-engine"
+    private static let stroke: CGFloat = 1.5
 
     static func render(_ capture: Capture, _ annotations: Annotations) -> UIImage {
         let environment = environmentText(capture, annotations)
@@ -256,7 +256,7 @@ enum AnnotatedImage {
             for (card, placement) in zip(cards, layout.cards) {
                 let target = card.frame.offsetBy(dx: shot.minX, dy: shot.minY)
                 let box = UIBezierPath(roundedRect: target.insetBy(dx: -1, dy: -1), cornerRadius: 4)
-                box.lineWidth = 1.5
+                box.lineWidth = stroke
                 box.setLineDash([6, 4], count: 2, phase: 0)
                 card.color.withAlphaComponent(0.9).setStroke()
                 box.stroke()
@@ -266,11 +266,10 @@ enum AnnotatedImage {
                 let line = UIBezierPath()
                 line.move(to: curve.start)
                 line.addCurve(to: end, controlPoint1: curve.control1, controlPoint2: curve.control2)
-                line.lineWidth = 1.25
+                line.lineWidth = stroke
                 card.color.withAlphaComponent(0.6).setStroke()
                 line.stroke()
-                card.color.setFill()
-                UIBezierPath(ovalIn: CGRect(x: end.x - 2.5, y: end.y - 2.5, width: 5, height: 5)).fill()
+                drawDot(end, color: card.color)
 
                 let corner = CGPoint(
                     x: min(max(target.minX, shot.minX + badge / 2 + 2), shot.maxX - badge / 2 - 2),
@@ -285,7 +284,7 @@ enum AnnotatedImage {
                 let target = capture.nodes[reference.target].frame.offsetBy(dx: shot.minX, dy: shot.minY)
                 if !flagged.contains(reference.target) {
                     let box = UIBezierPath(roundedRect: target.insetBy(dx: -1, dy: -1), cornerRadius: 4)
-                    box.lineWidth = 1.5
+                    box.lineWidth = stroke
                     box.setLineDash([6, 4], count: 2, phase: 0)
                     color.withAlphaComponent(0.9).setStroke()
                     box.stroke()
@@ -316,6 +315,7 @@ enum AnnotatedImage {
                     with: CGRect(x: rect.minX + padding, y: rect.minY + card.body + footerPadding, width: column - padding * 2, height: card.height - card.body - footerPadding * 2),
                     options: [.usesLineFragmentOrigin], context: nil
                 )
+                drawDot(CardLayout.connector(placement, to: card.frame.offsetBy(dx: shot.minX, dy: shot.minY)).start, color: card.color)
             }
 
             environment.draw(with: CGRect(origin: layout.environment, size: CGSize(width: column, height: environmentHeight)), options: [.usesLineFragmentOrigin], context: nil)
@@ -332,10 +332,15 @@ enum AnnotatedImage {
         let width = side + 6 + size.width
         let x = anchor.isLeft ? anchor.origin.x : anchor.origin.x + column - width
         let mark = GitHubIcon.outline
-        mark.apply(CGAffineTransform(translationX: x, y: anchor.origin.y))
+        mark.apply(CGAffineTransform(scaleX: side / 16, y: side / 16).concatenating(CGAffineTransform(translationX: x, y: anchor.origin.y)))
         color.setFill()
         mark.fill()
         label.draw(at: CGPoint(x: x + side + 6, y: anchor.origin.y + (side - size.height) / 2))
+    }
+
+    private static func drawDot(_ center: CGPoint, color: UIColor) {
+        color.setFill()
+        UIBezierPath(ovalIn: CGRect(x: center.x - 2.5, y: center.y - 2.5, width: 5, height: 5)).fill()
     }
 
     private static var textWidth: CGFloat { column - padding * 3 - badge }
