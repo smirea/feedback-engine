@@ -1,5 +1,11 @@
 # @stefan.inc/feedback-engine
 
+## 1.2.2
+
+### Patch Changes
+
+- c385730: The image export puts references that have no card under a small References header, and adds a faint GitHub watermark with the repository's URL at the bottom of the card column.
+
 ## 1.2.1
 
 ### Patch Changes
