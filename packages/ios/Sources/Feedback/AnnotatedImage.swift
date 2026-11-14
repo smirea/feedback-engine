@@ -1,11 +1,13 @@
 import CoreGraphics
 
-/// Where the image export puts each item's card. A card sits in the left column, as level with its
-/// target as the cards above it allow. It moves to the right column when that makes its line to
-/// the target at least `rightColumnPenalty` points shorter, as for a button at the trailing edge.
-/// The environment always sits at the top of the right column, and right-column cards start below it.
-/// A tall capture is cut half the height that was on screen below the lowest box or card, and
-/// never shorter than that height, and `shot` is the part that is drawn.
+/// Where the image export puts each item's card. Cards go in the column whose path to the target
+/// costs least: its length, `rightColumnPenalty` points for the right column, and `crossingPenalty`
+/// for each other box or earlier path it crosses, as level with the target as the cards above
+/// allow. The environment sits at the top of the right column, and right-column cards start below
+/// it. When one column holds the environment and every card with no crossing and no taller image,
+/// the image drops the other column and keeps only a margin on that side. A tall capture is cut
+/// half the height that was on screen below the lowest box or card, and never shorter than that
+/// height, and `shot` is the part that is drawn.
 enum CardLayout {
     static let margin: CGFloat = 24
     static let column: CGFloat = 280
@@ -14,6 +16,7 @@ enum CardLayout {
     static let badge: CGFloat = 20
     static let padding: CGFloat = 10
     static let rightColumnPenalty: CGFloat = 80
+    static let crossingPenalty: CGFloat = 500
 
     struct Card: Equatable {
         var isLeft: Bool
@@ -27,45 +30,145 @@ enum CardLayout {
         let size: CGSize
     }
 
+    struct Curve: Equatable {
+        let start, control1, control2, end: CGPoint
+    }
+
+    private enum Columns { case both, left, right }
+
     /// `targets` and `references` are frames in the capture; the layout's frames are in the image.
     static func place(
         targets: [CGRect], heights: [CGFloat], screen: CGSize, environmentHeight: CGFloat, viewport: CGFloat, references: [CGRect] = []
     ) -> Layout {
-        var shot = CGRect(x: margin + column + gutter, y: margin, width: screen.width, height: screen.height)
-        let rightX = shot.maxX + gutter
-        let targets = targets.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
-        var cards = targets.map { _ in Card(isLeft: true, origin: .zero) }
-        var nextLeft = margin, nextRight = margin + environmentHeight + spacing * 2
-        for index in targets.indices.sorted(by: { (targets[$0].midY, $0) < (targets[$1].midY, $1) }) {
-            let desired = max(targets[index].midY - heights[index] / 2, margin)
-            let left = Card(isLeft: true, origin: CGPoint(x: margin, y: max(desired, nextLeft)))
-            let right = Card(isLeft: false, origin: CGPoint(x: rightX, y: max(desired, nextRight)))
-            let card = length(left, to: targets[index]) - length(right, to: targets[index]) >= rightColumnPenalty ? right : left
-            cards[index] = card
-            if card.isLeft { nextLeft = card.origin.y + heights[index] + spacing } else { nextRight = card.origin.y + heights[index] + spacing }
+        let build = { (columns: Columns) in
+            arrange(columns, targets: targets, heights: heights, screen: screen, environmentHeight: environmentHeight, viewport: viewport, references: references)
         }
-
-        let bottoms = (targets + references.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }).map(\.maxY) + cards.indices.map { cards[$0].origin.y + heights[$0] }
-        let lowest = bottoms.max().map { $0 - shot.minY } ?? 0
-        shot.size.height = min(screen.height, max(viewport, lowest + viewport / 2))
-        let height = max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin
-        return Layout(
-            shot: shot, cards: cards, environment: CGPoint(x: rightX, y: margin),
-            size: CGSize(width: rightX + column + margin, height: height)
-        )
+        let both = build(.both)
+        let single = [build(.left), build(.right)]
+            .filter { $0.crossings == 0 && $0.layout.size.height <= both.layout.size.height }
+            .reduce(nil as Arrangement?) { chosen, option in
+                if let chosen, chosen.cost <= option.cost { return chosen }
+                return option
+            }
+        return (single ?? both).layout
     }
 
-    /// From the card's badge to the nearest side of the target, at the badge's height when the
-    /// target spans it.
-    static func line(_ card: Card, to target: CGRect) -> (start: CGPoint, end: CGPoint) {
+    /// An S curve from the card's badge to the nearest side of the target, at the badge's height
+    /// when the target spans it. It leaves the card and meets the target level.
+    static func connector(_ card: Card, to target: CGRect) -> Curve {
         let start = CGPoint(x: card.isLeft ? card.origin.x + column : card.origin.x, y: card.origin.y + padding + badge / 2)
         let end = CGPoint(x: card.isLeft ? target.minX : target.maxX, y: min(max(start.y, target.minY + 2), target.maxY - 2))
-        return (start, end)
+        let bend = (end.x - start.x) / 2
+        return Curve(start: start, control1: CGPoint(x: start.x + bend, y: start.y), control2: CGPoint(x: end.x - bend, y: end.y), end: end)
     }
 
-    private static func length(_ card: Card, to target: CGRect) -> CGFloat {
-        let (start, end) = line(card, to: target)
-        return hypot(end.x - start.x, end.y - start.y)
+    private struct Arrangement {
+        let layout: Layout
+        let cost: CGFloat
+        let crossings: Int
+    }
+
+    private static func arrange(
+        _ columns: Columns, targets: [CGRect], heights: [CGFloat], screen: CGSize, environmentHeight: CGFloat, viewport: CGFloat, references: [CGRect]
+    ) -> Arrangement {
+        var shot = CGRect(x: columns == .right ? margin : margin + column + gutter, y: margin, width: screen.width, height: screen.height)
+        let rightX = shot.maxX + gutter
+        let moved = targets.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
+        let boxes = moved + references.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
+        var cards = moved.map { _ in Card(isLeft: true, origin: .zero) }
+        var paths: [[CGPoint]] = []
+        let underEnvironment = margin + environmentHeight + spacing * 2
+        var nextLeft = columns == .left ? underEnvironment : margin, nextRight = underEnvironment
+        var cost: CGFloat = 0, crossed = 0
+        for index in moved.indices.sorted(by: { (moved[$0].midY, $0) < (moved[$1].midY, $1) }) {
+            let target = moved[index]
+            let desired = max(target.midY - heights[index] / 2, margin)
+            var options: [Card] = []
+            if columns != .right { options.append(Card(isLeft: true, origin: CGPoint(x: margin, y: max(desired, nextLeft)))) }
+            if columns != .left { options.append(Card(isLeft: false, origin: CGPoint(x: rightX, y: max(desired, nextRight)))) }
+            let scored = options.map { card in
+                let curve = connector(card, to: target)
+                let path = polyline(curve)
+                let count = crossings(path, target: target, boxes: boxes, earlier: paths)
+                let penalty = columns == .both && !card.isLeft ? rightColumnPenalty : 0
+                let length = hypot(curve.end.x - curve.start.x, curve.end.y - curve.start.y)
+                return (card: card, path: path, count: count, cost: length + penalty + CGFloat(count) * crossingPenalty)
+            }
+            let best = scored.dropFirst().reduce(scored[0]) { chosen, option in option.cost <= chosen.cost ? option : chosen }
+            cards[index] = best.card
+            paths.append(best.path)
+            cost += best.cost
+            crossed += best.count
+            if best.card.isLeft { nextLeft = best.card.origin.y + heights[index] + spacing } else { nextRight = best.card.origin.y + heights[index] + spacing }
+        }
+
+        let bottoms = (targets + references).map(\.maxY) + cards.indices.map { cards[$0].origin.y + heights[$0] - shot.minY }
+        let lowest = max(0, bottoms.max() ?? 0)
+        shot.size.height = min(screen.height, max(viewport, lowest + viewport / 2))
+        let height = max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin
+        let layout = Layout(
+            shot: shot, cards: cards, environment: CGPoint(x: columns == .left ? margin : rightX, y: margin),
+            size: CGSize(width: columns == .left ? shot.maxX + margin : rightX + column + margin, height: height)
+        )
+        return Arrangement(layout: layout, cost: cost, crossings: crossed)
+    }
+
+    private static let samples = 16
+
+    private static func polyline(_ curve: Curve) -> [CGPoint] {
+        (0...samples).map { step in
+            let t = CGFloat(step) / CGFloat(samples)
+            let u = 1 - t
+            func at(_ a: CGFloat, _ b: CGFloat, _ c: CGFloat, _ d: CGFloat) -> CGFloat {
+                u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d
+            }
+            return CGPoint(
+                x: at(curve.start.x, curve.control1.x, curve.control2.x, curve.end.x),
+                y: at(curve.start.y, curve.control1.y, curve.control2.y, curve.end.y)
+            )
+        }
+    }
+
+    /// Boxes the path passes through, other than its target and the boxes around it, plus the
+    /// earlier paths it crosses.
+    private static func crossings(_ path: [CGPoint], target: CGRect, boxes: [CGRect], earlier: [[CGPoint]]) -> Int {
+        let end = path[path.count - 1]
+        let pairs = zip(path, path.dropFirst()).map { ($0, $1) }
+        let box = boxes.filter { box in
+            !contains(box, end) && box != target && pairs.contains { segment($0.0, $0.1, crosses: box) }
+        }.count
+        let lines = earlier.filter { other in
+            zip(other, other.dropFirst()).contains { c, d in pairs.contains { segmentsCross($0.0, $0.1, c, d) } }
+        }.count
+        return box + lines
+    }
+
+    private static func contains(_ box: CGRect, _ point: CGPoint) -> Bool {
+        point.x >= box.minX && point.x <= box.maxX && point.y >= box.minY && point.y <= box.maxY
+    }
+
+    private static func segment(_ a: CGPoint, _ b: CGPoint, crosses box: CGRect) -> Bool {
+        var low: CGFloat = 0, high: CGFloat = 1
+        let dx = b.x - a.x, dy = b.y - a.y
+        for (direction, distance) in [(-dx, a.x - box.minX), (dx, box.maxX - a.x), (-dy, a.y - box.minY), (dy, box.maxY - a.y)] {
+            if direction == 0 {
+                if distance < 0 { return false }
+                continue
+            }
+            let t = distance / direction
+            if direction < 0 { low = max(low, t) } else { high = min(high, t) }
+            if low > high { return false }
+        }
+        return true
+    }
+
+    private static func turn(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint) -> Int {
+        let cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)
+        return cross > 0 ? 1 : cross < 0 ? -1 : 0
+    }
+
+    private static func segmentsCross(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint, _ d: CGPoint) -> Bool {
+        turn(a, b, c) * turn(a, b, d) < 0 && turn(c, d, a) * turn(c, d, b) < 0
     }
 }
 
@@ -86,7 +189,7 @@ enum AnnotatedImage {
     private static let primary = UIColor(white: 0.08, alpha: 1)
 
     static func render(_ capture: Capture, _ annotations: Annotations) -> UIImage {
-        let environment = environmentText(capture)
+        let environment = environmentText(capture, annotations)
         let environmentHeight = measure(environment, width: column)
         let cards = annotations.items.map { item in
             let node = capture.nodes[item.target]
@@ -147,10 +250,11 @@ enum AnnotatedImage {
                 card.color.withAlphaComponent(0.9).setStroke()
                 box.stroke()
 
-                let (start, end) = CardLayout.line(placement, to: target)
+                let curve = CardLayout.connector(placement, to: target)
+                let end = curve.end
                 let line = UIBezierPath()
-                line.move(to: start)
-                line.addLine(to: end)
+                line.move(to: curve.start)
+                line.addCurve(to: end, controlPoint1: curve.control1, controlPoint2: curve.control2)
                 line.lineWidth = 1.25
                 card.color.withAlphaComponent(0.6).setStroke()
                 line.stroke()
@@ -218,19 +322,39 @@ enum AnnotatedImage {
         return UIColor(red: red * 0.45 + 0.55, green: green * 0.45 + 0.55, blue: blue * 0.45 + 0.55, alpha: 1)
     }
 
-    private static func environmentText(_ capture: Capture) -> NSAttributedString {
-        let paragraph = NSMutableParagraphStyle()
-        paragraph.paragraphSpacing = 6
+    /// The app's name, then one `Name: value` line per entry, then one `@N file:line title` line per
+    /// reference that has no card of its own.
+    private static func environmentText(_ capture: Capture, _ annotations: Annotations) -> NSAttributedString {
+        let title = NSMutableParagraphStyle()
+        title.paragraphSpacing = 8
+        let entry = NSMutableParagraphStyle()
+        entry.paragraphSpacing = 4
         let app = capture.environment.first { $0.name == "App" }?.value ?? "App"
-        let text = NSMutableAttributedString(string: "Feedback: \(app)\n", attributes: [
-            .font: UIFont.systemFont(ofSize: 16, weight: .bold), .foregroundColor: primary, .paragraphStyle: paragraph,
+        let text = NSMutableAttributedString(string: "Feedback: \(app)", attributes: [
+            .font: UIFont.systemFont(ofSize: 16, weight: .bold), .foregroundColor: primary, .paragraphStyle: title,
         ])
-        for entry in capture.environment where entry.name != "App" {
-            text.append(NSAttributedString(string: entry.name.uppercased() + "\n", attributes: [
-                .font: UIFont.systemFont(ofSize: 10, weight: .semibold), .foregroundColor: secondary, .kern: 0.5,
+        for item in capture.environment where item.name != "App" {
+            text.append(NSAttributedString(string: "\n\(item.name): ", attributes: [
+                .font: UIFont.systemFont(ofSize: 12.5, weight: .semibold), .foregroundColor: secondary, .paragraphStyle: entry,
             ]))
-            text.append(NSAttributedString(string: entry.value + "\n", attributes: [
-                .font: UIFont.systemFont(ofSize: 12.5), .foregroundColor: primary, .paragraphStyle: paragraph,
+            text.append(NSAttributedString(string: item.value, attributes: [
+                .font: UIFont.systemFont(ofSize: 12.5), .foregroundColor: primary, .paragraphStyle: entry,
+            ]))
+        }
+        let flagged = Set(annotations.items.map(\.target))
+        for reference in annotations.used where !flagged.contains(reference.target) {
+            text.append(NSAttributedString(string: "\n", attributes: [.font: UIFont.systemFont(ofSize: 12.5), .paragraphStyle: entry]))
+            text.append(NSAttributedString(string: "\u{00A0}\(reference.tag)\u{00A0}", attributes: [
+                .font: UIFont.systemFont(ofSize: 11, weight: .bold), .foregroundColor: UIColor.white,
+                .backgroundColor: Palette.uiColor(annotations.colorIndex(of: reference.target)), .paragraphStyle: entry,
+            ]))
+            if let source = capture.nearestComponent(from: reference.target)?.source {
+                text.append(NSAttributedString(string: " \(source.description)", attributes: [
+                    .font: UIFont.monospacedSystemFont(ofSize: 11, weight: .regular), .foregroundColor: primary, .paragraphStyle: entry,
+                ]))
+            }
+            text.append(NSAttributedString(string: " \(capture.nodes[reference.target].title)", attributes: [
+                .font: UIFont.systemFont(ofSize: 12.5), .foregroundColor: primary, .paragraphStyle: entry,
             ]))
         }
         return text

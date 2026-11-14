@@ -364,8 +364,8 @@ for (const app of appNames) {
 						zipped.references.map((reference: { token: string; title: string }) => [reference.token, reference.title]),
 					).toEqual([['@1_ListRow', 'ListRow']]);
 					const image = PNG.sync.read(Buffer.from(await Bun.file(join(folder, 'feedback/feedback.png')).arrayBuffer()));
-					// Two card columns, two gutters, and two margins around the capture, at the capture's 2x scale.
-					expect(image.width).toBe((24 + 280 + 36 + viewport.width + 36 + 280 + 24) * 2);
+					// One card is level with its row and crosses nothing, so one column, a gutter, and a margin on each side, at 2x.
+					expect(image.width).toBe((24 + 280 + 36 + viewport.width + 24) * 2);
 					expect(image.height).toBe((24 + zipped.size.height + 24) * 2);
 
 					if (engine === 'chromium') {
@@ -611,9 +611,10 @@ for (const app of appNames) {
 
 		test('posting to ProcrastiMate creates one task with the image and the JSON attached', async () => {
 			procrastimate.tasks.length = 0;
-			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/', { width: 1280, height: 800 });
+			const row = (await page.getByRole('link', { name: /Groceries/ }).boundingBox())!;
 			await present(page);
-			await tap(page, 100, 270);
+			await tap(page, row.x + 40, row.y + row.height / 2);
 			await field(page).fill('Row is too tall');
 			await field(page).press('Enter');
 			await page.getByRole('button', { name: 'Share' }).click();
@@ -656,7 +657,7 @@ for (const app of appNames) {
 				type?: string;
 				bytes?: number;
 			}[];
-			// The image export is 1,070 points wide at 2x, and the upload fits its width to 2,048 pixels.
+			// The image export is 1,644 points wide at 2x, and the upload fits its width to 2,048 pixels.
 			expect(image!.width).toBe(2048);
 			expect(procrastimate.uploads.get(`${image!.id}/full`)!.type).toBe('image/jpeg');
 			expect(procrastimate.uploads.get(`${image!.id}/full`)!.bytes).toBeLessThanOrEqual(1_500_000);
@@ -795,8 +796,8 @@ for (const app of appNames) {
 					report: { name: 'feedback.json', type: 'application/json' },
 				});
 				expect(post!.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-				// The image export: the 390 point screenshot between two 340 point columns, at 2x.
-				expect(PNG.sync.read(post!.image.bytes).width).toBe(2140);
+				// The image export: the 390 point screenshot beside one 340 point column, with a 24 point margin, at 2x.
+				expect(PNG.sync.read(post!.image.bytes).width).toBe(1508);
 				const report = JSON.parse(post!.report.text) as Report;
 				expect(report.items.map(item => [item.number, item.text])).toEqual([[1, 'Row is too tall']]);
 				expect(report.nodes[0]!.kind).toBe('screen');

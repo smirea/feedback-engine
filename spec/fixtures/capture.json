@@ -328,39 +328,128 @@
 	],
 	"similar": [6, 4, 3, 2, 16],
 	"segments": "See @2_Row, @2_Rows, @1_Row, @6_Sheet and @9_Row",
-	"cards": {
-		"targets": [
-			{
-				"x": 0,
-				"y": 50,
-				"width": 60,
-				"height": 44
-			},
-			{
-				"x": 350,
-				"y": 50,
-				"width": 44,
-				"height": 44
-			},
-			{
-				"x": 0,
-				"y": 600,
+	"cards": [
+		{
+			"name": "one column on the left, with no crossing and no taller image",
+			"screen": {
 				"width": 400,
-				"height": 100
-			}
-		],
-		"heights": [60, 60, 60],
-		"environmentHeight": 150,
-		"viewport": 100,
-		"references": [
-			{
-				"x": 0,
-				"y": 710,
-				"width": 100,
-				"height": 20
-			}
-		]
-	},
+				"height": 800
+			},
+			"targets": [
+				{
+					"x": 0,
+					"y": 50,
+					"width": 60,
+					"height": 44
+				},
+				{
+					"x": 350,
+					"y": 50,
+					"width": 44,
+					"height": 44
+				},
+				{
+					"x": 0,
+					"y": 600,
+					"width": 400,
+					"height": 100
+				}
+			],
+			"heights": [60, 60, 60],
+			"environmentHeight": 150,
+			"viewport": 100,
+			"references": [
+				{
+					"x": 0,
+					"y": 710,
+					"width": 100,
+					"height": 20
+				}
+			]
+		},
+		{
+			"name": "one column on the right, where the left column would cross a reference",
+			"screen": {
+				"width": 393,
+				"height": 852
+			},
+			"targets": [
+				{
+					"x": 134,
+					"y": 538,
+					"width": 124,
+					"height": 37
+				},
+				{
+					"x": 17,
+					"y": 500,
+					"width": 77,
+					"height": 28
+				}
+			],
+			"heights": [94, 143],
+			"environmentHeight": 230,
+			"viewport": 852,
+			"references": [
+				{
+					"x": 17,
+					"y": 585,
+					"width": 77,
+					"height": 28
+				}
+			]
+		},
+		{
+			"name": "two columns, and the card pushed down the left column moves right to avoid the reference",
+			"screen": {
+				"width": 393,
+				"height": 852
+			},
+			"targets": [
+				{
+					"x": 134,
+					"y": 538,
+					"width": 124,
+					"height": 37
+				},
+				{
+					"x": 17,
+					"y": 500,
+					"width": 77,
+					"height": 28
+				},
+				{
+					"x": 0,
+					"y": 100,
+					"width": 60,
+					"height": 40
+				},
+				{
+					"x": 333,
+					"y": 100,
+					"width": 60,
+					"height": 40
+				}
+			],
+			"heights": [94, 143, 60, 60],
+			"environmentHeight": 230,
+			"viewport": 852,
+			"references": [
+				{
+					"x": 17,
+					"y": 585,
+					"width": 77,
+					"height": 28
+				},
+				{
+					"x": 150,
+					"y": 80,
+					"width": 100,
+					"height": 80
+				}
+			]
+		}
+	],
 	"summary": "\"Bigger info button, aligned title.\"\nThat covers all.",
 	"expected": {
 		"hitTests": [6, 4, 1, 15, 17, 2, 5],
@@ -724,45 +813,125 @@
 				}
 			]
 		},
-		"cards": {
-			"shot": {
-				"x": 340,
-				"y": 24,
-				"width": 400,
-				"height": 780
-			},
-			"cards": [
-				{
-					"isLeft": true,
-					"origin": {
-						"x": 24,
-						"y": 66
-					}
+		"cards": [
+			{
+				"shot": {
+					"x": 340,
+					"y": 24,
+					"width": 400,
+					"height": 780
 				},
-				{
-					"isLeft": false,
-					"origin": {
-						"x": 776,
-						"y": 198
+				"cards": [
+					{
+						"isLeft": true,
+						"origin": {
+							"x": 24,
+							"y": 198
+						}
+					},
+					{
+						"isLeft": true,
+						"origin": {
+							"x": 24,
+							"y": 270
+						}
+					},
+					{
+						"isLeft": true,
+						"origin": {
+							"x": 24,
+							"y": 644
+						}
 					}
+				],
+				"environment": {
+					"x": 24,
+					"y": 24
 				},
-				{
-					"isLeft": true,
-					"origin": {
-						"x": 24,
-						"y": 644
-					}
+				"size": {
+					"width": 764,
+					"height": 828
 				}
-			],
-			"environment": {
-				"x": 776,
-				"y": 24
 			},
-			"size": {
-				"width": 1080,
-				"height": 828
+			{
+				"shot": {
+					"x": 24,
+					"y": 24,
+					"width": 393,
+					"height": 852
+				},
+				"cards": [
+					{
+						"isLeft": false,
+						"origin": {
+							"x": 453,
+							"y": 621.5
+						}
+					},
+					{
+						"isLeft": false,
+						"origin": {
+							"x": 453,
+							"y": 466.5
+						}
+					}
+				],
+				"environment": {
+					"x": 453,
+					"y": 24
+				},
+				"size": {
+					"width": 757,
+					"height": 900
+				}
+			},
+			{
+				"shot": {
+					"x": 340,
+					"y": 24,
+					"width": 393,
+					"height": 852
+				},
+				"cards": [
+					{
+						"isLeft": false,
+						"origin": {
+							"x": 769,
+							"y": 533.5
+						}
+					},
+					{
+						"isLeft": true,
+						"origin": {
+							"x": 24,
+							"y": 466.5
+						}
+					},
+					{
+						"isLeft": true,
+						"origin": {
+							"x": 24,
+							"y": 114
+						}
+					},
+					{
+						"isLeft": false,
+						"origin": {
+							"x": 769,
+							"y": 278
+						}
+					}
+				],
+				"environment": {
+					"x": 769,
+					"y": 24
+				},
+				"size": {
+					"width": 1073,
+					"height": 900
+				}
 			}
-		},
+		],
 		"taskTitle": {
 			"placeholder": "Groceries Feedback: 4 changes",
 			"prompt": "- On Button \"Info\": Make it bigger\n- On Text field \"Title, Milk\": Align with @2_Row and @3_Nope\n- On ListScreen: Move @4_Button left of the title, like @1_Button\n- On Header \"My Lists\": Match @8_Button",

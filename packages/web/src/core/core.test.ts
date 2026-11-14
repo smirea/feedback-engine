@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test';
 import {
 	Annotations,
 	buildTree,
+	connector,
 	describe,
 	hitTest,
 	place,
@@ -405,4 +406,15 @@ test('a tall capture is cut half a screen below the lowest box or card, and is a
 	expect(near.size.height).toBe(848);
 	expect(place([frame(0, 3000, 60, 50)], [60], tall, 150, 800).shot.height).toBe(3055 + 400);
 	expect(place([frame(0, 100, 60, 44)], [60], tall, 150, 800, [frame(0, 4000, 60, 50)]).shot.height).toBe(4050 + 400);
+});
+
+test('a card is joined to the nearest side of its target by an S curve that leaves the card and meets the target level', () => {
+	const target = frame(400, 200, 100, 40);
+	expect(connector({ isLeft: true, origin: { x: 24, y: 100 } }, target)).toEqual({
+		start: { x: 304, y: 120 },
+		control1: { x: 352, y: 120 },
+		control2: { x: 352, y: 202 },
+		end: { x: 400, y: 202 },
+	});
+	expect(connector({ isLeft: false, origin: { x: 600, y: 200 } }, target).end).toEqual({ x: 500, y: 220 });
 });

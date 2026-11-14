@@ -1,6 +1,6 @@
 import {
 	cards as metrics,
-	line,
+	connector,
 	nearestSource,
 	paletteColor,
 	place,
@@ -174,18 +174,38 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 	const context = canvas.getContext('2d')!;
 
 	const app = capture.environment.find(entry => entry.name === 'App')?.value ?? 'App';
+	const flagged = new Set(annotations.items.map(item => item.target));
 	const environment = layout(
 		context,
 		[
-			{ runs: [{ text: `Feedback: ${app}`, font: `700 16px ${sans}`, color: primary }], gap: 6 },
-			...capture.environment.flatMap(entry =>
-				entry.name === 'App'
-					? []
-					: [
-							{ runs: [{ text: entry.name.toUpperCase(), font: `600 10px ${sans}`, color: secondary, spacing: 0.5 }] },
-							{ runs: [{ text: entry.value, font: `12.5px ${sans}`, color: primary }], gap: 6 },
+			{ runs: [{ text: `Feedback: ${app}`, font: `700 16px ${sans}`, color: primary }], gap: 8 },
+			...capture.environment
+				.filter(entry => entry.name !== 'App')
+				.map(entry => ({
+					runs: [
+						{ text: `${entry.name}: `, font: `600 12.5px ${sans}`, color: secondary },
+						{ text: entry.value, font: `12.5px ${sans}`, color: primary },
+					],
+					gap: 4,
+				})),
+			...annotations.used
+				.filter(reference => !flagged.has(reference.target))
+				.map(reference => {
+					const source = nearestSource(capture, reference.target);
+					return {
+						runs: [
+							{
+								text: ` ${tag(reference)} `,
+								font: `700 11px ${sans}`,
+								color: 'white',
+								background: paletteColor(annotations.colorIndex(reference.target)),
+							},
+							...(source ? [{ text: ` ${source}`, font: `11px ${mono}`, color: primary }] : []),
+							{ text: ` ${title(capture.nodes[reference.target]!)}`, font: `12.5px ${sans}`, color: primary },
 						],
-			),
+						gap: 4,
+					};
+				}),
 		],
 		column,
 	);
@@ -263,10 +283,10 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 	for (const [index, item] of items.entries()) {
 		const target = inShot(item.frame);
 		dashedBox(context, target, item.color);
-		const { start, end } = line(placed.cards[index]!, target);
+		const { start, control1, control2, end } = connector(placed.cards[index]!, target);
 		context.beginPath();
 		context.moveTo(start.x, start.y);
-		context.lineTo(end.x, end.y);
+		context.bezierCurveTo(control1.x, control1.y, control2.x, control2.y, end.x, end.y);
 		context.lineWidth = 1.25;
 		context.strokeStyle = withAlpha(item.color, 0.6);
 		context.stroke();
@@ -280,7 +300,6 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 		});
 	}
 
-	const flagged = new Set(annotations.items.map(item => item.target));
 	for (const reference of annotations.used) {
 		const color = paletteColor(annotations.colorIndex(reference.target));
 		const target = inShot(capture.nodes[reference.target]!.frame);

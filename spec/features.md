@@ -116,7 +116,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 
 | ID | Feature | iOS | Svelte | React | Notes |
 | --- | --- | --- | --- | --- | --- |
-| X1 | The image export is one `feedback.png` with numbered boxes, a card per item, and the environment. Each card has the text at the top and the target with its `file:line` in a band at the bottom. The environment sits at the top of the right column, with that column's cards under it. A tall capture is cut half a screen below the lowest box or card, and is at least one screen tall. | shipped | shipped | shipped | Web: drawn on a canvas with the layout rules of `report.md`. |
+| X1 | The image export is one `feedback.png` with numbered boxes, a card per item, and the environment. Each card has the text at the top and the target with its `file:line` in a band at the bottom, and an S curve to its box that avoids other boxes and curves. The environment sits at the top of the right column as `Name: value` lines, with a `file:line` line for each reference that has no card, and that column's cards under it. When one column holds everything with no crossing, the image drops the other column. A tall capture is cut half a screen below the lowest box or card, and is at least one screen tall. | shipped | shipped | shipped | Web: drawn on a canvas with the layout rules of `report.md`. |
 | X2 | The JSON export is one `feedback.json` with the items, the tree, the component data, and the context. | shipped | shipped | shipped | |
 | X3 | Image and JSON export together as one `feedback.zip`. | shipped | shipped | shipped | |
 | X4 | **Copy Feedback** puts the image export on the clipboard as one PNG. | shipped | shipped | shipped | Web: `navigator.clipboard.write`, in a secure context. |

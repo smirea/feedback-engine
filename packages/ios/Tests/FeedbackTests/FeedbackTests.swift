@@ -251,34 +251,37 @@ private final class Store {
     #expect(capture.similar(to: capture.hitTest(CGPoint(x: 100, y: 340))).map { capture.nodes[$0].frame.minY } == [379])
 }
 
-@Test func imageCardsGoBesideTheSideTheirTargetIsOnUnderTheEnvironment() {
+@Test func imageCardsTakeTheColumnWhoseLineCrossesNothingWhenOneColumnWouldCross() {
     let layout = CardLayout.place(
-        targets: [
-            CGRect(x: 0, y: 50, width: 60, height: 44),
-            CGRect(x: 350, y: 50, width: 44, height: 44),
-            CGRect(x: 0, y: 600, width: 400, height: 100),
-        ],
-        heights: [60, 60, 60],
+        targets: [CGRect(x: 0, y: 300, width: 60, height: 40), CGRect(x: 340, y: 300, width: 60, height: 40)],
+        heights: [60, 60],
         screen: screen,
         environmentHeight: 150,
-        viewport: 800
+        viewport: 800,
+        references: [CGRect(x: 150, y: 280, width: 100, height: 80)]
     )
     #expect(layout.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
     #expect(layout.cards == [
-        .init(isLeft: true, origin: CGPoint(x: 24, y: 66)),
-        .init(isLeft: false, origin: CGPoint(x: 776, y: 198)),
-        .init(isLeft: true, origin: CGPoint(x: 24, y: 644)),
+        .init(isLeft: true, origin: CGPoint(x: 24, y: 314)),
+        .init(isLeft: false, origin: CGPoint(x: 776, y: 314)),
     ])
     #expect(layout.environment == CGPoint(x: 776, y: 24))
     #expect(layout.size == CGSize(width: 1080, height: 848))
 }
 
-@Test func theEnvironmentStaysAtTheTopWhenNoCardIsNearIt() {
+@Test func oneColumnKeepsOnlyAMarginOnTheOtherSide() {
     let layout = CardLayout.place(
         targets: [CGRect(x: 360, y: 700, width: 30, height: 30)], heights: [50], screen: screen, environmentHeight: 200, viewport: 800
     )
-    #expect(layout.cards == [.init(isLeft: false, origin: CGPoint(x: 776, y: 714))])
-    #expect(layout.environment == CGPoint(x: 776, y: 24))
+    #expect(layout.shot == CGRect(x: 24, y: 24, width: 400, height: 800))
+    #expect(layout.cards == [.init(isLeft: false, origin: CGPoint(x: 460, y: 714))])
+    #expect(layout.environment == CGPoint(x: 460, y: 24))
+    #expect(layout.size == CGSize(width: 764, height: 848))
+}
+
+@Test func aCardIsJoinedToItsTargetByAnSCurveThatMeetsItLevel() {
+    let curve = CardLayout.connector(.init(isLeft: true, origin: CGPoint(x: 24, y: 100)), to: CGRect(x: 400, y: 200, width: 100, height: 40))
+    #expect(curve == .init(start: CGPoint(x: 304, y: 120), control1: CGPoint(x: 352, y: 120), control2: CGPoint(x: 352, y: 202), end: CGPoint(x: 400, y: 202)))
 }
 
 @Test func aTallCaptureIsCutHalfAScreenBelowTheLowestCardAndIsAtLeastOneScreenTall() {
@@ -928,6 +931,8 @@ private struct Fixture: Decodable {
     }
 
     struct Cards: Decodable {
+        let name: String
+        let screen: Size
         let targets: [Rect]
         let heights: [CGFloat]
         let environmentHeight: CGFloat
@@ -955,7 +960,7 @@ private struct Fixture: Decodable {
         let hitTests: [Int]
         let similar: [[Int]]
         let colorIndexes: [Int]
-        let cards: Layout
+        let cards: [Layout]
         let taskTitle: Title
     }
 
@@ -969,7 +974,7 @@ private struct Fixture: Decodable {
     let hitTests: [[CGFloat]]
     let similar: [Int]
     let segments: String
-    let cards: Cards
+    let cards: [Cards]
     let summary: String
     let expected: Expected
 }
@@ -1025,14 +1030,17 @@ private struct Fixture: Decodable {
     let report = try #require(JSONSerialization.jsonObject(with: Data(Report.json(capture, annotations).utf8)) as? NSDictionary)
     #expect(report == expected["report"] as? NSDictionary)
 
-    let layout = CardLayout.place(targets: fixture.cards.targets.map(\.cgRect), heights: fixture.cards.heights, screen: screen, environmentHeight: fixture.cards.environmentHeight,
-        viewport: fixture.cards.viewport, references: fixture.cards.references.map(\.cgRect)
-    )
-    let wanted = fixture.expected.cards
-    #expect(layout.shot == wanted.shot.cgRect)
-    #expect(layout.cards == wanted.cards.map { .init(isLeft: $0.isLeft, origin: CGPoint(x: $0.origin.x, y: $0.origin.y)) })
-    #expect(layout.environment == CGPoint(x: wanted.environment.x, y: wanted.environment.y))
-    #expect(layout.size == CGSize(width: wanted.size.width, height: wanted.size.height))
+    #expect(fixture.cards.count == fixture.expected.cards.count)
+    for (cards, wanted) in zip(fixture.cards, fixture.expected.cards) {
+        let layout = CardLayout.place(
+            targets: cards.targets.map(\.cgRect), heights: cards.heights, screen: CGSize(width: cards.screen.width, height: cards.screen.height),
+            environmentHeight: cards.environmentHeight, viewport: cards.viewport, references: cards.references.map(\.cgRect)
+        )
+        #expect(layout.shot == wanted.shot.cgRect, "\(cards.name)")
+        #expect(layout.cards == wanted.cards.map { .init(isLeft: $0.isLeft, origin: CGPoint(x: $0.origin.x, y: $0.origin.y)) }, "\(cards.name)")
+        #expect(layout.environment == CGPoint(x: wanted.environment.x, y: wanted.environment.y), "\(cards.name)")
+        #expect(layout.size == CGSize(width: wanted.size.width, height: wanted.size.height), "\(cards.name)")
+    }
 
     let title = TaskTitle(capture, items: annotations.items)
     #expect(title.placeholder == fixture.expected.taskTitle.placeholder)
