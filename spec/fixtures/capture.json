@@ -817,7 +817,7 @@
 			{
 				"shot": {
 					"x": 340,
-					"y": 49,
+					"y": 24,
 					"width": 400,
 					"height": 780
 				},
@@ -826,44 +826,44 @@
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 223
+							"y": 198
 						}
 					},
 					{
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 295
+							"y": 270
 						}
 					},
 					{
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 669
+							"y": 644
 						}
 					}
 				],
 				"environment": {
 					"x": 24,
-					"y": 49
+					"y": 24
 				},
 				"watermark": {
 					"isLeft": true,
 					"origin": {
 						"x": 24,
-						"y": 24
+						"y": 5.5
 					}
 				},
 				"size": {
 					"width": 764,
-					"height": 853
+					"height": 828
 				}
 			},
 			{
 				"shot": {
 					"x": 24,
-					"y": 49,
+					"y": 24,
 					"width": 393,
 					"height": 852
 				},
@@ -872,37 +872,37 @@
 						"isLeft": false,
 						"origin": {
 							"x": 453,
-							"y": 646.5
+							"y": 621.5
 						}
 					},
 					{
 						"isLeft": false,
 						"origin": {
 							"x": 453,
-							"y": 491.5
+							"y": 466.5
 						}
 					}
 				],
 				"environment": {
 					"x": 453,
-					"y": 49
+					"y": 24
 				},
 				"watermark": {
 					"isLeft": false,
 					"origin": {
 						"x": 453,
-						"y": 24
+						"y": 5.5
 					}
 				},
 				"size": {
 					"width": 757,
-					"height": 925
+					"height": 900
 				}
 			},
 			{
 				"shot": {
 					"x": 340,
-					"y": 49,
+					"y": 24,
 					"width": 393,
 					"height": 852
 				},
@@ -911,45 +911,45 @@
 						"isLeft": false,
 						"origin": {
 							"x": 769,
-							"y": 558.5
+							"y": 533.5
 						}
 					},
 					{
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 491.5
+							"y": 466.5
 						}
 					},
 					{
 						"isLeft": true,
 						"origin": {
 							"x": 24,
-							"y": 139
+							"y": 114
 						}
 					},
 					{
 						"isLeft": false,
 						"origin": {
 							"x": 769,
-							"y": 303
+							"y": 278
 						}
 					}
 				],
 				"environment": {
 					"x": 769,
-					"y": 49
+					"y": 24
 				},
 				"watermark": {
 					"isLeft": false,
 					"origin": {
 						"x": 769,
-						"y": 24
+						"y": 5.5
 					}
 				},
 				"size": {
 					"width": 1073,
-					"height": 925
+					"height": 900
 				}
 			}
 		],

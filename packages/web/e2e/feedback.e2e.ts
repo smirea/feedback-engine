@@ -365,9 +365,8 @@ for (const app of appNames) {
 					).toEqual([['@1_ListRow', 'ListRow']]);
 					const image = PNG.sync.read(Buffer.from(await Bun.file(join(folder, 'feedback/feedback.png')).arrayBuffer()));
 					// One card is level with its row and crosses nothing, so one column, a gutter, and a margin on each side, at 2x.
-					// The watermark's strip and its spacing sit above the screenshot.
 					expect(image.width).toBe((24 + 280 + 36 + viewport.width + 24) * 2);
-					expect(image.height).toBe((24 + 13 + 12 + zipped.size.height + 24) * 2);
+					expect(image.height).toBe((24 + zipped.size.height + 24) * 2);
 
 					if (engine === 'chromium') {
 						await page.getByRole('button', { name: 'Copy Feedback' }).click();

@@ -402,8 +402,8 @@ test('nesting stops after 3 levels, lists after 10 elements, and the whole descr
 test('a tall capture is cut half a screen below the lowest box or card, and is at least one screen tall', () => {
 	const tall = { width: 400, height: 5000 };
 	const near = place([frame(0, 100, 60, 44)], [60], tall, 150, 800);
-	expect(near.shot).toEqual(frame(340, 49, 400, 800));
-	expect(near.size.height).toBe(873);
+	expect(near.shot).toEqual(frame(340, 24, 400, 800));
+	expect(near.size.height).toBe(848);
 	expect(place([frame(0, 3000, 60, 50)], [60], tall, 150, 800).shot.height).toBe(3055 + 400);
 	expect(place([frame(0, 100, 60, 44)], [60], tall, 150, 800, [frame(0, 4000, 60, 50)]).shot.height).toBe(4050 + 400);
 });

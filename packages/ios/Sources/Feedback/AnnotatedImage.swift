@@ -3,7 +3,7 @@ import CoreGraphics
 /// Where the image export puts each item's card. Cards go in the column whose path to the target costs
 /// least: its length, `rightColumnPenalty` points for the right column, and `crossingPenalty` for each
 /// other box or earlier path it crosses, as level with the target as the cards above allow. The
-/// watermark has a strip across the top of the image, in the outer corner of the environment's column.
+/// watermark sits in the top margin, centered in it, in the outer corner of the environment's column.
 /// The environment sits at the top of the right column, and right-column cards start below it. When one
 /// column holds the environment and every card with no crossing and no taller image, the image drops
 /// the other column and keeps only a margin on that side, and of the two sides it takes the one whose
@@ -75,20 +75,19 @@ enum CardLayout {
     private static func arrange(
         _ columns: Columns, targets: [CGRect], heights: [CGFloat], screen: CGSize, environmentHeight: CGFloat, viewport: CGFloat, references: [CGRect]
     ) -> Arrangement {
-        let top = margin + watermark + spacing
-        var shot = CGRect(x: columns == .right ? margin : margin + column + gutter, y: top, width: screen.width, height: screen.height)
+        var shot = CGRect(x: columns == .right ? margin : margin + column + gutter, y: margin, width: screen.width, height: screen.height)
         let rightX = shot.maxX + gutter
         let moved = targets.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
         let boxes = moved + references.map { $0.offsetBy(dx: shot.minX, dy: shot.minY) }
         var cards = moved.map { _ in Card(isLeft: true, origin: .zero) }
         var paths: [[CGPoint]] = []
-        let environment = CGPoint(x: columns == .left ? margin : rightX, y: top)
-        let underEnvironment = top + environmentHeight + spacing * 2
-        var nextLeft = columns == .left ? underEnvironment : top, nextRight = underEnvironment
+        let environment = CGPoint(x: columns == .left ? margin : rightX, y: margin)
+        let underEnvironment = margin + environmentHeight + spacing * 2
+        var nextLeft = columns == .left ? underEnvironment : margin, nextRight = underEnvironment
         var cost: CGFloat = 0, crossed = 0
         for index in moved.indices.sorted(by: { (moved[$0].midY, $0) < (moved[$1].midY, $1) }) {
             let target = moved[index]
-            let desired = max(target.midY - heights[index] / 2, top)
+            let desired = max(target.midY - heights[index] / 2, margin)
             var options: [Card] = []
             if columns != .right { options.append(Card(isLeft: true, origin: CGPoint(x: margin, y: max(desired, nextLeft)))) }
             if columns != .left { options.append(Card(isLeft: false, origin: CGPoint(x: rightX, y: max(desired, nextRight)))) }
@@ -113,7 +112,7 @@ enum CardLayout {
         shot.size.height = min(screen.height, max(viewport, lowest + viewport / 2))
         let layout = Layout(
             shot: shot, cards: cards, environment: environment,
-            watermark: Card(isLeft: columns == .left, origin: CGPoint(x: environment.x, y: margin)),
+            watermark: Card(isLeft: columns == .left, origin: CGPoint(x: environment.x, y: (margin - watermark) / 2)),
             size: CGSize(
                 width: columns == .left ? shot.maxX + margin : rightX + column + margin,
                 height: max(shot.maxY, nextLeft - spacing, nextRight - spacing) + margin

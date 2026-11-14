@@ -106,10 +106,9 @@ function arrange(
 	references: Frame[],
 ): Arrangement {
 	const { margin, column, gutter, spacing, rightColumnPenalty, crossingPenalty, watermark } = cards;
-	const top = margin + watermark + spacing;
 	const shot = {
 		x: columns === 'right' ? margin : margin + column + gutter,
-		y: top,
+		y: margin,
 		width: screen.width,
 		height: screen.height,
 	};
@@ -120,16 +119,16 @@ function arrange(
 	const midY = (index: number) => moved[index]!.y + moved[index]!.height / 2;
 	const placed: Card[] = moved.map(() => ({ isLeft: true, origin: { x: 0, y: 0 } }));
 	const paths: Point[][] = [];
-	const environment = { x: columns === 'left' ? margin : rightX, y: top };
-	const underEnvironment = top + environmentHeight + spacing * 2;
-	let nextLeft = columns === 'left' ? underEnvironment : top;
+	const environment = { x: columns === 'left' ? margin : rightX, y: margin };
+	const underEnvironment = margin + environmentHeight + spacing * 2;
+	let nextLeft = columns === 'left' ? underEnvironment : margin;
 	let nextRight = underEnvironment;
 	let cost = 0;
 	let crossed = 0;
 	const order = moved.map((_, index) => index).toSorted((a, b) => midY(a) - midY(b) || a - b);
 	for (const index of order) {
 		const target = moved[index]!;
-		const desired = Math.max(midY(index) - heights[index]! / 2, top);
+		const desired = Math.max(midY(index) - heights[index]! / 2, margin);
 		const options: Card[] = [];
 		if (columns !== 'right') options.push({ isLeft: true, origin: { x: margin, y: Math.max(desired, nextLeft) } });
 		if (columns !== 'left') options.push({ isLeft: false, origin: { x: rightX, y: Math.max(desired, nextRight) } });
@@ -161,7 +160,7 @@ function arrange(
 		shot,
 		cards: placed,
 		environment,
-		watermark: { isLeft: columns === 'left', origin: { x: environment.x, y: margin } },
+		watermark: { isLeft: columns === 'left', origin: { x: environment.x, y: (margin - watermark) / 2 } },
 		size: { width: columns === 'left' ? shot.x + shot.width + margin : rightX + column + margin, height },
 		cost,
 		crossings: crossed,
@@ -171,7 +170,7 @@ function arrange(
 /**
  * Where the image export puts each item's card. Cards go in the column whose path to the target costs least: its
  * length, `rightColumnPenalty` points for the right column, and `crossingPenalty` for each other box or earlier path
- * it crosses, as level with the target as the cards above allow. The watermark has a strip across the top of the image,
+ * it crosses, as level with the target as the cards above allow. The watermark sits in the top margin, centered in it,
  * in the outer corner of the environment's column. The environment sits at the top of the right column, and
  * right-column cards start below it. When one column holds the
  * environment and every card with no crossing and no taller image, the image drops the other column and keeps only a
