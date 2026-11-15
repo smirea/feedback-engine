@@ -313,6 +313,8 @@ struct ProcrastimateSheet: View {
         let host = UIHostingController<ProcrastimateSheet?>(rootView: nil)
         host.rootView = ProcrastimateSheet(session: session) { [weak host] in host?.dismiss(animated: true) }
         host.overrideUserInterfaceStyle = .dark
+        // The sheet's own background is drawn outside the controller's view, so it needs the style too.
+        host.sheetPresentationController?.traitOverrides.userInterfaceStyle = .dark
         host.sheetPresentationController?.detents = [.medium(), .large()]
         return host
     }
