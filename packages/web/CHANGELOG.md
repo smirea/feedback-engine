@@ -1,5 +1,15 @@
 # @stefan.inc/feedback-engine
 
+## 1.3.0
+
+### Minor Changes
+
+- 45f2c3e: `setupFeedbackEngine({ pinned })` chooses which Share menu entries get a button beside Share, by name, such as `['ProcrastiMate']`. The others stay in the Share menu. Without it, the first two still get one.
+
+### Patch Changes
+
+- 45f2c3e: The editor's header drops the Feedback list button and its sheet. Share now sits left of the pinned buttons, and the header's buttons are plain icons, larger than before, with no round background.
+
 ## 1.2.4
 
 ### Patch Changes
