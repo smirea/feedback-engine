@@ -278,6 +278,12 @@ setupFeedbackEngine({
 
 Each webhook also takes `headers` and `query`, as fixed values or as a function that runs when the post is made, for a token the user only has once signed in. [docs/webhooks.md](https://github.com/smirea/feedback-engine/blob/master/docs/webhooks.md) has the request, the answer a server gives, and a server that files every post as a GitHub issue.
 
+The first two of ProcrastiMate and the webhooks also get a button beside Share. To choose them yourself, list their names in `pinned`, and the rest stay in the Share menu:
+
+```ts
+setupFeedbackEngine({ webhooks, pinned: ['ProcrastiMate'] });
+```
+
 ## Releases
 
 Every change is a release, versioned by [semver](https://semver.org). [CHANGELOG.md](https://github.com/smirea/feedback-engine/blob/master/packages/web/CHANGELOG.md) lists them. A major version is only for a change that breaks an app that upgrades without editing its code.

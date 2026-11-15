@@ -9,6 +9,7 @@ struct TodoDemoApp: App {
         let store = TodoStore.sample()
         _store = State(initialValue: store)
         Feedback.enable()
+        Feedback.pinned = ["ProcrastiMate"]
         // Set by the launch environment, such as `SIMCTL_CHILD_FEEDBACK_WEBHOOK_URL` for `simctl launch`.
         let environment = ProcessInfo.processInfo.environment
         if let url = environment["FEEDBACK_WEBHOOK_URL"].flatMap(URL.init(string:)) {

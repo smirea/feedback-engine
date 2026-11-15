@@ -23,9 +23,8 @@
 		type ExportFormat,
 	} from '../dom/share.ts';
 	import type { Webhook } from '../dom/webhook.ts';
-	import { destinations, shortcutCount, type Destination } from './destinations.ts';
+	import { destinations, pinnedDestinations, type Destination } from './destinations.ts';
 	import type { Engine } from './engine.ts';
-	import ItemsSheet from './ItemsSheet.svelte';
 	import ProcrastimateSheet from './ProcrastimateSheet.svelte';
 	import WebhookSheet from './WebhookSheet.svelte';
 
@@ -88,12 +87,13 @@
 	let zoom = $state(1);
 	let hover = $state<number>();
 	let showsInfo = $state(false);
-	let showsList = $state(false);
 	let showsShare = $state(false);
 	let showsProcrastimate = $state(false);
 	let posting = $state<Webhook>();
 	// svelte-ignore state_referenced_locally
 	const targets = destinations(engine.options);
+	// svelte-ignore state_referenced_locally
+	const pinned = pinnedDestinations(targets, engine.options.pinned);
 	let confirmsClose = $state(false);
 	let pending = $state<{ format: ExportFormat; ready: Export }>();
 	let busy = $state(false);
@@ -202,8 +202,8 @@
 	}
 
 	function requestClose() {
-		if (showsInfo || showsList || showsShare || showsProcrastimate || posting || pending) {
-			showsInfo = showsList = showsShare = showsProcrastimate = false;
+		if (showsInfo || showsShare || showsProcrastimate || posting || pending) {
+			showsInfo = showsShare = showsProcrastimate = false;
 			posting = pending = undefined;
 		} else if (session.isTyping || session.unshared.length) {
 			confirmsClose = true;
@@ -267,39 +267,14 @@
 	}}
 >
 	<header>
-		<button type="button" class="round" aria-label="Close" onclick={requestClose}>
+		<button type="button" class="nav" aria-label="Close" onclick={requestClose}>
 			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
 		</button>
 		<h1>Feedback</h1>
-		<button
-			type="button"
-			class="round"
-			aria-label="Feedback list, {count(view.items.length)}"
-			onclick={() => (showsList = true)}
-		>
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" /></svg>
-			{#if view.items.length}<span class="count" aria-hidden="true">{view.items.length}</span>{/if}
-		</button>
-		{#each targets.slice(0, shortcutCount) as destination, index (index)}
-			<button
-				type="button"
-				class="round"
-				aria-label={destination.name}
-				title={destination.name}
-				disabled={!view.items.length || busy}
-				onclick={() => send(destination)}
-			>
-				{#if destination.image}
-					<img src={destination.image} alt="" />
-				{:else}
-					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
-				{/if}
-			</button>
-		{/each}
 		<div class="menu">
 			<button
 				type="button"
-				class="round"
+				class="nav"
 				aria-label="Share"
 				aria-haspopup="menu"
 				aria-expanded={showsShare}
@@ -322,6 +297,22 @@
 				</div>
 			{/if}
 		</div>
+		{#each pinned as destination, index (index)}
+			<button
+				type="button"
+				class="nav"
+				aria-label={destination.name}
+				title={destination.name}
+				disabled={!view.items.length || busy}
+				onclick={() => send(destination)}
+			>
+				{#if destination.image}
+					<img src={destination.image} alt="" />
+				{:else}
+					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
+				{/if}
+			</button>
+		{/each}
 	</header>
 
 	<div class="body">
@@ -500,19 +491,6 @@
 		</div>
 	{/if}
 
-	{#if showsList}
-		<ItemsSheet
-			{session}
-			{version}
-			onclose={() => (showsList = false)}
-			onselect={id => {
-				act(() => session.select(id));
-				showsList = false;
-			}}
-			onremove={id => act(() => session.remove(id))}
-		/>
-	{/if}
-
 	{#if showsProcrastimate && engine.options.procrastimate}
 		<ProcrastimateSheet
 			{screen}
@@ -626,8 +604,8 @@
 	header {
 		display: flex;
 		align-items: center;
-		gap: 12px;
-		padding: 8px 16px;
+		gap: 4px;
+		padding: 4px 8px;
 	}
 
 	h1 {
@@ -643,7 +621,6 @@
 	}
 
 	.round {
-		position: relative;
 		display: grid;
 		place-items: center;
 		width: 36px;
@@ -653,10 +630,25 @@
 		background: #2c2c2e;
 	}
 
-	.round img {
-		width: 22px;
-		height: 22px;
+	.nav {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		border: 0;
+		padding: 0;
+		background: none;
+	}
+
+	.nav img {
+		width: 30px;
+		height: 30px;
 		object-fit: contain;
+	}
+
+	.nav svg {
+		width: 26px;
+		height: 26px;
 	}
 
 	.round.small {
@@ -672,19 +664,6 @@
 		stroke-width: 2.2;
 		stroke-linecap: round;
 		stroke-linejoin: round;
-	}
-
-	.count {
-		position: absolute;
-		top: -4px;
-		right: -4px;
-		min-width: 18px;
-		border-radius: 9px;
-		padding: 0 4px;
-		background: #ff3b30;
-		font-size: 11px;
-		font-weight: 700;
-		line-height: 18px;
 	}
 
 	.menu {

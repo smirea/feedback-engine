@@ -8,9 +8,6 @@ export type Destination = { name: string; image?: string } & (
 	| { kind: 'webhook'; webhook: Webhook }
 );
 
-/** How many destinations also get a button beside Share. */
-export const shortcutCount = 2;
-
 /** ProcrastiMate first, then the webhooks with GitHub's icon, then the other webhooks in the app's order. */
 export function destinations(options: { procrastimate?: ProcrastimateConfig; webhooks?: Webhook[] }): Destination[] {
 	const webhooks = [...(options.webhooks ?? [])].sort(
@@ -22,4 +19,13 @@ export function destinations(options: { procrastimate?: ProcrastimateConfig; web
 			: []),
 		...webhooks.map(webhook => ({ kind: 'webhook' as const, name: webhook.name, image: webhook.image, webhook })),
 	];
+}
+
+/**
+ * The destinations that also get a button beside Share: the ones `pinned` names, in its order, or the first two
+ * without it. A name with no destination is skipped, since a webhook can join the list after setup.
+ */
+export function pinnedDestinations(all: Destination[], pinned: string[] | undefined): Destination[] {
+	if (!pinned) return all.slice(0, 2);
+	return pinned.flatMap(name => all.filter(destination => destination.name === name));
 }

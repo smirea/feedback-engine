@@ -22,6 +22,7 @@
 					},
 				]
 			: [],
+		pinned: ['ProcrastiMate'],
 	});
 	feedback.context('TodoStore', () => store);
 </script>

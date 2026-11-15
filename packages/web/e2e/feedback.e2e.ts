@@ -257,7 +257,6 @@ for (const app of appNames) {
 			for (const engine of engineNames) {
 				test(`giving feedback at ${name} width in ${engine}`, async () => {
 					const { page, context, errors } = await open(app, engine, 'dev', '/', viewport);
-					const report = async () => JSON.parse((await lastExport(page))[0]!.bytes.toString());
 
 					// Alt+Meta+click opens the editor on the row under the pointer, and the link under it does not take the click.
 					await page.getByRole('link', { name: /^Groceries/ }).click({ modifiers: ['Alt', 'Meta'] });
@@ -320,22 +319,6 @@ for (const app of appNames) {
 					await field(page).fill('Row is too tall on phones');
 					await page.getByRole('button', { name: 'Save feedback' }).click();
 
-					await page.getByRole('button', { name: 'Feedback list, 2 items' }).click();
-					const list = page.getByRole('dialog', { name: 'Feedback list' });
-					expect(await list.locator('li strong').allInnerTexts()).toEqual(['ListRow', 'Header "Lists"']);
-					expect(await list.locator('.token').allInnerTexts()).toEqual(['@1_ListRow']);
-					expect(await list.locator('summary').allInnerTexts()).toEqual([
-						'App',
-						'Location',
-						'Version',
-						'Device',
-						'Display',
-						'Captured',
-						'Locale',
-						'TodoStore',
-					]);
-					await list.getByRole('button', { name: 'Done' }).click();
-
 					await page.getByRole('button', { name: 'Close' }).click();
 					const confirm = page.getByRole('alertdialog', { name: 'Discard feedback?' });
 					expect(await confirm.locator('p').innerText()).toBe("Closing discards 2 items you haven't shared.");
@@ -381,17 +364,6 @@ for (const app of appNames) {
 						await page.getByRole('button', { name: 'Save File' }).click();
 						expect((await download).suggestedFilename()).toBe('feedback.zip');
 					}
-
-					await page.getByRole('button', { name: 'Feedback list, 2 items' }).click();
-					await list.getByRole('button', { name: 'Remove item 1' }).click();
-					await list.getByRole('button', { name: 'Done' }).click();
-					await page.getByRole('button', { name: 'Share' }).click();
-					await page.getByRole('menuitem', { name: 'JSON', exact: true }).click();
-					await page.getByRole('dialog', { name: 'Share JSON' }).waitFor();
-					expect(
-						(await report()).items.map((item: { number: number; text: string }) => [item.number, item.text]),
-					).toEqual([[2, 'Smaller, like @1_ListRow']]);
-					await page.getByRole('dialog', { name: 'Share JSON' }).getByRole('button', { name: 'Cancel' }).click();
 
 					await page.getByRole('button', { name: 'Close' }).click();
 					await editor(page).waitFor({ state: 'detached' });
@@ -678,17 +650,15 @@ for (const app of appNames) {
 			await context.close();
 		});
 
-		test('ProcrastiMate and the GitHub webhook have buttons beside Share that start their posts', async () => {
+		test('the pinned ProcrastiMate has a button beside Share, and the GitHub webhook stays in the Share menu', async () => {
 			webhook.posts.length = 0;
 			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
 			await present(page);
 			const header = editor(page).locator('header button');
 			expect(await header.evaluateAll(buttons => buttons.map(button => button.getAttribute('aria-label')))).toEqual([
 				'Close',
-				'Feedback list, 0 items',
-				'ProcrastiMate',
-				'GitHub Issue',
 				'Share',
+				'ProcrastiMate',
 			]);
 			const shortcut = (name: string) => editor(page).getByRole('button', { name, exact: true });
 			expect(await shortcut('ProcrastiMate').isDisabled()).toBe(true);
@@ -696,7 +666,7 @@ for (const app of appNames) {
 				await shortcut('ProcrastiMate')
 					.locator('img')
 					.evaluate((image: HTMLImageElement) => [image.naturalWidth, image.getBoundingClientRect().width]),
-			).toEqual([66, 22]);
+			).toEqual([66, 30]);
 
 			await tap(page, 100, 270);
 			await field(page).fill('Row is too tall');
@@ -706,7 +676,8 @@ for (const app of appNames) {
 			await page.keyboard.press('Escape');
 			await page.getByRole('form', { name: 'Add to ProcrastiMate' }).waitFor({ state: 'detached' });
 
-			await shortcut('GitHub Issue').click();
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'GitHub Issue' }).click();
 			await page.locator('.toast').waitFor();
 			expect(webhook.posts.length).toBe(1);
 			expect(errors).toEqual([]);
@@ -901,17 +872,6 @@ for (const app of appNames) {
 			const inside = report.nodes.find(node => node.label === 'Inside')!.frame;
 			await tap(page, inside.x + 5, inside.y + 5);
 			expect(await page.locator('.selected').innerText()).toBe('Button "Inside"');
-			expect(errors).toEqual([]);
-			await context.close();
-		});
-
-		test('context named like an environment entry shows beside it in the list', async () => {
-			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
-			await page.evaluate(() => globalThis.__feedbackEngine!.context('App', () => ({ build: 7 })));
-			await present(page);
-			await page.getByRole('button', { name: /^Feedback list/ }).click();
-			const names = await page.getByRole('dialog', { name: 'Feedback list' }).locator('summary').allInnerTexts();
-			expect(names.filter(name => name === 'App').length).toBe(2);
 			expect(errors).toEqual([]);
 			await context.close();
 		});

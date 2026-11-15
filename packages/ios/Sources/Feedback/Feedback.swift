@@ -29,6 +29,11 @@ public enum Feedback {
     /// and the JSON export to its `url`, with nothing more to fill in.
     public static var webhooks: [FeedbackWebhook] = []
 
+    /// The Share menu entries that also get a button beside Share, by name, in this order:
+    /// `"ProcrastiMate"` or a webhook's `name`. A name the menu does not list is skipped. When `nil`,
+    /// the first two of ProcrastiMate and the webhooks get one. `[]` gives none.
+    public static var pinned: [String]?
+
     /// Turns on shake-to-feedback: shaking shows a button that captures the screen and opens
     /// the editor.
     /// Call it once at launch, for example in `App.init`. It also sends ProcrastiMate posts an
@@ -243,8 +248,12 @@ enum ShareTarget: Hashable {
         [.image, .json, .zip] + destinations
     }
 
-    /// How many destinations also get a button beside Share.
-    static let shortcutCount = 2
+    /// The destinations that also get a button beside Share: the ones `Feedback.pinned` names, in its
+    /// order, or the first two without it.
+    static var pinned: [ShareTarget] {
+        guard let names = Feedback.pinned else { return Array(destinations.prefix(2)) }
+        return names.flatMap { name in destinations.filter { $0.title == name } }
+    }
 
     /// ProcrastiMate, only in an app that can reach it, then the webhooks with GitHub's icon, then the
     /// other webhooks in the app's order.

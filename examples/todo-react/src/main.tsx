@@ -23,6 +23,7 @@ const feedback = setupFeedbackEngine({
 				},
 			]
 		: [],
+	pinned: ['ProcrastiMate'],
 });
 feedback.context('TodoStore', () => store);
 

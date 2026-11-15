@@ -99,7 +99,6 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | E5 | The user types feedback and submits it. Each item gets a numbered box. | shipped | shipped | shipped | Web: Enter submits, and Shift with Enter adds a line. The number badge of a box at the screenshot's edge is drawn whole, outside the picture's rounded corners. |
 | E6 | A tap inside a numbered box brings back that item's feedback for editing. A second tap drills down. | shipped | shipped | shipped | |
 | E7 | Feedback belongs to one level of the hierarchy. | shipped | shipped | shipped | |
-| E8 | A list shows the items, lets the user remove them, and shows the context that will be attached. | shipped | shipped | shipped | |
 | E9 | Closing asks first when items were never shared, and gives focus back to the field that had it. | shipped | shipped | shipped | |
 | E10 | A draft survives a visit to a target that already has feedback. | shipped | shipped | shipped | |
 | E11 | While the editor is open, assistive technology and UI automation see only the editor. | shipped | shipped | shipped | iOS: hides the app's windows from accessibility. Web: a modal dialog in the top layer makes the page inert. |
@@ -126,7 +125,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | X8 | Each export is written to a file an agent can read without the share sheet. | shipped | shipped | shipped | iOS: `tmp/feedback.*` in the app's container. Web: `__feedbackEngine.lastExport` on the page holds the files. |
 | X9 | An item counts as shared once a share completes. | shipped | shipped | shipped | |
 | X10 | The exports carry the references. The image draws a box for each referenced node and highlights each token in its color. The JSON lists them under `references`. | shipped | shipped | shipped | |
-| X11 | The first two destinations beyond the exports also get a button left of Share, each with its icon, so a post takes one tap. ProcrastiMate comes first, then the webhooks with GitHub's icon, then the other webhooks, in the Share menu too. | shipped | shipped | shipped | ProcrastiMate's icon is its app icon without the tile, a 66 pixel PNG that `scripts/procrastimate-icon.ts` renders from ProcrastiMate's `app-icon.svg`. A webhook without an image gets a paper plane. |
+| X11 | The first two destinations beyond the exports also get a button left of Share, each with its icon, so a post takes one tap. ProcrastiMate comes first, then the webhooks with GitHub's icon, then the other webhooks, in the Share menu too. An app that lists names in `pinned` gets buttons for those destinations instead, in that order, and the rest stay in the Share menu only. | shipped | shipped | shipped | ProcrastiMate's icon is its app icon without the tile, a 66 pixel PNG that `scripts/procrastimate-icon.ts` renders from ProcrastiMate's `app-icon.svg`. A webhook without an image gets a paper plane. iOS: `Feedback.pinned`. Web: `setupFeedbackEngine({ pinned })`. |
 
 ## ProcrastiMate
 

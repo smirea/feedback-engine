@@ -9,7 +9,6 @@ struct EditorView: View {
     @Bindable var session: Session
     let dismiss: () -> Void
     let share: (ShareTarget) -> Void
-    @State private var showsList = false
     @State private var confirmsClose = false
     /// The panel's first height. The screenshot's scale stays fixed to it, so the picture does not
     /// jump as the panel grows with a selection or a longer draft.
@@ -73,63 +72,42 @@ struct EditorView: View {
             let count = session.unshared.count
             Text(count == 0 ? "Closing discards the feedback you're typing." : "Closing discards \(Self.items(count)) you haven't shared.")
         }
-        .sheet(isPresented: $showsList) {
-            ItemsSheet(session: session, share: share)
-                .presentationDetents([.medium, .large])
-        }
     }
 
     private var header: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 4) {
             Button("Close", systemImage: "xmark") {
                 if session.isTyping || !session.unshared.isEmpty { confirmsClose = true } else { dismiss() }
             }
                 .labelStyle(.iconOnly)
+                .frame(width: 44, height: 44)
             Spacer()
             Text("Feedback").font(.headline).lineLimit(1).minimumScaleFactor(0.6)
             Spacer()
-            Button {
-                composing = false
-                showsList = true
-            } label: {
-                Image(systemName: "list.bullet")
-            }
-            .accessibilityLabel("Feedback list, \(Self.items(session.items.count))")
-            .overlay(alignment: .topTrailing) {
-                if !session.items.isEmpty {
-                    Text("\(session.items.count)")
-                        .font(.caption2.bold())
-                        .foregroundStyle(.white)
-                        .frame(minWidth: 18, minHeight: 18)
-                        .background(.red, in: Capsule())
-                        .offset(x: 4, y: -4)
-                        .allowsHitTesting(false)
-                        .accessibilityHidden(true)
-                }
-            }
-            ForEach(ShareTarget.destinations.prefix(ShareTarget.shortcutCount), id: \.self) { target in
+            ShareMenu(share: share)
+                .labelStyle(.iconOnly)
+                .frame(width: 44, height: 44)
+                .disabled(session.items.isEmpty)
+            ForEach(ShareTarget.pinned, id: \.self) { target in
                 Button {
                     composing = false
                     share(target)
                 } label: {
                     if let image = target.image {
-                        image.resizable().scaledToFit().frame(width: 22, height: 22)
+                        image.resizable().scaledToFit().frame(width: 30, height: 30)
                     } else {
                         Image(systemName: target.systemImage)
                     }
                 }
+                .frame(width: 44, height: 44)
                 .accessibilityLabel(target.title)
                 .disabled(session.items.isEmpty)
             }
-            ShareMenu(share: share)
-                .labelStyle(.iconOnly)
-                .disabled(session.items.isEmpty)
         }
-        .font(.body.weight(.semibold))
-        .buttonStyle(.bordered)
-        .buttonBorderShape(.circle)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .font(.title2.weight(.medium))
+        .buttonStyle(.borderless)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 2)
     }
 
     private static func items(_ count: Int) -> String {
@@ -553,77 +531,6 @@ private struct ShareMenu: View {
             Label("Share", systemImage: "square.and.arrow.up")
         }
         .menuStyle(.button)
-    }
-}
-
-private struct ItemsSheet: View {
-    @Bindable var session: Session
-    let share: (ShareTarget) -> Void
-    @Environment(\.dismiss) private var dismiss
-
-    private func styled(_ text: String) -> AttributedString {
-        session.annotations.segments(text).reduce(into: AttributedString()) { result, segment in
-            if let reference = segment.reference {
-                var token = AttributedString("\u{00A0}\(segment.text)\u{00A0}")
-                token.backgroundColor = Palette.color(session.colorIndex(of: reference.target))
-                token.foregroundColor = .white
-                result += token
-            } else {
-                result += AttributedString(segment.text)
-            }
-        }
-    }
-
-    var body: some View {
-        NavigationStack {
-            List {
-                Section("Feedback") {
-                    if session.items.isEmpty {
-                        Text("No feedback yet. Tap a component, type, and press the arrow.").foregroundStyle(.secondary)
-                    }
-                    ForEach(session.items) { item in
-                        let target = session.capture.nodes[item.target]
-                        HStack(alignment: .top, spacing: 10) {
-                            Text("\(session.annotations.number(of: item.target))")
-                                .font(.caption.bold())
-                                .foregroundStyle(.white)
-                                .frame(width: 22, height: 22)
-                                .background(Palette.color(session.colorIndex(of: item.target)), in: Circle())
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(target.title).font(.subheadline.weight(.semibold)).lineLimit(1)
-                                Text(styled(item.text))
-                            }
-                            Spacer()
-                            Button("Remove", systemImage: "trash", role: .destructive) { session.remove(item.id) }
-                                .labelStyle(.iconOnly)
-                                .buttonStyle(.borderless)
-                        }
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            session.select(item.target)
-                            dismiss()
-                        }
-                    }
-                    .onDelete { offsets in offsets.map { session.items[$0].id }.forEach(session.remove) }
-                }
-                Section("Attached context") {
-                    ForEach(session.capture.environment + session.capture.context, id: \.self) { entry in
-                        DisclosureGroup(entry.name) {
-                            Text(entry.value).font(.caption.monospaced()).textSelection(.enabled)
-                        }
-                    }
-                }
-            }
-            .navigationTitle("Feedback")
-            .navigationBarTitleDisplayMode(.inline)
-            .dynamicTypeSize(...EditorView.largestTextSize)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } }
-                ToolbarItem(placement: .primaryAction) {
-                    ShareMenu(share: share).disabled(session.items.isEmpty)
-                }
-            }
-        }
     }
 }
 
