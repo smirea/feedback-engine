@@ -238,7 +238,7 @@ export default defineConfig({
 
 The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows in the Share menu, with the same picker and task as on iOS. Without it, the entry is not there, and nothing else changes. `setupFeedbackEngine()` needs no option for either case.
 
-- The token is a ProcrastiMate API token. `feedbackProcrastimate({ url })` names another ProcrastiMate server.
+- The token is a ProcrastiMate personal token, from Settings › Personal token. An AI account's token lists the projects but cannot upload the image, so the post fails with `Not for AI accounts`. `feedbackProcrastimate({ url })` names another ProcrastiMate server.
 - `feedbackProcrastimate({ project })` names the project the picker opens on, by name (ignoring case) or id, so an app's feedback lands in its own project. Without it, the picker opens on the last project posted to. A name ProcrastiMate does not have shows as an error above the list.
 - The proxy runs in `vite dev` and `vite preview`. A build reads the token too. Build a site you deploy without it, because a static host has no proxy.
 - For a proxy of your own, pass its address to the page instead: `setupFeedbackEngine({ procrastimate: { url: '/my-proxy' } })`.
