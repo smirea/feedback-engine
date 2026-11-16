@@ -7,6 +7,8 @@ export type ProcrastimateConfig = {
 	token?: string;
 	/** The ProcrastiMate web app, for the link to a posted task. */
 	app?: string;
+	/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
+	project?: string;
 };
 
 export type Section = { id: string; name: string };
@@ -44,6 +46,11 @@ const store = (key: string, value: unknown) => {
 export const cachedProjects = () => stored<Project[]>(projectsKey) ?? [];
 /** The project of the last post. Its section is not kept, so a new post starts at the project's top. */
 export const lastProject = () => stored<string>(lastProjectKey);
+
+/** The project `config.project` names, by id or by name ignoring case. */
+export const namedProject = (projects: Project[], name: string) =>
+	projects.find(project => project.id === name) ??
+	projects.find(project => project.name.toLowerCase() === name.toLowerCase());
 
 export const taskLink = (config: ProcrastimateConfig, id: string) =>
 	`${(config.app ?? defaultApp).replace(/\/$/, '')}/inbox?task=${encodeURIComponent(id)}`;

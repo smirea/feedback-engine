@@ -23,6 +23,8 @@ export function feedbackProcrastimate(options?: {
 	token?: string;
 	/** Defaults to `/__feedback/procrastimate`. */
 	path?: string;
+	/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
+	project?: string;
 }): Plugin;
 
 /**

@@ -44,6 +44,7 @@ export const procrastimate = {
 const procrastimateEnv = {
 	PROCRASTIMATE_URL: `http://127.0.0.1:${procrastimatePort}`,
 	PROCRASTIMATE_TOKEN: procrastimate.token,
+	PROCRASTIMATE_PROJECT: 'todo app',
 };
 
 function serveProcrastimate(port: number) {

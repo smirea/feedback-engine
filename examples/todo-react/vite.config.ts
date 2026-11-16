@@ -10,7 +10,11 @@ const port = env.UI_PORT + 5;
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
-		feedbackProcrastimate({ url: env.PROCRASTIMATE_URL, token: env.PROCRASTIMATE_TOKEN }),
+		feedbackProcrastimate({
+			url: env.PROCRASTIMATE_URL,
+			token: env.PROCRASTIMATE_TOKEN,
+			project: env.PROCRASTIMATE_PROJECT,
+		}),
 		feedbackEngineReact(),
 		react(),
 	],

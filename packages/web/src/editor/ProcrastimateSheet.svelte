@@ -8,6 +8,7 @@
 		cachedProjects,
 		lastProject,
 		loadProjects,
+		namedProject,
 		postTask,
 		taskLink,
 		type Place,
@@ -34,7 +35,10 @@
 	const names = taskTitle(session.capture, session.items);
 	let name = $state(names.placeholder);
 	let projects = $state(cachedProjects());
-	let place = $state<Place>({ projectId: lastProject() });
+	// svelte-ignore state_referenced_locally
+	let place = $state<Place>({
+		projectId: config.project ? namedProject(projects, config.project)?.id : lastProject(),
+	});
 	let loading = $state(true);
 	let loadProblem = $state<Problem>();
 	let postProblem = $state<Problem>();
@@ -49,6 +53,11 @@
 		loadProjects(config)
 			.then(loaded => {
 				projects = loaded;
+				if (config.project) {
+					const named = namedProject(loaded, config.project);
+					if (!named) throw new Error(`ProcrastiMate has no project named "${config.project}"`);
+					place = { projectId: named.id };
+				}
 				const project = loaded.find(candidate => candidate.id === place.projectId);
 				if (!project) place = {};
 				else if (!project.sections.some(section => section.id === place.sectionId)) place = { projectId: project.id };
