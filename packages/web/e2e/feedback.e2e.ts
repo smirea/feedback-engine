@@ -649,6 +649,29 @@ for (const app of appNames) {
 			await context.close();
 		});
 
+		test('before the projects load, Add waits for the named project, and a place chosen meanwhile stays', async () => {
+			const { promise, resolve } = Promise.withResolvers<void>();
+			procrastimate.holdView = promise;
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await present(page);
+			await tap(page, 100, 270);
+			await field(page).fill('Row is too tall');
+			await field(page).press('Enter');
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'ProcrastiMate' }).click();
+			const sheet = page.getByRole('form', { name: 'Add to ProcrastiMate' });
+			const add = sheet.getByRole('button', { name: 'Add' });
+			await sheet.getByRole('option', { name: 'Inbox' }).waitFor();
+			expect(await add.isDisabled()).toBe(true);
+			await sheet.getByRole('option', { name: 'Inbox' }).click();
+			resolve();
+			await sheet.getByRole('option', { name: 'Todo app' }).waitFor();
+			expect(await sheet.getByRole('option').allInnerTexts()).toEqual(['Inbox\n✓', 'Todo app', 'Later']);
+			expect(await add.isDisabled()).toBe(false);
+			expect(errors).toEqual([]);
+			await context.close();
+		});
+
 		test('the pinned ProcrastiMate has a button beside Share, and the GitHub webhook stays in the Share menu', async () => {
 			webhook.posts.length = 0;
 			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');

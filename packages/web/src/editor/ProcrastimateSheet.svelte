@@ -40,11 +40,15 @@
 		projectId: config.project ? namedProject(projects, config.project)?.id : lastProject(),
 	});
 	let loading = $state(true);
+	/** Whether the user chose a place, which a project list that finishes loading must not undo. */
+	let chosen = false;
 	let loadProblem = $state<Problem>();
 	let postProblem = $state<Problem>();
 	/** What the post is doing, while it runs. */
 	let step = $state<string>();
 	const posting = $derived(step !== undefined);
+	/** Until the projects load, a post would land in the Inbox instead of the project the app named. */
+	const unresolved = $derived(loading && !!config.project && !place.projectId);
 	let status = $state<HTMLElement>();
 	// svelte-ignore state_referenced_locally
 	const environment: Fact[] = session.capture.environment.map(entry => ({ label: entry.name, value: entry.value }));
@@ -56,7 +60,7 @@
 				if (config.project) {
 					const named = namedProject(loaded, config.project);
 					if (!named) throw new Error(`ProcrastiMate has no project named "${config.project}"`);
-					place = { projectId: named.id };
+					if (!chosen) place = { projectId: named.id };
 				}
 				const project = loaded.find(candidate => candidate.id === place.projectId);
 				if (!project) place = {};
@@ -117,7 +121,10 @@
 		role="option"
 		aria-selected={picked}
 		disabled={posting}
-		onclick={pick}
+		onclick={() => {
+			chosen = true;
+			pick();
+		}}
 	>
 		<span>{label}</span>
 		{#if picked}<span class="check" aria-hidden="true">✓</span>{/if}
@@ -128,7 +135,9 @@
 	{#snippet header()}
 		<button type="button" class="link" disabled={posting} onclick={onclose}>Cancel</button>
 		<h2>Add to ProcrastiMate</h2>
-		<button type="submit" class="link strong" disabled={posting || !name.trim()}>{posting ? 'Adding…' : 'Add'}</button>
+		<button type="submit" class="link strong" disabled={posting || unresolved || !name.trim()}
+			>{posting ? 'Adding…' : 'Add'}</button
+		>
 	{/snippet}
 
 	<div class="status" bind:this={status}>
