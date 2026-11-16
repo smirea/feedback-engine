@@ -136,7 +136,7 @@ test('a Svelte app that installs the packed package builds, serves, and exports 
 		['    Button "Count 4"', 'src/App.svelte:9', undefined],
 	]);
 	expect(report.app).toBe('Consumer');
-	expect(report.share).toEqual(['Image', 'JSON', 'Image and JSON (ZIP)']);
+	expect(report.share).toEqual(['Image', 'JSON', 'Image and JSON (ZIP)', 'New Webhook']);
 	// The log would carry the optimizer's error, which the page only shows as a failed import.
 	expect(state.log).not.toContain('Error');
 	expect(state.errors).toEqual([]);
@@ -179,7 +179,7 @@ test('a React 18 app that installs the packed package type-checks, builds, serve
 		['    Text "Saved"', 'src/App.tsx:36', undefined],
 	]);
 	expect(report.app).toBe('Consumer');
-	expect(report.share).toEqual(['Image', 'JSON', 'Image and JSON (ZIP)']);
+	expect(report.share).toEqual(['Image', 'JSON', 'Image and JSON (ZIP)', 'New Webhook']);
 	expect(state.log).not.toContain('Error');
 	expect(state.errors).toEqual([]);
 }, 180_000);

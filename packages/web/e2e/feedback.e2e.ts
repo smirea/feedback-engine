@@ -757,8 +757,8 @@ for (const app of appNames) {
 					authorization: post!.authorization,
 					query: post!.query,
 					title: post!.title,
-					image: { name: post!.image.name, type: post!.image.type },
-					report: { name: post!.report.name, type: post!.report.type },
+					image: { name: post!.image!.name, type: post!.image!.type },
+					report: { name: post!.report!.name, type: post!.report!.type },
 				}).toEqual({
 					authorization: 'Bearer test-key',
 					query: { labels: 'feedback', page: '/' },
@@ -768,8 +768,8 @@ for (const app of appNames) {
 				});
 				expect(post!.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 				// The image export: the 390 point screenshot beside one 340 point column, with a 24 point margin, at 2x.
-				expect(PNG.sync.read(post!.image.bytes).width).toBe(1508);
-				const report = JSON.parse(post!.report.text) as Report;
+				expect(PNG.sync.read(post!.image!.bytes).width).toBe(1508);
+				const report = JSON.parse(post!.report!.text) as Report;
 				expect(report.items.map(item => [item.number, item.text])).toEqual([[1, 'Row is too tall']]);
 				expect(report.nodes[0]!.kind).toBe('screen');
 
@@ -837,6 +837,103 @@ for (const app of appNames) {
 			expect(errors).toEqual(['Failed to load resource: the server responded with a status of 502 (Bad Gateway)']);
 			await context.close();
 		});
+
+		for (const [engine, mode] of [
+			['chromium', 'dev'],
+			['webkit', 'preview'],
+		] as const) {
+			test(`a webhook added from the Share menu is kept, and choosing it opens it to send what it holds, in ${engine} on a ${mode} server`, async () => {
+				webhook.posts.length = 0;
+				const { page, context, errors } = await open(app, engine, mode, '/');
+				const addItem = async () => {
+					await present(page);
+					await tap(page, 100, 270);
+					await field(page).fill('Row is too tall');
+					await field(page).press('Enter');
+				};
+				const share = () => page.getByRole('button', { name: 'Share' }).click();
+				const choose = async (name: string) => {
+					await share();
+					await page.getByRole('menuitem', { name, exact: true }).click();
+				};
+				await addItem();
+				await share();
+				expect((await page.getByRole('menu').getByRole('menuitem').allInnerTexts()).at(-1)).toBe('New Webhook');
+				await page.getByRole('menuitem', { name: 'New Webhook' }).click();
+
+				const form = page.getByRole('form', { name: 'New Webhook' });
+				await form.getByRole('button', { name: 'Save' }).click();
+				expect(await form.locator('.error').allInnerTexts()).toEqual([
+					'Give the webhook a name.',
+					'Enter an address that starts with http:// or https://.',
+				]);
+				expect(await form.locator('.toggle').allInnerTexts()).toEqual(['Attach JSON', 'Attach image']);
+				await form.getByLabel('Name').fill('GitHub Issue');
+				await form.getByLabel('URL').fill(`${webhookURL}?source=saved`);
+				await form.getByLabel('Header (optional)').fill('Authorization: Bearer test-key');
+				await form.getByRole('button', { name: 'Save' }).click();
+				expect(await form.locator('.error').allInnerTexts()).toEqual(['The Share menu already has GitHub Issue.']);
+				await form.getByLabel('Name').fill('Agent');
+				await form.getByRole('button', { name: 'Save' }).click();
+				await form.waitFor({ state: 'detached' });
+				expect(webhook.posts).toEqual([]);
+
+				await page.reload();
+				await page.getByRole('heading', { level: 1 }).waitFor();
+				await addItem();
+				await choose('Agent');
+				const edit = page.getByRole('form', { name: 'Edit Webhook' });
+				expect(await edit.getByRole('heading').innerText()).toBe('Agent');
+				expect(await edit.getByLabel('Header (optional)').inputValue()).toBe('Authorization: Bearer test-key');
+				expect(await edit.getByRole('checkbox', { name: 'Attach JSON' }).isChecked()).toBe(true);
+				expect(await edit.getByRole('radiogroup', { name: 'Compression' }).count()).toBe(0);
+				await edit.getByRole('checkbox', { name: 'Attach JSON' }).uncheck();
+				await edit.getByText('JPEG').click();
+				await edit.getByRole('radiogroup', { name: 'Compression' }).getByText('High').click();
+				expect(await edit.locator('.note').innerText()).toBe(
+					'Each post sends the title, the image, and the device JSON. This browser keeps the webhook, header included, for this site.',
+				);
+				await edit.getByRole('button', { name: 'Send' }).click();
+
+				const toast = page.locator('.toast');
+				await toast.waitFor();
+				expect(await toast.innerText()).toBe('✓ Sent to Agent ↗');
+				expect(webhook.posts.length).toBe(1);
+				const [post] = webhook.posts;
+				expect({
+					authorization: post!.authorization,
+					query: post!.query,
+					title: post!.title,
+					parts: post!.parts,
+					image: { name: post!.image!.name, type: post!.image!.type },
+					device: { name: post!.device!.name, type: post!.device!.type },
+				}).toEqual({
+					authorization: 'Bearer test-key',
+					query: { source: 'saved' },
+					title: 'Lists Feedback: 1 change',
+					parts: ['image', 'device'],
+					image: { name: 'feedback.jpg', type: 'image/jpeg' },
+					device: { name: 'device.json', type: 'application/json' },
+				});
+				expect([...post!.image!.bytes.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
+				const device = JSON.parse(post!.device!.text) as Record<string, string>;
+				expect(Object.keys(device)).toEqual(['App', 'Captured', 'Device', 'Display', 'Locale', 'Location', 'Version']);
+				expect(device.Location).toBe('/');
+
+				await choose('Agent');
+				expect(await edit.getByRole('radio', { name: 'High' }).isChecked()).toBe(true);
+				await edit.getByRole('button', { name: 'Close' }).click();
+				await choose('Agent');
+				await edit.getByRole('button', { name: 'Delete Webhook' }).click();
+				await edit.waitFor({ state: 'detached' });
+				await share();
+				expect(await page.getByRole('menuitem', { name: 'Agent', exact: true }).count()).toBe(0);
+				expect(await page.evaluate(() => localStorage.getItem('feedback-engine.webhooks'))).toBe('[]');
+				expect(webhook.posts.length).toBe(1);
+				expect(errors).toEqual([]);
+				await context.close();
+			});
+		}
 
 		test('a scroll container inside the page shows only what was on screen in it', async () => {
 			const { page, context } = await open(app, 'chromium', 'dev', '/catalog');

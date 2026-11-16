@@ -1,4 +1,9 @@
+import type { Annotations } from '../core/annotations.ts';
 import { Problem } from '../core/problem.ts';
+import { reportJSON } from '../core/report.ts';
+import { deviceJSON, type ImageEncoding, type SavedWebhook } from '../core/savedWebhooks.ts';
+import type { Screen } from './capture.ts';
+import { encodeImage } from './share.ts';
 
 /** One entry of the Share menu that posts the feedback to a server of the app's own. `docs/webhooks.md` has the request. */
 export type Webhook = {
@@ -24,11 +29,52 @@ export type WebhookPost = {
 	/** Made once per post and sent again on a retry, so a server can tell a retry from a second post. */
 	id: string;
 	title: string;
-	/** The image export, as PNG. */
-	image: Blob;
-	/** The JSON export. */
-	report: string;
+	files: { name: string; file: File }[];
 };
+
+/**
+ * What a post carries beside its `id` and `title`. An app's webhook sends the image export as PNG and the JSON export,
+ * as `image` and `report`. A saved webhook sends the image and the JSON export if it was saved with them, as `image`
+ * and `feedback`, and the environment as `device`.
+ */
+export type WebhookContents = { kind: 'report' } | { kind: 'saved'; image?: ImageEncoding; feedback: boolean };
+
+/** A webhook with what its posts carry. */
+export type Delivery = { webhook: Webhook; contents: WebhookContents };
+
+export function savedDelivery(saved: SavedWebhook): Delivery {
+	return {
+		webhook: {
+			name: saved.name,
+			url: saved.url,
+			...(saved.header ? { headers: { [saved.header.name]: saved.header.value } } : {}),
+		},
+		contents: { kind: 'saved', image: saved.image, feedback: saved.feedback },
+	};
+}
+
+const json = (name: string, text: string) => new File([text], name, { type: 'application/json' });
+
+/** The file parts of a post, drawn from the editor's capture and annotations. */
+export async function postFiles(
+	contents: WebhookContents,
+	screen: Screen,
+	annotations: Annotations,
+): Promise<WebhookPost['files']> {
+	const report = () => reportJSON(screen.capture, annotations, false);
+	if (contents.kind === 'report') {
+		const image = await encodeImage(screen, annotations, { format: 'png' });
+		return [
+			{ name: 'image', file: image },
+			{ name: 'report', file: json('feedback.json', report()) },
+		];
+	}
+	return [
+		...(contents.image ? [{ name: 'image', file: await encodeImage(screen, annotations, contents.image) }] : []),
+		...(contents.feedback ? [{ name: 'feedback', file: json('feedback.json', report()) }] : []),
+		{ name: 'device', file: json('device.json', deviceJSON(screen.capture.environment)) },
+	];
+}
 
 /**
  * GitHub's mark, 16 points square. The iOS package draws the same path (`GitHubIcon.swift`), which has only absolute
@@ -65,8 +111,7 @@ export async function postWebhook(webhook: Webhook, post: WebhookPost): Promise<
 	const form = new FormData();
 	form.set('id', post.id);
 	form.set('title', post.title);
-	form.set('image', new File([post.image], 'feedback.png', { type: 'image/png' }));
-	form.set('report', new File([post.report], 'feedback.json', { type: 'application/json' }));
+	for (const { name, file } of post.files) form.set(name, file);
 	let response: Response;
 	try {
 		response = await fetch(url, { method: 'POST', headers, body: form });

@@ -3,20 +3,19 @@
 <script lang="ts">
 	import { Problem, taskTitle, type Fact, type FeedbackItem, type Session, type Toast } from '../core/index.ts';
 	import type { Screen } from '../dom/capture.ts';
-	import { buildExport } from '../dom/share.ts';
-	import { postId, postWebhook, type Webhook } from '../dom/webhook.ts';
+	import { postFiles, postId, postWebhook, type Delivery } from '../dom/webhook.ts';
 	import ProblemCard from './ProblemCard.svelte';
 
 	let {
 		screen,
 		session,
-		webhook,
+		delivery,
 		onclose,
 		onposted,
 	}: {
 		screen: Screen;
 		session: Session;
-		webhook: Webhook;
+		delivery: Delivery;
 		onclose: () => void;
 		onposted: (items: FeedbackItem[], toast: Toast) => void;
 	} = $props();
@@ -27,7 +26,7 @@
 	// svelte-ignore state_referenced_locally
 	const title = taskTitle(session.capture, items).placeholder;
 	// svelte-ignore state_referenced_locally
-	const report = session.compactJSON;
+	const { webhook, contents } = delivery;
 	const id = postId();
 	let step = $state('Drawing the image');
 	let problem = $state<Problem>();
@@ -36,15 +35,12 @@
 		problem = undefined;
 		step = 'Drawing the image';
 		const started = performance.now();
-		const facts: Fact[] = [
-			{ label: 'Post', value: id },
-			{ label: 'Report', value: `${new TextEncoder().encode(report).length} bytes` },
-		];
+		const facts: Fact[] = [{ label: 'Post', value: id }];
 		try {
-			const { image } = await buildExport(screen, session.annotations, 'image');
-			facts.push({ label: 'Image', value: `${image!.size} bytes` });
+			const files = await postFiles(contents, screen, session.annotations);
+			for (const { file } of files) facts.push({ label: file.name, value: `${file.size} bytes` });
 			step = `Sending to ${webhook.name}`;
-			const link = await postWebhook(webhook, { id, title, image: image!, report });
+			const link = await postWebhook(webhook, { id, title, files });
 			onposted(items, { text: `Sent to ${webhook.name}`, link });
 		} catch (error) {
 			const elapsed = { label: 'Elapsed', value: `${((performance.now() - started) / 1000).toFixed(1)} s` };

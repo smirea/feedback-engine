@@ -73,7 +73,7 @@ public enum Feedback {
         let session = Session(capture: capture)
         let window = UIWindow(windowScene: scene)
         window.windowLevel = .alert + 1
-        window.rootViewController = UIHostingController(rootView: EditorView(session: session, dismiss: dismiss, share: { share(session, as: $0) }))
+        window.rootViewController = UIHostingController(rootView: EditorView(session: session, dismiss: dismiss, share: { share(session, as: $0) }, newWebhook: { edit(nil, session: session) }))
         // `accessibilityViewIsModal` only hides siblings in the same window, so the app's windows
         // are hidden from VoiceOver and UI automation one by one. The keyboard's windows stay
         // visible for the editor's own text field.
@@ -110,7 +110,11 @@ public enum Feedback {
             return
         }
         if case .webhook(let index) = target {
-            post(session, to: webhooks[index])
+            post(session, to: webhooks[index], carrying: .report)
+            return
+        }
+        if case .saved(let id) = target {
+            edit(SavedWebhooks.shared.all.first { $0.id == id }, session: session)
             return
         }
         var files: [(name: String, data: Data)] = []
@@ -136,9 +140,23 @@ public enum Feedback {
         presenter.present(sheet, animated: true)
     }
 
+    /// Opens the form for a saved webhook, or for a new one with `nil`. A new one is only saved. An
+    /// edited one is saved and the feedback goes to it, since choosing it in Share opened the form.
+    private static func edit(_ webhook: SavedWebhook?, session: Session) {
+        guard case .editing(let editing) = state, var presenter = editing.overlay.rootViewController else { return }
+        while let presented = presenter.presentedViewController { presenter = presented }
+        let taken = ShareTarget.destinations.filter { $0 != .saved(webhook?.id ?? "") }.map(\.title)
+        presenter.present(WebhookForm.controller(webhook: webhook, taken: taken) { saved in
+            SavedWebhooks.shared.save(saved)
+            if webhook != nil { post(session, to: saved.webhook, carrying: saved.contents) }
+        } delete: {
+            if let webhook { SavedWebhooks.shared.delete(id: webhook.id) }
+        }, animated: true)
+    }
+
     /// Sends the feedback to a webhook. A failure opens a sheet with the reason and **Retry**, which
     /// sends the same post again.
-    private static func post(_ session: Session, to webhook: FeedbackWebhook, retrying earlier: WebhookPost? = nil) {
+    private static func post(_ session: Session, to webhook: FeedbackWebhook, carrying contents: WebhookContents, retrying earlier: WebhookPost? = nil) {
         guard !isPosting else { return }
         isPosting = true
         let items = session.items
@@ -146,8 +164,17 @@ public enum Feedback {
         let post = earlier ?? WebhookPost(
             id: UUID().uuidString.lowercased(),
             title: TaskTitle(session.capture, items: items).placeholder,
-            image: AnnotatedImage.render(session.capture, session.annotations).pngData() ?? Data(),
-            report: Data(session.compactJSON.utf8)
+            files: contents.files(
+                image: { encoding in
+                    let image = AnnotatedImage.render(session.capture, session.annotations)
+                    switch encoding {
+                    case .png: return image.pngData() ?? Data()
+                    case .jpeg(let compression): return image.jpegData(compressionQuality: compression.quality) ?? Data()
+                    }
+                },
+                report: session.compactJSON,
+                environment: session.capture.environment
+            )
         )
         let started = Date.now
         Task {
@@ -168,14 +195,13 @@ public enum Feedback {
                     ],
                     after: [
                         .init(label: "Post", value: post.id),
-                        .init(label: "Image", value: "\(post.image.count) bytes"),
-                        .init(label: "Report", value: "\(post.report.count) bytes"),
-                    ] + session.capture.environment.map { .init(label: $0.name, value: $0.value) }
+                    ] + post.files.map { .init(label: $0.name, value: "\($0.data.count) bytes") }
+                        + session.capture.environment.map { .init(label: $0.name, value: $0.value) }
                 )
                 guard case .editing(let editing) = state, var presenter = editing.overlay.rootViewController else { return }
                 while let presented = presenter.presentedViewController { presenter = presented }
                 presenter.present(WebhookFailureSheet.controller(name: webhook.name, problem: problem) {
-                    self.post(session, to: webhook, retrying: post)
+                    self.post(session, to: webhook, carrying: contents, retrying: post)
                 }, animated: true)
             }
         }
@@ -242,6 +268,8 @@ enum ShareTarget: Hashable {
     case procrastimate
     /// One of `Feedback.webhooks`, by its place in the list.
     case webhook(Int)
+    /// A webhook saved in the editor, by its `id`.
+    case saved(String)
 
     /// What the Share menu lists: the exports, then the destinations.
     static var available: [ShareTarget] {
@@ -256,11 +284,12 @@ enum ShareTarget: Hashable {
     }
 
     /// ProcrastiMate, only in an app that can reach it, then the webhooks with GitHub's icon, then the
-    /// other webhooks in the app's order.
+    /// app's other webhooks in its order, then the ones saved in the editor in the order they were added.
     static var destinations: [ShareTarget] {
         let github = Feedback.webhooks.indices.filter { Feedback.webhooks[$0].image == Feedback.githubIcon }
         let others = Feedback.webhooks.indices.filter { !github.contains($0) }
         return (Procrastimate.isAvailable ? [.procrastimate] : []) + (github + others).map { .webhook($0) }
+            + SavedWebhooks.shared.all.map { .saved($0.id) }
     }
 
     var title: String {
@@ -270,6 +299,7 @@ enum ShareTarget: Hashable {
         case .zip: "Image and JSON (ZIP)"
         case .procrastimate: "ProcrastiMate"
         case .webhook(let index): Feedback.webhooks[index].name
+        case .saved(let id): SavedWebhooks.shared.all.first { $0.id == id }?.name ?? ""
         }
     }
 
@@ -278,7 +308,7 @@ enum ShareTarget: Hashable {
         switch self {
         case .procrastimate: Image(uiImage: ProcrastimateIcon.image)
         case .webhook(let index): Feedback.webhooks[index].image
-        case .image, .json, .zip: nil
+        case .image, .json, .zip, .saved: nil
         }
     }
 
@@ -288,7 +318,7 @@ enum ShareTarget: Hashable {
         case .image: "photo"
         case .json: "curlybraces"
         case .zip: "doc.zipper"
-        case .procrastimate, .webhook: "paperplane"
+        case .procrastimate, .webhook, .saved: "paperplane"
         }
     }
 }

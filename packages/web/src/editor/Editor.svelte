@@ -10,6 +10,7 @@
 		tag,
 		title,
 		type Frame,
+		type SavedWebhook,
 	} from '../core/index.ts';
 	import type { Screen } from '../dom/capture.ts';
 	import {
@@ -22,10 +23,12 @@
 		type Export,
 		type ExportFormat,
 	} from '../dom/share.ts';
-	import type { Webhook } from '../dom/webhook.ts';
+	import { loadSavedWebhooks, storeSavedWebhooks } from '../dom/savedWebhooks.ts';
+	import { savedDelivery, type Delivery } from '../dom/webhook.ts';
 	import { destinations, pinnedDestinations, type Destination } from './destinations.ts';
 	import type { Engine } from './engine.ts';
 	import ProcrastimateSheet from './ProcrastimateSheet.svelte';
+	import WebhookDialog from './WebhookDialog.svelte';
 	import WebhookSheet from './WebhookSheet.svelte';
 
 	let { engine, screen }: { engine: Engine; screen: Screen } = $props();
@@ -89,11 +92,12 @@
 	let showsInfo = $state(false);
 	let showsShare = $state(false);
 	let showsProcrastimate = $state(false);
-	let posting = $state<Webhook>();
-	// svelte-ignore state_referenced_locally
-	const targets = destinations(engine.options);
-	// svelte-ignore state_referenced_locally
-	const pinned = pinnedDestinations(targets, engine.options.pinned);
+	let posting = $state<Delivery>();
+	let saved = $state(loadSavedWebhooks());
+	/** The dialog for a saved webhook, `webhook` unset for a new one. */
+	let editing = $state<{ webhook?: SavedWebhook }>();
+	const targets = $derived(destinations({ ...engine.options, saved }));
+	const pinned = $derived(pinnedDestinations(targets, engine.options.pinned));
 	let confirmsClose = $state(false);
 	let pending = $state<{ format: ExportFormat; ready: Export }>();
 	let busy = $state(false);
@@ -202,9 +206,9 @@
 	}
 
 	function requestClose() {
-		if (showsInfo || showsShare || showsProcrastimate || posting || pending) {
+		if (showsInfo || showsShare || showsProcrastimate || posting || pending || editing) {
 			showsInfo = showsShare = showsProcrastimate = false;
-			posting = pending = undefined;
+			posting = pending = editing = undefined;
 		} else if (session.isTyping || session.unshared.length) {
 			confirmsClose = true;
 		} else {
@@ -215,7 +219,32 @@
 	function send(destination: Destination) {
 		showsShare = false;
 		if (destination.kind === 'procrastimate') showsProcrastimate = true;
-		else posting = destination.webhook;
+		else if (destination.kind === 'saved') edit(destination.saved);
+		else posting = destination.delivery;
+	}
+
+	function edit(webhook?: SavedWebhook) {
+		showsShare = false;
+		editing = { webhook };
+	}
+
+	/** Stores the list and returns why it could not, for the dialog to show. */
+	function keep(list: SavedWebhook[]) {
+		try {
+			storeSavedWebhooks(list);
+		} catch (error) {
+			return `This browser did not keep the webhook: ${(error as Error).message}`;
+		}
+		saved = list;
+		editing = undefined;
+	}
+
+	/** A new webhook is only saved. An edited one is saved and the feedback goes to it, since choosing it opened the form. */
+	function submitWebhook(webhook: SavedWebhook) {
+		const isNew = !saved.some(other => other.id === webhook.id);
+		const failure = keep(isNew ? [...saved, webhook] : saved.map(other => (other.id === webhook.id ? webhook : other)));
+		if (!failure && !isNew) posting = savedDelivery(webhook);
+		return failure;
 	}
 
 	async function choose(format: ExportFormat) {
@@ -294,6 +323,10 @@
 							{destination.name}
 						</button>
 					{/each}
+					<button type="button" role="menuitem" class="destination" onclick={() => edit()}>
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+						New Webhook
+					</button>
 				</div>
 			{/if}
 		</div>
@@ -507,11 +540,24 @@
 		/>
 	{/if}
 
+	{#if editing}
+		{@const webhook = editing.webhook}
+		<WebhookDialog
+			{webhook}
+			taken={targets
+				.filter(target => target.kind !== 'saved' || target.saved.id !== webhook?.id)
+				.map(target => target.name)}
+			onsubmit={submitWebhook}
+			ondelete={() => keep(saved.filter(other => other.id !== webhook?.id))}
+			onclose={() => (editing = undefined)}
+		/>
+	{/if}
+
 	{#if posting}
 		<WebhookSheet
 			{screen}
 			{session}
-			webhook={posting}
+			delivery={posting}
 			onclose={() => (posting = undefined)}
 			onposted={(items, toast) => {
 				posting = undefined;
@@ -711,6 +757,17 @@
 		width: 18px;
 		height: 18px;
 		object-fit: contain;
+	}
+
+	.popup svg {
+		flex: none;
+		width: 18px;
+		height: 18px;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
 	}
 
 	.body {

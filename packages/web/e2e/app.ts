@@ -107,8 +107,12 @@ export const webhook = {
 		query: Record<string, string>;
 		id: string;
 		title: string;
-		image: { name: string; type: string; bytes: Buffer };
-		report: { name: string; type: string; text: string };
+		/** Every part after `id` and `title`, in the order sent. */
+		parts: string[];
+		image?: { name: string; type: string; bytes: Buffer };
+		report?: { name: string; type: string; text: string };
+		feedback?: { name: string; type: string; text: string };
+		device?: { name: string; type: string; text: string };
 	}[],
 	/** The next post's answer instead of the link, as a server that could not file it. */
 	refuse: undefined as { status: number; body: string } | undefined,
@@ -132,16 +136,24 @@ function serveWebhook(port: number) {
 		async fetch(request) {
 			if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
 			const form = await request.formData();
-			const image = form.get('image') as File;
-			const report = form.get('report') as File;
+			const image = form.get('image') as File | null;
+			// Bun adds `;charset=utf-8` to a text part's type when it reads the form.
+			const text = async (name: string) => {
+				const file = form.get(name) as File | null;
+				return file ? { name: file.name, type: file.type.split(';')[0]!, text: await file.text() } : undefined;
+			};
 			webhook.posts.push({
 				authorization: request.headers.get('authorization'),
 				query: Object.fromEntries(new URL(request.url).searchParams),
 				id: form.get('id') as string,
 				title: form.get('title') as string,
-				image: { name: image.name, type: image.type, bytes: Buffer.from(await image.arrayBuffer()) },
-				// Bun adds `;charset=utf-8` to a text part's type when it reads the form.
-				report: { name: report.name, type: report.type.split(';')[0]!, text: await report.text() },
+				parts: [...form.keys()].filter(name => name !== 'id' && name !== 'title'),
+				image: image
+					? { name: image.name, type: image.type, bytes: Buffer.from(await image.arrayBuffer()) }
+					: undefined,
+				report: await text('report'),
+				feedback: await text('feedback'),
+				device: await text('device'),
 			});
 			if (webhook.refuse) {
 				const { status, body } = webhook.refuse;

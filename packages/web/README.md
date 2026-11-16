@@ -266,7 +266,7 @@ The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows
 
 ## Webhooks
 
-A webhook is a Share entry of your own. Choosing it posts the image export and the JSON export to your server in one request, with nothing to fill in, and a toast links to whatever the server made. List any number of them when you set Feedback up:
+A webhook is a Share entry of your own. Choosing it posts the image export and the JSON export to your server in one request, with nothing to fill in, and a toast links to whatever the server made. Someone using the page can also add one from **New Webhook**, last in the Share menu, and the browser keeps it for the site ([docs/webhooks.md](https://github.com/smirea/feedback-engine/blob/master/docs/webhooks.md#add-one-in-the-editor)). List any number of them when you set Feedback up:
 
 ```ts
 import { githubIcon, setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte'; // or '/react'

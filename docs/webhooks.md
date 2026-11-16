@@ -98,6 +98,26 @@ export function Feedback() {
 }
 ```
 
+## Add one in the editor
+
+Anyone using the app can add a webhook of their own, with no change to its code. **New Webhook**, last in the Share menu, asks for:
+
+- a name and a URL,
+- a header, such as `Authorization: Bearer some-key`, if the server needs one,
+- whether to attach the JSON export, and whether to attach the image export, as PNG or as JPEG at Low, Medium, or High compression.
+
+**Save** adds it to the Share menu after the app's webhooks. Choosing it later opens the same form, so the post can be changed or the webhook deleted, and **Send** saves the form and posts. The device keeps the webhooks, header included: an iOS app in its `UserDefaults`, and a browser in `localStorage` for the page's origin.
+
+A saved webhook's post is [the request](#the-request) with other files after `id` and `title`:
+
+| Part | Kind | Contents |
+| --- | --- | --- |
+| `image` | file `feedback.png`, `image/png`, or `feedback.jpg`, `image/jpeg` | The image export, when it is attached. |
+| `feedback` | file `feedback.json`, `application/json` | The JSON export, minified, when it is attached. |
+| `device` | file `device.json`, `application/json` | The environment as one object, such as `{"App":"Todo","Device":"iPhone 18 Pro · iOS 27.0"}`, with sorted keys. |
+
+From a browser, the server has to allow the header's name in `Access-Control-Allow-Headers`, as [From a browser](#from-a-browser) describes.
+
 ## Authentication
 
 Feedback sends what you give it, and your server decides what to accept. There are three ways to tell the server who is posting.

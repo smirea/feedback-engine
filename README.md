@@ -163,7 +163,7 @@ setupFeedbackEngine({
 });
 ```
 
-Each webhook also takes `headers` and `query`, as fixed values or as a function that runs when the post is made, for a token the user only has once signed in. [docs/webhooks.md](docs/webhooks.md) has the request, the answer a server gives, and a server that files every post as a GitHub issue, in `examples/github-webhook`.
+Each webhook also takes `headers` and `query`, as fixed values or as a function that runs when the post is made, for a token the user only has once signed in. Someone using the app can also add a webhook of their own from **New Webhook**, last in the Share menu, with a header and a choice of attachments, and the device keeps it. [docs/webhooks.md](docs/webhooks.md) has the request, the answer a server gives, and a server that files every post as a GitHub issue, in `examples/github-webhook`.
 
 The first two of ProcrastiMate and the webhooks also get a button beside Share. To choose them yourself, list their names in `pinned`, and the rest stay in the Share menu:
 

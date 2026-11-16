@@ -9,6 +9,7 @@ struct EditorView: View {
     @Bindable var session: Session
     let dismiss: () -> Void
     let share: (ShareTarget) -> Void
+    let newWebhook: () -> Void
     @State private var confirmsClose = false
     /// The panel's first height. The screenshot's scale stays fixed to it, so the picture does not
     /// jump as the panel grows with a selection or a longer draft.
@@ -84,7 +85,7 @@ struct EditorView: View {
             Spacer()
             Text("Feedback").font(.headline).lineLimit(1).minimumScaleFactor(0.6)
             Spacer()
-            ShareMenu(share: share)
+            ShareMenu(share: share, newWebhook: newWebhook)
                 .labelStyle(.iconOnly)
                 .frame(width: 44, height: 44)
                 .disabled(session.items.isEmpty)
@@ -513,6 +514,7 @@ private struct TargetInfo: View {
 
 private struct ShareMenu: View {
     let share: (ShareTarget) -> Void
+    let newWebhook: () -> Void
 
     var body: some View {
         Menu {
@@ -526,6 +528,9 @@ private struct ShareMenu: View {
                         Label(target.title, systemImage: target.systemImage)
                     }
                 }
+            }
+            Section {
+                Button("New Webhook", systemImage: "plus", action: newWebhook)
             }
         } label: {
             Label("Share", systemImage: "square.and.arrow.up")

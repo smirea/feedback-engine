@@ -14,6 +14,7 @@
 		type ProcrastimateConfig,
 	} from '../dom/procrastimate.ts';
 	import ProblemCard from './ProblemCard.svelte';
+	import Sheet from './Sheet.svelte';
 
 	let {
 		screen,
@@ -114,143 +115,51 @@
 	</button>
 {/snippet}
 
-<div class="scrim" role="presentation">
-	<form
-		class="sheet"
-		aria-label="Add to ProcrastiMate"
-		onsubmit={event => {
-			event.preventDefault();
-			void post();
-		}}
-	>
-		<header>
-			<button type="button" class="link" disabled={posting} onclick={onclose}>Cancel</button>
-			<h2>Add to ProcrastiMate</h2>
-			<button type="submit" class="link strong" disabled={posting || !name.trim()}>{posting ? 'Adding…' : 'Add'}</button
-			>
-		</header>
-		<div class="scroll">
-			<div class="status" bind:this={status}>
-				{#if step}<p class="step" role="status">{step}…</p>{/if}
-				{#if postProblem}<ProblemCard problem={postProblem} />{/if}
-				{#if loadProblem}<ProblemCard problem={loadProblem} />{/if}
-			</div>
-			<label>
-				<span class="caption">Name</span>
-				<input bind:value={name} aria-label="Task name" disabled={posting} />
-			</label>
-			<span class="caption">Project{loading ? ' · loading…' : ''}</span>
-			<div class="list" role="listbox" aria-label="Project">
-				{@render row('Inbox', !place.projectId, false, () => (place = {}))}
-				{#each projects as project (project.id)}
-					{@const open = project.id === place.projectId && project.sections.length > 0}
+<Sheet label="Add to ProcrastiMate" onsubmit={() => void post()}>
+	{#snippet header()}
+		<button type="button" class="link" disabled={posting} onclick={onclose}>Cancel</button>
+		<h2>Add to ProcrastiMate</h2>
+		<button type="submit" class="link strong" disabled={posting || !name.trim()}>{posting ? 'Adding…' : 'Add'}</button>
+	{/snippet}
+
+	<div class="status" bind:this={status}>
+		{#if step}<p class="step" role="status">{step}…</p>{/if}
+		{#if postProblem}<ProblemCard problem={postProblem} />{/if}
+		{#if loadProblem}<ProblemCard problem={loadProblem} />{/if}
+	</div>
+	<label>
+		<span class="caption">Name</span>
+		<input bind:value={name} aria-label="Task name" disabled={posting} />
+	</label>
+	<span class="caption">Project{loading ? ' · loading…' : ''}</span>
+	<div class="list" role="listbox" aria-label="Project">
+		{@render row('Inbox', !place.projectId, false, () => (place = {}))}
+		{#each projects as project (project.id)}
+			{@const open = project.id === place.projectId && project.sections.length > 0}
+			{@render row(
+				project.name,
+				project.id === place.projectId && !open,
+				false,
+				() => (place = { projectId: project.id }),
+			)}
+			{#if open}
+				{@render row('No section', !place.sectionId, true, () => (place = { projectId: project.id }))}
+				{#each project.sections as section (section.id)}
 					{@render row(
-						project.name,
-						project.id === place.projectId && !open,
-						false,
-						() => (place = { projectId: project.id }),
+						section.name,
+						place.sectionId === section.id,
+						true,
+						() => (place = { projectId: project.id, sectionId: section.id }),
 					)}
-					{#if open}
-						{@render row('No section', !place.sectionId, true, () => (place = { projectId: project.id }))}
-						{#each project.sections as section (section.id)}
-							{@render row(
-								section.name,
-								place.sectionId === section.id,
-								true,
-								() => (place = { projectId: project.id, sectionId: section.id }),
-							)}
-						{/each}
-					{/if}
 				{/each}
-			</div>
-		</div>
-	</form>
-</div>
+			{/if}
+		{/each}
+	</div>
+</Sheet>
 
 <style>
-	.scrim {
-		position: absolute;
-		inset: 0;
-		z-index: 5;
-		display: grid;
-		place-items: end center;
-		background: rgb(0 0 0 / 0.5);
-	}
-
-	.sheet {
-		display: flex;
-		flex-direction: column;
-		width: min(100%, 480px);
-		max-height: 85%;
-		border-radius: 16px 16px 0 0;
-		box-sizing: border-box;
-		background: #1f1f1f;
-	}
-
-	header {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 14px 16px 8px;
-	}
-
-	h2 {
-		flex: 1;
-		margin: 0;
-		font-size: 16px;
-		text-align: center;
-	}
-
-	button,
-	input {
-		color: inherit;
-		font: inherit;
-	}
-
-	button {
-		border: 0;
-		background: none;
-		cursor: pointer;
-	}
-
-	button:disabled {
-		cursor: default;
-		opacity: 0.5;
-	}
-
-	.link {
-		color: #0a84ff;
-	}
-
 	.strong {
 		font-weight: 600;
-	}
-
-	.scroll {
-		display: grid;
-		gap: 8px;
-		padding: 8px 16px 16px;
-		overflow: auto;
-	}
-
-	.caption {
-		color: #aeaeb2;
-		font-size: 12px;
-		font-weight: 600;
-		text-transform: uppercase;
-	}
-
-	label {
-		display: grid;
-		gap: 6px;
-		margin-bottom: 8px;
-	}
-
-	input {
-		border: 0;
-		border-radius: 10px;
-		padding: 10px 12px;
-		background: #2e2e30;
 	}
 
 	.list {
@@ -290,15 +199,5 @@
 	.step {
 		margin: 0;
 		color: #aeaeb2;
-	}
-
-	@media (min-width: 900px) {
-		.scrim {
-			place-items: center;
-		}
-
-		.sheet {
-			border-radius: 16px;
-		}
 	}
 </style>

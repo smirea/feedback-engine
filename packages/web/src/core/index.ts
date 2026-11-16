@@ -4,6 +4,7 @@ export * from './describe.ts';
 export * from './model.ts';
 export * from './problem.ts';
 export * from './report.ts';
+export * from './savedWebhooks.ts';
 export * from './session.ts';
 export * from './taskTitle.ts';
 export * from './tree.ts';

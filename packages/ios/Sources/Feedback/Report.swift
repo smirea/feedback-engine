@@ -10,6 +10,15 @@ enum Report {
 }
 
 extension Report {
+    /// The `device` part of a saved webhook's post: the environment as one object, with sorted keys
+    /// as on the web.
+    static func deviceJSON(_ environment: [ContextEntry]) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let object = Dictionary(environment.map { ($0.name, $0.value) }, uniquingKeysWith: { _, last in last })
+        return String(decoding: (try? encoder.encode(object)) ?? Data("{}".utf8), as: UTF8.self)
+    }
+
     static func json(_ capture: Capture, _ annotations: Annotations, pretty: Bool = true) -> String {
         let document = JSONDocument(
             app: capture.environment.first { $0.name == "App" }?.value ?? "App",

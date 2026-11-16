@@ -1,5 +1,5 @@
-import type { Annotations } from '../core/index.ts';
-import { reportJSON } from '../core/index.ts';
+import type { Annotations, ImageEncoding } from '../core/index.ts';
+import { jpegQuality, reportJSON } from '../core/index.ts';
 import type { Screen } from './capture.ts';
 import { annotatedImage } from './image.ts';
 import { zip } from './zip.ts';
@@ -15,16 +15,23 @@ export const exportTitles: Record<ExportFormat, string> = {
 /** One export: the file to save or share, and the parts the clipboard takes. */
 export type Export = { file: File; image?: Blob; json?: string };
 
-const toBlob = (canvas: HTMLCanvasElement) =>
-	new Promise<Blob>((resolve, reject) =>
-		canvas.toBlob(
-			blob => (blob ? resolve(blob) : reject(new Error('The browser could not encode the image'))),
-			'image/png',
+export function encodeImage(screen: Screen, annotations: Annotations, encoding: ImageEncoding) {
+	const [type, name, quality] =
+		encoding.format === 'png'
+			? ['image/png', 'feedback.png', undefined]
+			: ['image/jpeg', 'feedback.jpg', jpegQuality[encoding.compression]];
+	return new Promise<File>((resolve, reject) =>
+		annotatedImage(screen, annotations).toBlob(
+			blob =>
+				blob ? resolve(new File([blob], name, { type })) : reject(new Error('The browser could not encode the image')),
+			type,
+			quality,
 		),
 	);
+}
 
 export async function buildExport(screen: Screen, annotations: Annotations, format: ExportFormat): Promise<Export> {
-	const image = format === 'json' ? undefined : await toBlob(annotatedImage(screen, annotations));
+	const image = format === 'json' ? undefined : await encodeImage(screen, annotations, { format: 'png' });
 	const json = format === 'image' ? undefined : reportJSON(screen.capture, annotations);
 	if (format === 'image') return { file: new File([image!], 'feedback.png', { type: 'image/png' }), image };
 	if (format === 'json') return { file: new File([json!], 'feedback.json', { type: 'application/json' }), json };

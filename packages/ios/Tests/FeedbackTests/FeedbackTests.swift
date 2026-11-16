@@ -1089,7 +1089,8 @@ private struct Fixture: Decodable {
         headers: ["Authorization": "Bearer key"],
         query: ["labels": "feedback", "app": "Todo"]
     )
-    let post = WebhookPost(id: "post-1", title: "Lists Feedback: 1 change", image: Data("PNG".utf8), report: Data(#"{"items":[]}"#.utf8))
+    let files = WebhookContents.report.files(image: { _ in Data("PNG".utf8) }, report: #"{"items":[]}"#, environment: [])
+    let post = WebhookPost(id: "post-1", title: "Lists Feedback: 1 change", files: files)
     let request = try await webhook.request(post, boundary: "B")
 
     #expect(request.url?.absoluteString == "https://hooks.example.com/feedback?repo=todo&app=Todo&labels=feedback")
@@ -1134,7 +1135,7 @@ private struct Fixture: Decodable {
         },
         query: { ["user": token ?? "nobody"] }
     )
-    let post = WebhookPost(id: "post-1", title: "Lists Feedback: 1 change", image: Data(), report: Data())
+    let post = WebhookPost(id: "post-1", title: "Lists Feedback: 1 change", files: [])
 
     await #expect(throws: SignedOut.self) { try await webhook.request(post) }
 
@@ -1168,4 +1169,80 @@ private struct Fixture: Decodable {
     let tooLarge = #expect(throws: Problem.self) { try link(413, "<html>413</html>") }
     #expect(tooLarge?.message == "GitHub Issue answered 413.")
     #expect(tooLarge?.retryable == false)
+}
+
+@Test func aSavedWebhookSendsWhatItWasSavedWithAndTheDeviceAfterIt() {
+    let environment = [
+        ContextEntry(name: "App", value: "Todo"),
+        ContextEntry(name: "Location", value: "Lists › Groceries"),
+        ContextEntry(name: "Device", value: "iPhone 18 Pro (Simulator) · iOS 27.0"),
+    ]
+    var drawn: [ImageEncoding] = []
+    func files(_ contents: WebhookContents) -> [String] {
+        contents.files(image: { drawn.append($0); return Data("IMG".utf8) }, report: "{}", environment: environment).map { "\($0.part) \($0.name) \($0.type)" }
+    }
+
+    #expect(files(.saved(image: .jpeg(.high), feedback: false)) == ["image feedback.jpg image/jpeg", "device device.json application/json"])
+    #expect(files(.saved(image: nil, feedback: true)) == ["feedback feedback.json application/json", "device device.json application/json"])
+    #expect(files(.saved(image: .png, feedback: true)) == [
+        "image feedback.png image/png",
+        "feedback feedback.json application/json",
+        "device device.json application/json",
+    ])
+    #expect(drawn == [.jpeg(.high), .png])
+    #expect(Report.deviceJSON(environment) == #"{"App":"Todo","Device":"iPhone 18 Pro (Simulator) · iOS 27.0","Location":"Lists › Groceries"}"#)
+}
+
+@Test func aWebhookDraftBecomesAWebhookOrSaysWhatIsWrongWithEachField() throws {
+    var draft = WebhookDraft()
+    #expect(draft.image && draft.feedback && draft.format == .png && draft.compression == .medium)
+    #expect(draft.read(id: "w1", taken: []) == .failure(.init(
+        name: "Give the webhook a name.",
+        url: "Enter an address that starts with http:// or https://."
+    )))
+
+    draft.name = " Agent "
+    draft.url = "ftp://example.com"
+    draft.header = "Bearer key"
+    #expect(draft.read(id: "w1", taken: []) == .failure(.init(
+        url: "Enter an address that starts with http:// or https://.",
+        header: "Write the header as Name: value, such as Authorization: Bearer key."
+    )))
+    #expect(draft.note == "Each post sends the title, the feedback JSON, the image, and the device JSON.")
+
+    draft.url = "http://127.0.0.1:8787/feedback"
+    draft.header = "  Authorization:Bearer  key "
+    draft.format = .jpeg
+    draft.compression = .high
+    draft.feedback = false
+    #expect(draft.read(id: "w1", taken: ["github issue"]) == .success(SavedWebhook(
+        id: "w1",
+        name: "Agent",
+        url: URL(string: "http://127.0.0.1:8787/feedback")!,
+        header: .init(name: "Authorization", value: "Bearer  key"),
+        image: .jpeg(.high),
+        feedback: false
+    )))
+    #expect(draft.read(id: "w1", taken: ["agent"]) == .failure(.init(name: "The Share menu already has Agent.")))
+
+    draft.image = false
+    let saved = try draft.read(id: "w1", taken: []).get()
+    #expect(saved.image == nil)
+    #expect(saved.contents.files(image: { _ in Data() }, report: "{}", environment: []).map(\.part) == ["device"])
+    #expect(WebhookDraft(saved).read(id: "w1", taken: []) == .success(saved))
+}
+
+@MainActor @Test func savedWebhooksStayInTheAppsDefaultsAcrossLaunches() throws {
+    let defaults = try #require(UserDefaults(suiteName: "feedback-tests-\(UUID().uuidString)"))
+    let first = SavedWebhook(id: "w1", name: "Agent", url: URL(string: "https://hooks.example.com")!, header: nil, image: .png, feedback: true)
+    let second = SavedWebhook(id: "w2", name: "Triage", url: URL(string: "https://hooks.example.com/t")!, header: .init(name: "X-Key", value: "k"), image: .jpeg(.low), feedback: false)
+    let store = SavedWebhooks(defaults: defaults)
+    store.save(first)
+    store.save(second)
+    var renamed = first
+    renamed.name = "Agent 2"
+    store.save(renamed)
+    #expect(SavedWebhooks(defaults: defaults).all == [renamed, second])
+    store.delete(id: "w1")
+    #expect(SavedWebhooks(defaults: defaults).all == [second])
 }

@@ -37,13 +37,44 @@ public struct FeedbackWebhook {
 }
 
 struct WebhookPost: Sendable {
+    struct File: Sendable, Equatable {
+        let part: String
+        let name: String
+        let type: String
+        let data: Data
+    }
+
     /// Made once per post and sent again on a retry, so a server can tell a retry from a second post.
     let id: String
     let title: String
-    /// The image export, as PNG.
-    let image: Data
-    /// The JSON export.
-    let report: Data
+    let files: [File]
+}
+
+/// What a post carries beside its `id` and `title`. An app's webhook sends the image export as PNG
+/// and the JSON export, as `image` and `report`. A saved webhook sends the image and the JSON export
+/// if it was saved with them, as `image` and `feedback`, and the environment as `device`.
+enum WebhookContents: Sendable {
+    case report
+    case saved(image: ImageEncoding?, feedback: Bool)
+
+    /// `image` encodes the image export, drawn only when the post carries it.
+    func files(image: (ImageEncoding) -> Data, report: String, environment: [ContextEntry]) -> [WebhookPost.File] {
+        func picture(_ encoding: ImageEncoding) -> WebhookPost.File {
+            switch encoding {
+            case .png: .init(part: "image", name: "feedback.png", type: "image/png", data: image(encoding))
+            case .jpeg: .init(part: "image", name: "feedback.jpg", type: "image/jpeg", data: image(encoding))
+            }
+        }
+        let json = { (part: String, name: String, text: String) in WebhookPost.File(part: part, name: name, type: "application/json", data: Data(text.utf8)) }
+        switch self {
+        case .report:
+            return [picture(.png), json("report", "feedback.json", report)]
+        case .saved(let encoding, let feedback):
+            return (encoding.map { [picture($0)] } ?? [])
+                + (feedback ? [json("feedback", "feedback.json", report)] : [])
+                + [json("device", "device.json", Report.deviceJSON(environment))]
+        }
+    }
 }
 
 extension FeedbackWebhook {
@@ -57,8 +88,8 @@ extension FeedbackWebhook {
         }
     }
 
-    /// One `multipart/form-data` request with the fields `id` and `title` and the files `image` and
-    /// `report`, as a browser's `FormData` sends them. Reads the headers and the query as they are now.
+    /// One `multipart/form-data` request with the fields `id` and `title` and then the post's files,
+    /// as a browser's `FormData` sends them. Reads the headers and the query as they are now.
     @MainActor
     func request(_ post: WebhookPost, boundary: String = "feedback-\(UUID().uuidString)") async throws -> URLRequest {
         let (headers, query) = (try await headers(), try await query())
@@ -75,8 +106,7 @@ extension FeedbackWebhook {
         }
         part("id", Data(post.id.utf8))
         part("title", Data(post.title.utf8))
-        part("image", file: ("feedback.png", "image/png"), post.image)
-        part("report", file: ("feedback.json", "application/json"), post.report)
+        for file in post.files { part(file.part, file: (file.name, file.type), file.data) }
         body += Data("--\(boundary)--\r\n".utf8)
 
         var request = URLRequest(url: components.url!, timeoutInterval: 60)
