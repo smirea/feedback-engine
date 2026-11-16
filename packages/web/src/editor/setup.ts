@@ -45,9 +45,10 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 	// one piece. Webpack has no `import.meta.env`. The cast needs no `import.meta.env` type from the app.
 	type Meta = { env?: Record<string, string | undefined> };
 	const proxy = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE;
+	const project = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE_PROJECT;
 	const engine = new Engine({
 		...options,
-		procrastimate: options.procrastimate ?? (proxy ? { url: proxy } : undefined),
+		procrastimate: options.procrastimate ?? (proxy ? { url: proxy, project: project || undefined } : undefined),
 	});
 	const host = document.createElement('div');
 	host.setAttribute(hostAttribute, '');

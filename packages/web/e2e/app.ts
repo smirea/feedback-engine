@@ -39,11 +39,14 @@ export const procrastimate = {
 	unauthorized: 0,
 	/** The next image upload's answer instead of storing it, as a proxy in front of ProcrastiMate would refuse it. */
 	refuseUpload: undefined as { status: number; body: string } | undefined,
+	/** Holds the next project list back until it settles, as a slow connection would. */
+	holdView: undefined as Promise<void> | undefined,
 };
 
 const procrastimateEnv = {
 	PROCRASTIMATE_URL: `http://127.0.0.1:${procrastimatePort}`,
 	PROCRASTIMATE_TOKEN: procrastimate.token,
+	PROCRASTIMATE_PROJECT: 'todo app',
 };
 
 function serveProcrastimate(port: number) {
@@ -58,6 +61,9 @@ function serveProcrastimate(port: number) {
 			}
 			const id = searchParams.get('id');
 			if (request.method === 'GET' && pathname === '/api/view') {
+				const hold = procrastimate.holdView;
+				procrastimate.holdView = undefined;
+				await hold;
 				return Response.json({
 					projects: [
 						{ id: 'p2', name: 'Later', order: 2, createdAt: 1 },

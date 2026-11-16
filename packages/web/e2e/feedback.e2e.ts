@@ -595,9 +595,8 @@ for (const app of appNames) {
 			const sheet = page.getByRole('form', { name: 'Add to ProcrastiMate' });
 			const name = sheet.getByRole('textbox', { name: 'Task name' });
 			expect(await name.inputValue()).toBe('Lists Feedback: 1 change');
-			await sheet.getByRole('option', { name: 'Todo app' }).waitFor();
-			expect(await sheet.getByRole('option').allInnerTexts()).toEqual(['Inbox\n✓', 'Todo app', 'Later']);
-			await sheet.getByRole('option', { name: 'Todo app' }).click();
+			// The dev server names `todo app` as the project, so the picker opens on it.
+			await sheet.getByRole('option', { name: 'Bugs' }).waitFor();
 			expect(await sheet.getByRole('option').allInnerTexts()).toEqual([
 				'Inbox',
 				'Todo app',
@@ -646,6 +645,29 @@ for (const app of appNames) {
 
 			await page.getByRole('button', { name: 'Close' }).click();
 			await editor(page).waitFor({ state: 'detached' });
+			expect(errors).toEqual([]);
+			await context.close();
+		});
+
+		test('before the projects load, Add waits for the named project, and a place chosen meanwhile stays', async () => {
+			const { promise, resolve } = Promise.withResolvers<void>();
+			procrastimate.holdView = promise;
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await present(page);
+			await tap(page, 100, 270);
+			await field(page).fill('Row is too tall');
+			await field(page).press('Enter');
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'ProcrastiMate' }).click();
+			const sheet = page.getByRole('form', { name: 'Add to ProcrastiMate' });
+			const add = sheet.getByRole('button', { name: 'Add' });
+			await sheet.getByRole('option', { name: 'Inbox' }).waitFor();
+			expect(await add.isDisabled()).toBe(true);
+			await sheet.getByRole('option', { name: 'Inbox' }).click();
+			resolve();
+			await sheet.getByRole('option', { name: 'Todo app' }).waitFor();
+			expect(await sheet.getByRole('option').allInnerTexts()).toEqual(['Inbox\n✓', 'Todo app', 'Later']);
+			expect(await add.isDisabled()).toBe(false);
 			expect(errors).toEqual([]);
 			await context.close();
 		});
@@ -713,7 +735,7 @@ for (const app of appNames) {
 				'Response: <html><title>413 Request Entity Too Large</title></html>',
 				'Error: Error: ProcrastiMate answered 413.',
 			]);
-			expect(lines).toContain('Place: Inbox');
+			expect(lines).toContain('Place: Todo app (p1)');
 			expect(lines.some(line => line.startsWith('App: '))).toBe(true);
 
 			await alert.getByRole('button', { name: 'Copy Error' }).click();

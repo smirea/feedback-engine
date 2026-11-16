@@ -34,6 +34,8 @@ export type FeedbackOptions = {
 		token?: string;
 		/** The ProcrastiMate web app, for the link to a posted task. */
 		app?: string;
+		/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
+		project?: string;
 	};
 	/**
 	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export and the JSON export to the

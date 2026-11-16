@@ -10,7 +10,11 @@ const uiHost = new URL(env.UI_URL).hostname;
 export default defineConfig({
 	plugins: [
 		tailwindcss(),
-		feedbackProcrastimate({ url: env.PROCRASTIMATE_URL, token: env.PROCRASTIMATE_TOKEN }),
+		feedbackProcrastimate({
+			url: env.PROCRASTIMATE_URL,
+			token: env.PROCRASTIMATE_TOKEN,
+			project: env.PROCRASTIMATE_PROJECT,
+		}),
 		sveltekit({
 			preprocess: [feedbackEngine()],
 			adapter: adapter({
