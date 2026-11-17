@@ -755,7 +755,7 @@ private indirect enum Chain {
 }
 
 /// `spec/fixtures/capture.json`: one built tree with the answers every platform must give for it.
-/// The web package's `fixtures.test.ts` reads the same file.
+/// The web package's `core.test.ts` reads the same file.
 private struct Fixture: Decodable {
     struct Rect: Decodable {
         let x, y, width, height: CGFloat

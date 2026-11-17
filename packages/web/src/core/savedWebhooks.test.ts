@@ -43,7 +43,7 @@ test('a draft names each field it cannot use: no name, a name the Share menu has
 	expect(fields({ name: 'github issue' }, ['GitHub Issue'])).toEqual(['name']);
 });
 
-test('editing starts from what was saved', () => {
+test('a saved webhook read back through a draft is unchanged', () => {
 	const saved = {
 		id: 'w1',
 		name: 'Agent',
