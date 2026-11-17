@@ -6,6 +6,7 @@
 		nearestComponent,
 		nearestSource,
 		paletteColor,
+		Problem,
 		Session,
 		tag,
 		title,
@@ -27,6 +28,7 @@
 	import { savedDelivery, type Delivery } from '../dom/webhook.ts';
 	import { destinations, pinnedDestinations, type Destination } from './destinations.ts';
 	import type { Engine } from './engine.ts';
+	import ProblemCard from './ProblemCard.svelte';
 	import ProcrastimateSheet from './ProcrastimateSheet.svelte';
 	import WebhookDialog from './WebhookDialog.svelte';
 	import WebhookSheet from './WebhookSheet.svelte';
@@ -103,6 +105,7 @@
 	const pinned = $derived(pinnedDestinations(targets, engine.options.pinned));
 	let confirmsClose = $state(false);
 	let pending = $state<{ format: ExportFormat; ready: Export }>();
+	let failure = $state<{ title: string; problem: Problem }>();
 	let busy = $state(false);
 
 	/** Fits the part that was on screen, and never goes below half the width, where targets get too small to tap. */
@@ -148,7 +151,7 @@
 
 	$effect(() => {
 		const toast = view.toast;
-		if (!toast) return;
+		if (!toast || toast.problem) return;
 		const timer = setTimeout(() => act(() => (session.toast = undefined)), toast.link ? 5000 : 3000);
 		return () => clearTimeout(timer);
 	});
@@ -209,7 +212,10 @@
 	}
 
 	function requestClose() {
-		if (showsInfo || showsShare || showsProcrastimate || posting || pending || editing) {
+		// The error is drawn over the other sheets, so it is the one to leave first.
+		if (failure) {
+			failure = undefined;
+		} else if (showsInfo || showsShare || showsProcrastimate || posting || pending || editing) {
 			showsInfo = showsShare = showsProcrastimate = false;
 			posting = pending = editing = undefined;
 		} else if (session.isTyping || session.unshared.length) {
@@ -271,7 +277,7 @@
 			else if (action === 'save') saveExport(ready);
 			else if (!(await shareExport(ready))) return;
 		} catch (error) {
-			act(() => (session.toast = { text: `Could not ${action}: ${(error as Error).message}` }));
+			act(() => (session.toast = { text: `Could not ${action}`, problem: Problem.from(error) }));
 			return;
 		}
 		pending = undefined;
@@ -556,15 +562,18 @@
 	</div>
 
 	{#if view.toast}
-		<div class="toast" role="status">
+		{@const { text, link, problem } = view.toast}
+		<div class="toast" role={problem ? 'alert' : 'status'}>
 			<button
 				type="button"
+				class:failed={problem}
 				onclick={() => {
-					if (view.toast?.link) open(view.toast.link, '_blank', 'noopener');
+					if (link) open(link, '_blank', 'noopener');
+					if (problem) failure = { title: text, problem };
 					act(() => (session.toast = undefined));
 				}}
 			>
-				✓ {view.toast.text}{view.toast.link ? ' ↗' : ''}
+				{#if problem}⚠ {text}: {problem.message} ›{:else}✓ {text}{link ? ' ↗' : ''}{/if}
 			</button>
 		</div>
 	{/if}
@@ -643,6 +652,20 @@
 				</p>
 				<button type="button" class="danger" onclick={() => engine.close()}>Discard</button>
 				<button type="button" class="quiet" onclick={() => (confirmsClose = false)}>Keep Editing</button>
+			</div>
+		</div>
+	{/if}
+
+	{#if failure}
+		<div
+			class="scrim"
+			role="presentation"
+			onclick={event => event.target === event.currentTarget && (failure = undefined)}
+		>
+			<div class="sheet actions" role="dialog" tabindex="-1" aria-label={failure.title}>
+				<h2>{failure.title}</h2>
+				<ProblemCard problem={failure.problem} open />
+				<button type="button" class="quiet" onclick={() => (failure = undefined)}>Close</button>
 			</div>
 		</div>
 	{/if}
@@ -1175,7 +1198,8 @@
 		position: absolute;
 		top: 60px;
 		left: 50%;
-		z-index: 4;
+		/* Above a sheet's scrim: a failed copy leaves the export's sheet open, and its toast must still take a click. */
+		z-index: 6;
 		width: max-content;
 		max-width: calc(100% - 32px);
 		translate: -50% 0;
@@ -1187,6 +1211,17 @@
 		padding: 10px 16px;
 		background: rgb(52 199 89 / 0.92);
 		font-weight: 600;
+	}
+
+	.toast .failed {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+		border-radius: 18px;
+		background: rgb(255 69 58 / 0.94);
+		text-align: start;
 	}
 
 	.scrim {

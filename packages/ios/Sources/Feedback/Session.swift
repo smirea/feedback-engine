@@ -147,8 +147,16 @@ final class Session {
     var compactJSON: String { Report.json(capture, annotations, pretty: false) }
 }
 
-/// Tapping a toast with a link opens it, such as the task a post created.
+/// Tapping a toast with a link opens it, such as the task a post created. One with a failure is red and stays
+/// until it is tapped, which opens the failure in full.
 struct Toast: Equatable {
     let text: String
     var link: URL?
+    var failure: Failure?
+
+    struct Failure: Equatable {
+        let problem: Problem
+        /// The outbox post **Retry** sends again.
+        let post: String
+    }
 }

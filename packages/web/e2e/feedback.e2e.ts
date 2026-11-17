@@ -852,6 +852,50 @@ for (const app of appNames) {
 			});
 		}
 
+		test('an export that cannot be copied shows a red toast that stays, and a click opens the error with a copy', async () => {
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await present(page);
+			await tap(page, 100, 270);
+			await field(page).fill('Row is too tall');
+			await field(page).press('Enter');
+			await page.evaluate(() => {
+				const write = navigator.clipboard.writeText.bind(navigator.clipboard);
+				navigator.clipboard.writeText = async () => {
+					navigator.clipboard.writeText = write;
+					throw new DOMException('Write permission denied.', 'NotAllowedError');
+				};
+			});
+			await page.getByRole('button', { name: 'Share' }).click();
+			await page.getByRole('menuitem', { name: 'JSON', exact: true }).click();
+			await page.getByRole('button', { name: 'Copy Feedback' }).click();
+
+			const toast = page.locator('.toast').getByRole('button');
+			await toast.waitFor();
+			expect(await toast.innerText()).toBe('⚠ Could not copy: Write permission denied. ›');
+			expect(await toast.evaluate(button => getComputedStyle(button).backgroundColor)).toBe('rgba(255, 69, 58, 0.94)');
+			// A toast that confirms leaves after three seconds.
+			await page.waitForTimeout(3500);
+			await toast.click();
+			await toast.waitFor({ state: 'detached' });
+
+			const failure = page.getByRole('dialog', { name: 'Could not copy' });
+			expect(await failure.locator('.message').innerText()).toBe('Write permission denied.');
+			expect(await failure.locator('pre').innerText()).toBe('Error: NotAllowedError: Write permission denied.');
+			await failure.getByRole('button', { name: 'Copy Error' }).click();
+			await failure.getByRole('button', { name: 'Copied' }).waitFor();
+			expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+				'Write permission denied.\n\nError: NotAllowedError: Write permission denied.',
+			);
+			await page.keyboard.press('Escape');
+			await failure.waitFor({ state: 'detached' });
+
+			// Escape closed the error alone: the export's sheet is still there, and the copy works now.
+			await page.getByRole('button', { name: 'Copy Feedback' }).click();
+			expect(await page.locator('.toast').innerText()).toBe('✓ Copied');
+			expect(errors).toEqual([]);
+			await context.close();
+		});
+
 		test('a webhook whose query is a function sends what is true when the post is made', async () => {
 			webhook.posts.length = 0;
 			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');

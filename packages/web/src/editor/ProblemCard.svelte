@@ -3,17 +3,12 @@
 <script lang="ts">
 	import type { Problem } from '../core/index.ts';
 
-	let { problem }: { problem: Problem } = $props();
+	let { problem, open = false }: { problem: Problem; open?: boolean } = $props();
 </script>
 
 <div class="problem" role="alert">
 	<p class="message">{problem.message}</p>
-	{#if problem.facts.length}
-		<details>
-			<summary>Details</summary>
-			<pre>{problem.details}</pre>
-		</details>
-	{/if}
+	<!-- Above the details, which can fill a sheet when open: the copy must not need a scroll. -->
 	<button
 		type="button"
 		onclick={async event => {
@@ -23,6 +18,12 @@
 			setTimeout(() => (button.textContent = 'Copy Error'), 2000);
 		}}>Copy Error</button
 	>
+	{#if problem.facts.length}
+		<details {open}>
+			<summary>Details</summary>
+			<pre>{problem.details}</pre>
+		</details>
+	{/if}
 </div>
 
 <style>

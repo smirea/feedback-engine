@@ -1,9 +1,13 @@
 import { Annotations, type FeedbackItem, type Reference } from './annotations.ts';
 import { hitTest, pathFrom, similar, type Capture, type Node, type Point } from './model.ts';
+import type { Problem } from './problem.ts';
 import { reportJSON } from './report.ts';
 
-/** Tapping a toast with a link opens it, such as the task a post created. */
-export type Toast = { text: string; link?: string };
+/**
+ * Tapping a toast with a link opens it, such as the task a post created. One with a problem is red and stays until it
+ * is tapped, which opens the problem in full.
+ */
+export type Toast = { text: string; link?: string; problem?: Problem };
 
 /** The editor's state and rules, without any drawing. */
 export class Session {
