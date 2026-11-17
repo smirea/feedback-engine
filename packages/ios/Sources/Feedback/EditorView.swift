@@ -371,6 +371,9 @@ private struct TargetPanel: View {
                     .font(.title)
                     .disabled(!session.canSubmit)
             }
+            if !session.items.isEmpty {
+                ItemList(session: session)
+            }
         }
         .padding(16)
         .background(Color(white: 0.12))
@@ -404,7 +407,7 @@ private struct ReferencePicker: View {
                     .tint(.cyan)
                     .font(.subheadline.weight(.semibold))
             } else {
-                Label("Tap an element to reference it", systemImage: "at")
+                Label(session.items.isEmpty ? "Tap an element to reference it" : "Tap an element or an item to reference it", systemImage: "at")
                     .font(.subheadline)
                     .foregroundStyle(.cyan)
                 Spacer(minLength: 0)
@@ -413,6 +416,78 @@ private struct ReferencePicker: View {
         .buttonStyle(.bordered)
         .buttonBorderShape(.circle)
         .frame(minHeight: 34)
+    }
+}
+
+/// Every item under the field. Tapping one edits it, or picks it while the text ends in `@`. It
+/// starts closed on a phone, where it would cover the screenshot.
+private struct ItemList: View {
+    let session: Session
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var isOpen: Bool?
+
+    var body: some View {
+        let open = isOpen ?? (sizeClass == .regular)
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                withAnimation(.snappy) { isOpen = !open }
+            } label: {
+                HStack(spacing: 4) {
+                    Text(session.items.count == 1 ? "1 item" : "\(session.items.count) items")
+                    Image(systemName: "chevron.down")
+                        .font(.caption2.bold())
+                        .rotationEffect(.degrees(open ? 0 : -90))
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityValue(open ? "Expanded" : "Collapsed")
+            if open {
+                ScrollView {
+                    VStack(spacing: 4) {
+                        ForEach(session.items) { item in
+                            row(item)
+                        }
+                    }
+                }
+                .scrollBounceBehavior(.basedOnSize)
+                .frame(maxHeight: sizeClass == .regular ? 360 : 220)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    private func row(_ item: FeedbackItem) -> some View {
+        let number = session.annotations.number(of: item.target)
+        let title = session.capture.nodes[item.target].title
+        let isReferenced = item.target == session.referenceTarget?.id
+        let border: Color = isReferenced ? .cyan : item.id == session.editing?.id ? .yellow : .clear
+        return Button {
+            if session.isReferencing { session.pickReference(item.target) } else { session.select(item.target) }
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Text("\(number)")
+                    .font(.caption.bold())
+                    .foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .background(Palette.color(session.colorIndex(of: item.target)), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.footnote.weight(.semibold)).foregroundStyle(.secondary).lineLimit(1)
+                    Text(item.text).font(.subheadline).lineLimit(2)
+                }
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(isReferenced ? Color.cyan.opacity(0.12) : Color(white: 0.17), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(border, lineWidth: 1.5))
+            .contentShape(RoundedRectangle(cornerRadius: 12))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(session.isReferencing ? "Reference" : "Edit") item \(number), \(title)")
+        .accessibilityValue(item.text)
     }
 }
 

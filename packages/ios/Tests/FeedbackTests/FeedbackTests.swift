@@ -401,6 +401,26 @@ private func rowScene() -> RawScene {
     #expect(!session.isReferencing)
 }
 
+@MainActor @Test func anItemFromTheListIsReferencedWithItsOwnNumberAndOnlyWhileTheTextEndsInAt() throws {
+    let session = Session(capture: capture(rowScene()))
+    session.pick(at: CGPoint(x: 50, y: 220))
+    session.text = "Too short"
+    session.submit()
+    let milk = session.items[0].target
+
+    session.pick(at: CGPoint(x: 350, y: 220))
+    session.pickReference(milk)
+    #expect(session.referenceTarget == nil)
+    session.text = "Same size as @"
+    session.pickReference(milk)
+    #expect(session.target.title == "Button \"Delete\"")
+    #expect(session.referenceTarget?.title == "Text \"Milk\"")
+    session.insertReference()
+    #expect(session.text == "Same size as @1_Text ")
+    session.submit()
+    #expect(session.items.map { session.annotations.number(of: $0.target) } == [1, 2])
+}
+
 @MainActor @Test func aNewItemHoldsItsNumberBeforeTheNodesItReferencesAndAnEditReferencesAfterTheLastNumber() throws {
     let session = Session(capture: capture(rowScene()))
     session.pick(at: CGPoint(x: 50, y: 220))

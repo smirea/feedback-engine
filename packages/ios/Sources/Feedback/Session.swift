@@ -66,6 +66,13 @@ final class Session {
 
     func colorIndex(of node: Node.ID) -> Int { annotations.colorIndex(of: node) }
 
+    /// What a tap on the screenshot or on an item in the list picks while the text ends in `@`.
+    func pickReference(_ node: Node.ID) {
+        guard isReferencing else { return }
+        referencePick = node
+        referenceLevel = 0
+    }
+
     func stepReference(to level: Int) {
         referenceLevel = level
     }
@@ -93,11 +100,7 @@ final class Session {
     /// Screens and layers cover everything, so their feedback never captures a tap.
     func pick(at point: CGPoint) {
         let id = capture.hitTest(point)
-        if isReferencing {
-            referencePick = id
-            referenceLevel = 0
-            return
-        }
+        if isReferencing { return pickReference(id) }
         let flagged = Set(items.map(\.target))
         let level = capture.path(from: id).firstIndex { flagged.contains($0.id) && $0.kind != .screen && $0.kind != .layer } ?? 0
         let drillsDown = id == picked && self.level == level

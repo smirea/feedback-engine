@@ -297,6 +297,26 @@ test('typing @ picks a node to reference without moving the target', () => {
 	expect(session.isReferencing).toBe(false);
 });
 
+test('an item from the list is referenced with its own number, and only while the text ends in @', () => {
+	const session = new Session(captureOf(rowScene()));
+	session.pick({ x: 50, y: 220 });
+	session.text = 'Too short';
+	session.submit();
+	const [milk] = session.items.map(item => item.target);
+
+	session.pick({ x: 350, y: 220 });
+	session.pickReference(milk!);
+	expect(session.referenceTarget).toBeUndefined();
+	session.text = 'Same size as @';
+	session.pickReference(milk!);
+	expect(title(session.target)).toBe('Button "Delete"');
+	expect(title(session.referenceTarget!)).toBe('Text "Milk"');
+	session.insertReference();
+	expect(session.text).toBe('Same size as @1_Text ');
+	session.submit();
+	expect(session.items.map(item => session.annotations.number(item.target))).toEqual([1, 2]);
+});
+
 test('a new item holds its number before the nodes it references, and an edit references after the last number', () => {
 	const session = new Session(captureOf(rowScene()));
 	session.pick({ x: 50, y: 220 });

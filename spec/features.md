@@ -110,6 +110,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | E17 | The editor's styles and the app's styles do not reach each other. | shipped | shipped | shipped | iOS: a separate window. Web: a shadow root. |
 | E18 | Tapping the selection's title shows its component's `file:line`, the number of similar parts, and its data in a popover. The panel itself shows only the title, so the field has the room. | shipped | shipped | shipped | iOS: a popover with its arrow on the title. Web: a tooltip above the title on a narrow screen, and below it beside the screenshot. A click elsewhere or Escape closes it. |
 | E19 | The feedback field grows with its text up to 60% of the editor's height, then scrolls. | shipped | shipped | shipped | iOS: the height above the keyboard. Web: the viewport's height. |
+| E20 | Every item is listed under the feedback field with its number, target, and text. Tapping one brings it back for editing, and while the text ends in `@` it picks that item's element to reference, as a tap on the screenshot would. The list starts closed on a phone and open beside the screenshot. | shipped | shipped | shipped | iOS: closed in a compact width, open in a regular one. Web: closed under 900 px, where the panel sits under the screenshot. A press on an item keeps the field's focus, so Enter inserts the reference. |
 
 ## Export and sharing
 

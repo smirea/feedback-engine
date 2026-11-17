@@ -305,7 +305,7 @@ for (const app of appNames) {
 					await tap(page, left + 40, 60);
 					expect(await selected(page)).toBe('Header "Lists"');
 					await field(page).fill('Smaller, like @');
-					expect(await page.getByText('Click an element to reference it').count()).toBe(1);
+					expect(await page.getByText('Click an element or an item to reference it').count()).toBe(1);
 					await tap(page, groceries.x, groceries.y);
 					expect(await selected(page)).toBe('Header "Lists"');
 					await page.getByRole('button', { name: 'Insert' }).click();
@@ -540,6 +540,50 @@ for (const app of appNames) {
 			expect(report.references.map(reference => reference.token)).toEqual(['@2_ListRow', '@3_ListRow']);
 			expect(errors).toEqual([]);
 			await context.close();
+		});
+
+		test('the items are listed under the field, closed on a phone, and a reference can pick one', async () => {
+			const { page, context, errors } = await open(app, 'chromium', 'dev', '/');
+			await present(page);
+			await tap(page, 40, 60);
+			await field(page).fill('Bigger');
+			await field(page).press('Enter');
+			await tap(page, 100, 270);
+			await field(page).fill('Too tall');
+			await field(page).press('Enter');
+
+			const toggle = page.getByRole('button', { name: '2 items' });
+			const rows = page.getByRole('list', { name: 'Feedback items' }).getByRole('button');
+			expect(await toggle.getAttribute('aria-expanded')).toBe('false');
+			expect(await rows.count()).toBe(0);
+			await toggle.click();
+			expect(await rows.allInnerTexts()).toEqual(['1\nHeader "Lists"\nBigger', '2\nListRow\nToo tall']);
+
+			await field(page).fill('Same as @');
+			expect(await page.locator('.picker .picked').innerText()).toBe('@ Click an element or an item to reference it');
+			await field(page).focus();
+			await page.getByRole('button', { name: 'Reference item 1, Header "Lists"' }).click();
+			expect(await page.locator('.picker .picked').innerText()).toBe('Header "Lists"');
+			expect(await page.locator('.box.reference').count()).toBe(1);
+			await page.keyboard.press('Enter');
+			expect(await field(page).inputValue()).toBe('Same as @1_Header ');
+			await field(page).press('Enter');
+			expect(await rows.count()).toBe(3);
+
+			await page.getByRole('button', { name: 'Edit item 2, ListRow' }).click();
+			expect(await selected(page)).toBe('ListRow');
+			expect(await field(page).inputValue()).toBe('Too tall');
+			expect(await page.getByRole('button', { name: 'Save feedback' }).count()).toBe(1);
+			expect(errors).toEqual([]);
+			await context.close();
+
+			const wide = await open(app, 'chromium', 'dev', '/', { width: 1280, height: 800 });
+			await present(wide.page);
+			await field(wide.page).fill('Bigger');
+			await field(wide.page).press('Enter');
+			expect(await wide.page.getByRole('button', { name: '1 item' }).getAttribute('aria-expanded')).toBe('true');
+			expect(await wide.page.getByRole('list', { name: 'Feedback items' }).getByRole('button').count()).toBe(1);
+			await wide.context.close();
 		});
 
 		test('the screenshot zooms up to four times around the pointer', async () => {

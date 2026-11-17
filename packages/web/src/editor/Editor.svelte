@@ -67,6 +67,7 @@
 				...item,
 				number: session.annotations.number(item.target),
 				color: paletteColor(session.colorIndex(item.target)),
+				title: title(capture.nodes[item.target]!),
 			})),
 			references: session.visibleReferences.map(reference => ({
 				...reference,
@@ -90,6 +91,8 @@
 	let zoom = $state(1);
 	let hover = $state<number>();
 	let showsInfo = $state(false);
+	/** The list of items starts open beside the screenshot, and closed under it on a phone, where it would cover the picture. */
+	let showsItems = $state(matchMedia('(min-width: 900px)').matches);
 	let showsShare = $state(false);
 	let showsProcrastimate = $state(false);
 	let posting = $state<Delivery>();
@@ -476,7 +479,7 @@
 						<strong class="picked">{title(view.referenceTarget)}</strong>
 						<button type="button" class="insert" onclick={() => act(() => session.insertReference())}>Insert</button>
 					{:else}
-						<span class="picked">@ Click an element to reference it</span>
+						<span class="picked">@ Click an element{view.items.length ? ' or an item' : ''} to reference it</span>
 					{/if}
 				</div>
 			{/if}
@@ -507,6 +510,48 @@
 					</svg>
 				</button>
 			</div>
+			{#if view.items.length}
+				<div class="items">
+					<button
+						type="button"
+						class="toggle"
+						aria-expanded={showsItems}
+						aria-controls="feedback-items"
+						onclick={() => (showsItems = !showsItems)}
+					>
+						{count(view.items.length)}
+						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+					</button>
+					{#if showsItems}
+						<!-- A press keeps the field's focus, so Enter still inserts a reference or saves after picking an item. -->
+						<ol id="feedback-items" aria-label="Feedback items">
+							{#each view.items as item (item.id)}
+								<li>
+									<button
+										type="button"
+										class:current={item.id === view.editing?.id}
+										class:referenced={item.target === view.referenceTarget?.id}
+										aria-label={view.isReferencing
+											? `Reference item ${item.number}, ${item.title}`
+											: `Edit item ${item.number}, ${item.title}`}
+										onmousedown={event => event.preventDefault()}
+										onclick={() =>
+											act(() =>
+												view.isReferencing ? session.pickReference(item.target) : session.select(item.target),
+											)}
+									>
+										<span class="number static" style="--color:{item.color}">{item.number}</span>
+										<span class="summary">
+											<strong>{item.title}</strong>
+											<span>{item.text}</span>
+										</span>
+									</button>
+								</li>
+							{/each}
+						</ol>
+					{/if}
+				</div>
+			{/if}
 		</section>
 	</div>
 
@@ -1033,6 +1078,99 @@
 		background: #0a84ff;
 	}
 
+	.items {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		min-height: 0;
+	}
+
+	.toggle {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		align-self: flex-start;
+		border: 0;
+		padding: 2px 0;
+		background: none;
+		color: #aeaeb2;
+		font-size: 13px;
+		font-weight: 600;
+	}
+
+	.toggle svg {
+		width: 14px;
+		height: 14px;
+		transition: rotate 0.15s;
+	}
+
+	.toggle[aria-expanded='false'] svg {
+		rotate: -90deg;
+	}
+
+	ol {
+		display: grid;
+		gap: 4px;
+		min-height: 0;
+		max-height: 30dvh;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+		overflow-y: auto;
+		overscroll-behavior: contain;
+	}
+
+	ol button {
+		display: flex;
+		align-items: flex-start;
+		gap: 10px;
+		width: 100%;
+		border: 1.5px solid transparent;
+		border-radius: 12px;
+		padding: 8px 10px;
+		box-sizing: border-box;
+		background: #2a2a2c;
+		text-align: left;
+	}
+
+	ol button:hover {
+		background: #323234;
+	}
+
+	ol button.current {
+		border-color: #ffd60a;
+	}
+
+	ol button.referenced {
+		border-color: #32ade6;
+		background: rgb(50 173 230 / 0.12);
+	}
+
+	ol .number.static {
+		flex: none;
+		margin: 0;
+	}
+
+	.summary {
+		display: grid;
+		gap: 2px;
+		min-width: 0;
+	}
+
+	.summary strong {
+		font-size: 13px;
+		color: #aeaeb2;
+	}
+
+	.summary span {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
+		overflow: hidden;
+		white-space: pre-line;
+	}
+
 	.toast {
 		position: absolute;
 		top: 60px;
@@ -1108,11 +1246,17 @@
 			flex-direction: row;
 		}
 
+		/* A column, so the list takes the height left under the field and scrolls inside it. */
 		.panel {
-			align-content: start;
+			display: flex;
+			flex-direction: column;
 			width: 380px;
 			box-sizing: border-box;
 			border-left: 1px solid rgb(255 255 255 / 0.08);
+		}
+
+		ol {
+			max-height: none;
 		}
 
 		.info {

@@ -92,6 +92,13 @@ export class Session {
 		return this.annotations.colorIndex(node);
 	}
 
+	/** What a tap on the screenshot or on an item in the list picks while the text ends in `@`. */
+	pickReference(node: number) {
+		if (!this.isReferencing) return;
+		this.referencePick = node;
+		this.referenceLevel = 0;
+	}
+
 	stepReference(level: number) {
 		this.referenceLevel = level;
 	}
@@ -124,8 +131,7 @@ export class Session {
 	pick(point: Point) {
 		const id = hitTest(this.capture, point);
 		if (this.isReferencing) {
-			this.referencePick = id;
-			this.referenceLevel = 0;
+			this.pickReference(id);
 			return;
 		}
 		const flagged = new Set(this.items.map(item => item.target));
