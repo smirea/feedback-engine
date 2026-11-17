@@ -886,9 +886,10 @@ for (const app of appNames) {
 			expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
 				'Write permission denied.\n\nError: NotAllowedError: Write permission denied.',
 			);
-			await failure.getByRole('button', { name: 'Close' }).click();
+			await page.keyboard.press('Escape');
+			await failure.waitFor({ state: 'detached' });
 
-			// The export's sheet is still there, and the copy works now.
+			// Escape closed the error alone: the export's sheet is still there, and the copy works now.
 			await page.getByRole('button', { name: 'Copy Feedback' }).click();
 			expect(await page.locator('.toast').innerText()).toBe('✓ Copied');
 			expect(errors).toEqual([]);

@@ -212,7 +212,10 @@
 	}
 
 	function requestClose() {
-		if (showsInfo || showsShare || showsProcrastimate || posting || pending || editing) {
+		// The error is drawn over the other sheets, so it is the one to leave first.
+		if (failure) {
+			failure = undefined;
+		} else if (showsInfo || showsShare || showsProcrastimate || posting || pending || editing) {
 			showsInfo = showsShare = showsProcrastimate = false;
 			posting = pending = editing = undefined;
 		} else if (session.isTyping || session.unshared.length) {
