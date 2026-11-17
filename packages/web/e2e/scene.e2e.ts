@@ -239,25 +239,23 @@ for (const app of appNames) {
 				await context.close();
 			});
 
-			test.if(app === 'react')(
-				'a change in React that breaks the component reader still leaves the tagged components and the elements',
-				async () => {
-					const { page, context, errors } = await open(app, engine, '/');
-					// What React keeps on its root element, in a shape the reader does not know.
-					await page.evaluate(() => Object.assign(document.body, { __reactContainer$changed: {} }));
-					const { report } = await capture(page);
-					expect(outline(report).slice(0, 6)).toEqual([
-						'Screen',
-						'  ListsScreen  src/screens/ListsScreen.tsx:26',
-						'    Header "Lists"',
-						'    Button "New List"',
-						'    Text "21"',
-						'    Text "1"',
-					]);
-					expect(errors).toEqual([]);
-					await context.close();
-				},
-			);
+			if (app !== 'react') return;
+			test('a change in React that breaks the component reader still leaves the tagged components and the elements', async () => {
+				const { page, context, errors } = await open(app, engine, '/');
+				// What React keeps on its root element, in a shape the reader does not know.
+				await page.evaluate(() => Object.assign(document.body, { __reactContainer$changed: {} }));
+				const { report } = await capture(page);
+				expect(outline(report).slice(0, 6)).toEqual([
+					'Screen',
+					'  ListsScreen  src/screens/ListsScreen.tsx:26',
+					'    Header "Lists"',
+					'    Button "New List"',
+					'    Text "21"',
+					'    Text "1"',
+				]);
+				expect(errors).toEqual([]);
+				await context.close();
+			});
 		});
 	}
 }
