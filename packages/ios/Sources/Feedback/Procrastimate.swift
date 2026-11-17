@@ -573,6 +573,7 @@ struct ProblemRows: View {
             try? await Task.sleep(for: .seconds(2))
             copied = false
         }
+        .onChange(of: problem) { (expanded, copied) = (false, false) }
         if !problem.facts.isEmpty {
             DisclosureGroup("Details", isExpanded: $expanded) {
                 Text(problem.details)
@@ -581,7 +582,6 @@ struct ProblemRows: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .onChange(of: problem) { (expanded, copied) = (false, false) }
     }
 }
 #endif
