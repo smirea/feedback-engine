@@ -546,7 +546,7 @@ private struct ProblemSection: View {
     }
 }
 
-/// A failure's message, with its facts under **Details** and a button that copies both.
+/// A failure's message, a button that copies it with its facts, and the facts under **Details**.
 struct ProblemRows: View {
     let problem: Problem
     @State private var expanded: Bool
@@ -563,14 +563,7 @@ struct ProblemRows: View {
         } icon: {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
         }
-        if !problem.facts.isEmpty {
-            DisclosureGroup("Details", isExpanded: $expanded) {
-                Text(problem.details)
-                    .font(.caption.monospaced())
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
+        // Above the details, which fill a sheet when open: the copy must not need a scroll.
         Button(copied ? "Copied" : "Copy Error", systemImage: copied ? "checkmark" : "doc.on.doc") {
             UIPasteboard.general.string = problem.text
             copied = true
@@ -579,6 +572,14 @@ struct ProblemRows: View {
             guard copied else { return }
             try? await Task.sleep(for: .seconds(2))
             copied = false
+        }
+        if !problem.facts.isEmpty {
+            DisclosureGroup("Details", isExpanded: $expanded) {
+                Text(problem.details)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .onChange(of: problem) { (expanded, copied) = (false, false) }
     }
