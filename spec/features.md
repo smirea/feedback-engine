@@ -8,7 +8,7 @@ Each row has one status per platform.
 - `planned`: the platform will do it. The notes say how, and what differs from the other platforms.
 - `no`: the platform will not do it. The notes say why.
 
-Add or update a row in the same change that adds, changes, or removes behavior on any platform. A new row needs a status for every platform, so a feature cannot land on one platform without a decision about the others. `bun test spec` checks that every row has a unique id and a valid status, and that every `no` has a reason.
+Add or update a row in the same change that adds, changes, or removes behavior on any platform. A new row needs a status for every platform, so a feature cannot land on one platform without a decision about the others. `scripts/check-features.ts` checks that every row has a unique id and a valid status, and that every `no` has a reason.
 
 ## Trigger
 

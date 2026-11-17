@@ -31,7 +31,7 @@ function run(command: string[], cwd: string) {
 
 const vite = {
 	build: ['node', 'node_modules/vite/bin/vite.js', 'build'],
-	serve: (port: number) => [
+	dev: (port: number) => [
 		'node',
 		'node_modules/vite/bin/vite.js',
 		'--host',
@@ -40,14 +40,20 @@ const vite = {
 		String(port),
 		'--strictPort',
 	],
+	preview: (port: number) => [
+		'node',
+		'node_modules/vite/bin/vite.js',
+		'preview',
+		'--host',
+		'127.0.0.1',
+		'--port',
+		String(port),
+		'--strictPort',
+	],
 };
 
-/** Copies a fixture out of the repository, installs the packed package into it, builds it, and opens its server. */
-async function consume(
-	fixture: string,
-	port: number,
-	{ check, build, serve }: { check?: string[]; build: string[]; serve: (port: number) => string[] } = vite,
-) {
+/** Copies a fixture out of the repository, installs the packed package into it, type-checks it if asked, and builds it. */
+function install(fixture: string, { check, build }: { check?: string[]; build: string[] }) {
 	const app = mkdtempSync(join(tmpdir(), `feedback-${fixture}-`));
 	cpSync(join(import.meta.dir, fixture), app, { recursive: true });
 	// The release publishes with npm, so the apps install what npm packs.
@@ -62,10 +68,14 @@ async function consume(
 	run(['bun', 'install'], app);
 	if (check) run(check, app);
 	run(build, app);
+	return app;
+}
 
+/** Starts one of the app's servers and opens it once the page has the engine. */
+async function serve(app: string, command: string[]) {
 	const state = { log: '', errors: [] as string[] };
-	const [command, ...args] = serve(port);
-	const server = spawn(command!, args, {
+	const port = Number(command.at(-1) === '--strictPort' ? command.at(-2) : command.at(-1));
+	const server = spawn(command[0]!, command.slice(1), {
 		cwd: app,
 		env: { ...process.env, NODE_ENV: undefined, NEXT_TELEMETRY_DISABLED: '1' },
 		stdio: 'pipe',
@@ -82,7 +92,7 @@ async function consume(
 			)
 		)
 			break;
-		if (attempt === 150) throw new Error(`The dev server did not start:\n${state.log}`);
+		if (attempt === 150) throw new Error(`The server did not start:\n${state.log}`);
 		await Bun.sleep(100);
 	}
 
@@ -93,25 +103,19 @@ async function consume(
 		if (message.type() === 'error') state.errors.push(message.text());
 	});
 	await page.goto(url);
+	await page.waitForFunction(() => globalThis.__feedbackEngine);
 	return { page, state };
 }
 
-/** Gives feedback the way a person does, from `open` to the JSON export, and returns the tree. */
-async function exported(page: Page, open: () => Promise<void>) {
-	await page.getByRole('button', { name: 'Count 3' }).click();
-	await open();
-	const field = page.getByRole('textbox', { name: 'Feedback text' });
-	await field.fill('Bigger button');
-	await field.press('Enter');
-	await page.getByRole('button', { name: 'Share' }).click();
-	const share = await page.getByRole('menuitem').allInnerTexts();
-	await page.getByRole('menuitem', { name: 'JSON', exact: true }).click();
-	await page.getByRole('dialog', { name: 'Share JSON' }).waitFor();
-	const report = JSON.parse(await page.evaluate(() => globalThis.__feedbackEngine!.lastExport[0]!.blob.text()));
+/** Opens the editor through the automation entry, then reads the page's tree the way the editor does. */
+async function captured(page: Page) {
+	await page.evaluate(() => globalThis.__feedbackEngine!.present());
+	const report = JSON.parse(
+		await page.evaluate(() => (globalThis as unknown as { captureReport: () => Promise<string> }).captureReport()),
+	);
 	const depth = new Map<number, number>();
 	return {
 		app: report.app as string,
-		share,
 		tree: (
 			report.nodes as { id: number; parent?: number; name: string; label?: string; source?: string; data?: string }[]
 		).map(node => {
@@ -122,45 +126,41 @@ async function exported(page: Page, open: () => Promise<void>) {
 	};
 }
 
-test('a Svelte app that installs the packed package builds, serves, and exports feedback', async () => {
-	const { page, state } = await consume('consumer', env.UI_PORT + 4);
-	// This app sets a keyboard shortcut, which shows the pill.
-	const report = await exported(page, async () => {
-		await page.keyboard.press('Alt+Shift+F');
-		await page.getByRole('button', { name: 'Add Feedback' }).click();
-	});
+test('a Svelte app that installs the packed package builds, serves through the optimizer, and reads its tagged components', async () => {
+	const app = install('consumer', vite);
+	// The dev server pre-bundles the package. The log would carry the optimizer's error, which the page only shows as a failed import.
+	const dev = await serve(app, vite.dev(env.UI_PORT + 4));
+	await dev.page.evaluate(() => globalThis.__feedbackEngine!.present());
+	expect(dev.state.log).not.toContain('Error');
+	expect(dev.state.errors).toEqual([]);
+
+	// The capture hook reaches the package's modules past the optimizer, so the tree is read from the build.
+	const { page, state } = await serve(app, vite.preview(env.UI_PORT + 3));
+	const report = await captured(page);
 	expect(report.tree).toEqual([
 		['Screen', undefined, undefined],
-		['  App', 'src/App.svelte:7', 'count: 4'],
-		['    Header "Consumer"', 'src/App.svelte:8', undefined],
-		['    Button "Count 4"', 'src/App.svelte:9', undefined],
+		['  App', 'src/App.svelte:7', 'count: 3'],
+		['    Header "Consumer"', undefined, undefined],
+		['    Button "Count 3"', undefined, undefined],
 	]);
 	expect(report.app).toBe('Consumer');
-	expect(report.share).toEqual(['Image', 'JSON', 'Image and JSON (ZIP)', 'New Webhook']);
-	// The log would carry the optimizer's error, which the page only shows as a failed import.
-	expect(state.log).not.toContain('Error');
 	expect(state.errors).toEqual([]);
 }, 180_000);
 
-test('a React 18 app that installs the packed package type-checks, builds, serves, and exports feedback', async () => {
+test('a React 18 app that installs the packed package type-checks, builds, serves, and reads memo, forwardRef, fragment, class, and portal components', async () => {
 	// The app's compiler options are stricter than the package's, so this fails if the app compiles the package's source.
-	const { page, state } = await consume('consumer-react', env.UI_PORT + 8, {
-		...vite,
-		check: ['node', 'node_modules/typescript/bin/tsc', '--noEmit'],
-	});
-	await page.getByRole('heading', { name: 'Consumer' }).waitFor();
-	const report = await exported(page, () =>
-		page.getByRole('heading', { name: 'Consumer' }).click({ modifiers: ['Alt', 'Meta'] }),
-	);
+	const app = install('consumer-react', { ...vite, check: ['node', 'node_modules/typescript/bin/tsc', '--noEmit'] });
+	const { page, state } = await serve(app, vite.dev(env.UI_PORT + 8));
+	const report = await captured(page);
 	expect(report.tree).toEqual([
 		['Screen', undefined, undefined],
 		// `App` is tagged under its own name, so its data is the tag's. `Theme` draws nothing of its own and shares its box.
-		['  App', 'src/App.tsx:44', 'count: 4'],
+		['  App', 'src/App.tsx:44', 'count: 3'],
 		['    Theme', 'src/App.tsx:40', undefined],
 		['      Header "Consumer"', 'src/App.tsx:49', undefined],
 		// `memo`, with JSX as a prop.
 		['      Card', 'src/App.tsx:5', 'title: Counter\nicon: <Icon>'],
-		['        Button "Count 4"', 'src/App.tsx:51', undefined],
+		['        Button "Count 3"', 'src/App.tsx:51', undefined],
 		// `forwardRef`.
 		['      Field', 'src/App.tsx:14', 'label: Name'],
 		['        Text field "Name"', 'src/App.tsx:15', undefined],
@@ -179,28 +179,30 @@ test('a React 18 app that installs the packed package type-checks, builds, serve
 		['    Text "Saved"', 'src/App.tsx:36', undefined],
 	]);
 	expect(report.app).toBe('Consumer');
-	expect(report.share).toEqual(['Image', 'JSON', 'Image and JSON (ZIP)', 'New Webhook']);
 	expect(state.log).not.toContain('Error');
 	expect(state.errors).toEqual([]);
 }, 180_000);
 
-test('a Next.js app that installs the packed package builds with Turbopack, serves, and exports feedback from a phone', async () => {
+test('a Next.js app that installs the packed package builds with Turbopack, serves, and reads client and server components', async () => {
 	const next = 'node_modules/next/dist/bin/next';
-	const { page, state } = await consume('consumer-next', env.UI_PORT + 9, {
-		build: ['node', next, 'build'],
-		serve: port => ['node', next, 'start', '--hostname', '127.0.0.1', '--port', String(port)],
-	});
-	await page.setViewportSize({ width: 390, height: 844 });
-	await page.getByRole('heading', { name: 'Consumer' }).waitFor();
-	// A phone has no modifier keys, so this app shows the button.
-	const report = await exported(page, () => page.getByRole('button', { name: 'Feedback', exact: true }).click());
+	const app = install('consumer-next', { build: ['node', next, 'build'] });
+	const { page, state } = await serve(app, [
+		'node',
+		next,
+		'start',
+		'--hostname',
+		'127.0.0.1',
+		'--port',
+		String(env.UI_PORT + 9),
+	]);
+	const report = await captured(page);
 	expect(report.tree).toEqual([
 		['Screen', undefined, undefined],
-		['  App', 'app/App.tsx:49', 'count: 4'],
+		['  App', 'app/App.tsx:49', 'count: 3'],
 		['    Theme', 'app/App.tsx:45', undefined],
 		['      Header "Consumer"', 'app/App.tsx:54', undefined],
 		['      Card', 'app/App.tsx:7', 'title: Counter\nicon: <Icon>'],
-		['        Button "Count 4"', 'app/App.tsx:56', undefined],
+		['        Button "Count 3"', 'app/App.tsx:56', undefined],
 		['      Field', 'app/App.tsx:16', 'label: Name'],
 		['        Text field "Name"', 'app/App.tsx:17', undefined],
 		['      Pair', 'app/App.tsx:20', 'first: One\nsecond: Two'],

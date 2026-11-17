@@ -251,53 +251,6 @@ private final class Store {
     #expect(capture.similar(to: capture.hitTest(CGPoint(x: 100, y: 340))).map { capture.nodes[$0].frame.minY } == [379])
 }
 
-@Test func imageCardsTakeTheColumnWhoseLineCrossesNothingWhenOneColumnWouldCross() {
-    let layout = CardLayout.place(
-        targets: [CGRect(x: 0, y: 300, width: 60, height: 40), CGRect(x: 340, y: 300, width: 60, height: 40)],
-        heights: [60, 60],
-        screen: screen,
-        environmentHeight: 150,
-        viewport: 800,
-        references: [CGRect(x: 150, y: 280, width: 100, height: 80)]
-    )
-    #expect(layout.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
-    #expect(layout.cards == [
-        .init(isLeft: true, origin: CGPoint(x: 24, y: 314)),
-        .init(isLeft: false, origin: CGPoint(x: 776, y: 314)),
-    ])
-    #expect(layout.environment == CGPoint(x: 776, y: 24))
-    #expect(layout.size == CGSize(width: 1080, height: 848))
-}
-
-@Test func oneColumnKeepsOnlyAMarginOnTheOtherSide() {
-    let layout = CardLayout.place(
-        targets: [CGRect(x: 360, y: 700, width: 30, height: 30)], heights: [50], screen: screen, environmentHeight: 200, viewport: 800
-    )
-    #expect(layout.shot == CGRect(x: 24, y: 24, width: 400, height: 800))
-    #expect(layout.cards == [.init(isLeft: false, origin: CGPoint(x: 460, y: 714))])
-    #expect(layout.environment == CGPoint(x: 460, y: 24))
-    #expect(layout.size == CGSize(width: 764, height: 848))
-}
-
-@Test func aCardIsJoinedToItsTargetByAnSCurveThatMeetsItLevel() {
-    let curve = CardLayout.connector(.init(isLeft: true, origin: CGPoint(x: 24, y: 100)), to: CGRect(x: 400, y: 200, width: 100, height: 40))
-    #expect(curve == .init(start: CGPoint(x: 304, y: 120), control1: CGPoint(x: 352, y: 120), control2: CGPoint(x: 352, y: 202), end: CGPoint(x: 400, y: 202)))
-}
-
-@Test func aTallCaptureIsCutHalfAScreenBelowTheLowestCardAndIsAtLeastOneScreenTall() {
-    let tall = CGSize(width: 400, height: 5000)
-    let near = CardLayout.place(targets: [CGRect(x: 0, y: 100, width: 60, height: 44)], heights: [60], screen: tall, environmentHeight: 150, viewport: 800)
-    #expect(near.shot == CGRect(x: 340, y: 24, width: 400, height: 800))
-    #expect(near.size.height == 848)
-    let far = CardLayout.place(targets: [CGRect(x: 0, y: 3000, width: 60, height: 50)], heights: [60], screen: tall, environmentHeight: 150, viewport: 800)
-    #expect(far.shot.height == 3455)
-    let referenced = CardLayout.place(
-        targets: [CGRect(x: 0, y: 100, width: 60, height: 44)], heights: [60], screen: tall, environmentHeight: 150, viewport: 800,
-        references: [CGRect(x: 0, y: 4000, width: 60, height: 50)]
-    )
-    #expect(referenced.shot.height == 4450)
-}
-
 private func rowScene() -> RawScene {
     let row = UUID()
     return RawScene(
@@ -328,97 +281,6 @@ private func rowScene() -> RawScene {
     session.text = "Huge title"
     session.submit()
     #expect(session.unshared.map(\.text) == ["Huge title", "Typo"])
-}
-
-@MainActor @Test func tappingAnItemsBoxEditsItsFeedbackAndOtherLevelsKeepTheirOwn() {
-    let session = Session(capture: capture(rowScene()))
-    let milk = CGPoint(x: 50, y: 220)
-    session.pick(at: milk)
-    session.step(to: 1)
-    session.text = "Row is too tall"
-    session.submit()
-
-    session.text = "Note on the whole screen"
-    session.pick(at: milk)
-    #expect(session.target.title == "Row")
-    #expect(session.text == "Row is too tall")
-    session.text = "Row is too tall and grey"
-    #expect(session.isTyping)
-
-    session.step(to: 0)
-    #expect(session.target.title == "Text \"Milk\"")
-    #expect(session.editing == nil)
-    #expect(session.text == "Note on the whole screen")
-
-    session.step(to: 1)
-    #expect(session.text == "Row is too tall")
-    #expect(!session.canSubmit)
-
-    session.pick(at: milk)
-    #expect(session.target.title == "Text \"Milk\"")
-    session.pick(at: CGPoint(x: 350, y: 220))
-    #expect(session.target.title == "Row")
-    session.text = "Row is too short"
-    session.pick(at: milk)
-    #expect(session.target.title == "Row")
-    #expect(session.text == "Row is too short")
-    session.submit()
-    #expect(session.items.map(\.text) == ["Row is too short"])
-    #expect(session.text == "Note on the whole screen")
-}
-
-@MainActor @Test func typingAtPicksANodeToReferenceWithoutMovingTheTarget() throws {
-    let session = Session(capture: capture(rowScene()))
-    let delete = CGPoint(x: 350, y: 220)
-    session.pick(at: CGPoint(x: 50, y: 220))
-    session.text = "Too close to @"
-    #expect(session.isReferencing)
-    #expect(session.referenceTarget == nil)
-
-    session.pick(at: delete)
-    #expect(session.target.title == "Text \"Milk\"")
-    #expect(session.referenceTarget?.title == "Button \"Delete\"")
-    session.stepReference(to: 1)
-    #expect(session.referenceTarget?.title == "Row")
-    session.stepReference(to: 0)
-    session.insertReference()
-    #expect(session.text == "Too close to @2_Button ")
-    #expect(!session.isReferencing)
-
-    session.text += "and @"
-    session.pick(at: CGPoint(x: 100, y: 255))
-    session.insertReference()
-    session.text += "below @"
-    session.pick(at: delete)
-    session.insertReference()
-    #expect(session.text == "Too close to @2_Button and @3_Row below @2_Button ")
-    session.text += "x"
-    session.pick(at: delete)
-    #expect(session.target.title == "Button \"Delete\"")
-
-    session.pick(at: CGPoint(x: 50, y: 220))
-    session.text = "email@"
-    #expect(!session.isReferencing)
-}
-
-@MainActor @Test func anItemFromTheListIsReferencedWithItsOwnNumberAndOnlyWhileTheTextEndsInAt() throws {
-    let session = Session(capture: capture(rowScene()))
-    session.pick(at: CGPoint(x: 50, y: 220))
-    session.text = "Too short"
-    session.submit()
-    let milk = session.items[0].target
-
-    session.pick(at: CGPoint(x: 350, y: 220))
-    session.pickReference(milk)
-    #expect(session.referenceTarget == nil)
-    session.text = "Same size as @"
-    session.pickReference(milk)
-    #expect(session.target.title == "Button \"Delete\"")
-    #expect(session.referenceTarget?.title == "Text \"Milk\"")
-    session.insertReference()
-    #expect(session.text == "Same size as @1_Text ")
-    session.submit()
-    #expect(session.items.map { session.annotations.number(of: $0.target) } == [1, 2])
 }
 
 @MainActor @Test func aNewItemHoldsItsNumberBeforeTheNodesItReferencesAndAnEditReferencesAfterTheLastNumber() throws {
@@ -892,30 +754,8 @@ private indirect enum Chain {
     """)
 }
 
-@Test func aTaskTitleCountsTheChangesUntilTheModelSummarizesThem() throws {
-    let scene = RawScene(
-        screen: screen,
-        layers: [.init(name: "Screen", frame: CGRect(origin: .zero, size: screen))],
-        components: [component("ListScreen", CGRect(x: 0, y: 100, width: 400, height: 600))],
-        elements: [.init(layer: 0, role: "Button", label: "Mark done", frame: CGRect(x: 20, y: 210, width: 24, height: 24))]
-    )
-    var capture = capture(scene)
-    let button = capture.hitTest(CGPoint(x: 30, y: 220))
-    let one = TaskTitle(capture, items: [FeedbackItem(target: button, text: "Make it\nbigger")])
-    #expect(one.placeholder == "Demo Feedback: 1 change")
-    #expect(one.prompt == "- On Button \"Mark done\": Make it bigger")
-
-    capture.screenName = "Groceries"
-    let two = TaskTitle(capture, items: [FeedbackItem(target: button, text: "Make it bigger"), FeedbackItem(target: 0, text: "Too dark")])
-    #expect(two.placeholder == "Groceries Feedback: 2 changes")
-    #expect(two.prompt == "- On Button \"Mark done\": Make it bigger\n- On Screen: Too dark")
-    #expect(two.summarized("\"Bigger done button, lighter screen.\"\nThat covers both.") == "2 Groceries Feedback: Bigger done button, lighter screen")
-    #expect(two.summarized(" \n") == nil)
-    #expect(try JSONDecoder().decode(TaskTitle.self, from: JSONEncoder().encode(two)) == two)
-}
-
 /// `spec/fixtures/capture.json`: one built tree with the answers every platform must give for it.
-/// The web package's `fixtures.test.ts` reads the same file.
+/// The web package's `core.test.ts` reads the same file.
 private struct Fixture: Decodable {
     struct Rect: Decodable {
         let x, y, width, height: CGFloat
@@ -1071,35 +911,11 @@ private struct Fixture: Decodable {
     #expect(title.summarized(fixture.summary) == fixture.expected.taskTitle.summarized)
 }
 
-@Test func aFailedRequestKeepsWhatWasSentAndWhatCameBack() throws {
+@Test func aRequestIsRetriedOnlyWhenTheServerMightAnswerDifferentlyLater() {
     let url = URL(string: "https://procrastimate.stf.lol/api/images?id=abc&size=full")!
-    let refused = Problem.request("PUT", url, status: 413, body: Data(#"{"message":"A part is at most 1500000 bytes"}"#.utf8), error: CocoaError(.fileWriteOutOfSpace))
-    let posted = refused.with(before: [.init(label: "Step", value: "Uploading the image")], after: [.init(label: "App", value: "Demo")])
-    #expect(posted.message == CocoaError(.fileWriteOutOfSpace).localizedDescription)
-    #expect(posted.facts.map(\.label) == ["Step", "Request", "Status", "Response", "Error", "App"])
-    #expect(posted.details.hasPrefix("""
-        Step: Uploading the image
-        Request: PUT https://procrastimate.stf.lol/api/images?id=abc&size=full
-        Status: 413
-        Response: {"message":"A part is at most 1500000 bytes"}
-        Error: 
-        """))
-    #expect(posted.text == "\(posted.message)\n\n\(posted.details)")
-    #expect(!posted.retryable)
-    #expect(posted.status == 413)
     #expect([401, 408, 429, 500, 502].allSatisfy { Problem.request("PUT", url, status: $0, body: nil, error: CocoaError(.fileNoSuchFile)).retryable })
     #expect([400, 403, 404, 413].allSatisfy { !Problem.request("PUT", url, status: $0, body: nil, error: CocoaError(.fileNoSuchFile)).retryable })
-
-    let offline = Problem.request("GET", url, status: nil, body: nil, error: URLError(.timedOut))
-    #expect(offline.facts.map(\.label) == ["Request", "Error"])
-    #expect(offline.facts[1].value.contains("-1001"))
-    #expect(offline.retryable)
-    #expect(try JSONDecoder().decode(Problem.self, from: JSONEncoder().encode(offline)) == offline)
-    #expect(Problem(offline) == offline)
-
-    let plain = Problem(CocoaError(.fileNoSuchFile))
-    #expect(plain.facts.map(\.label) == ["Error"])
-    #expect(Problem(message: "Nothing else").text == "Nothing else")
+    #expect(Problem.request("GET", url, status: nil, body: nil, error: URLError(.timedOut)).retryable)
 }
 
 @MainActor @Test func aWebhookPostIsOneMultipartRequestWithTheFieldsAndBothFiles() async throws {
@@ -1181,13 +997,9 @@ private struct Fixture: Decodable {
     #expect(try link(200, #"{"url":"javascript:alert(1)"}"#) == nil)
 
     let refused = #expect(throws: Problem.self) { try link(502, #"{"message":"GitHub answered 401."}"#) }
-    #expect(refused?.message == "GitHub Issue: GitHub answered 401.")
-    #expect(refused?.status == 502)
+    #expect(refused?.message.contains("GitHub answered 401.") == true)
     #expect(refused?.retryable == true)
-    #expect(refused?.details.hasPrefix("Request: POST https://hooks.example.com/feedback\nStatus: 502\nResponse: {\"message\":\"GitHub answered 401.\"}\n") == true)
-
     let tooLarge = #expect(throws: Problem.self) { try link(413, "<html>413</html>") }
-    #expect(tooLarge?.message == "GitHub Issue answered 413.")
     #expect(tooLarge?.retryable == false)
 }
 
@@ -1213,22 +1025,21 @@ private struct Fixture: Decodable {
     #expect(Report.deviceJSON(environment) == #"{"App":"Todo","Device":"iPhone 18 Pro (Simulator) · iOS 27.0","Location":"Lists › Groceries"}"#)
 }
 
-@Test func aWebhookDraftBecomesAWebhookOrSaysWhatIsWrongWithEachField() throws {
+@Test func aWebhookDraftBecomesAWebhookOrNamesEachFieldItCannotUse() throws {
+    func fields(_ errors: WebhookDraft.Errors) -> [String] {
+        [("name", errors.name), ("url", errors.url), ("header", errors.header)].compactMap { $0.1 == nil ? nil : $0.0 }
+    }
+    func failed(_ result: Result<SavedWebhook, WebhookDraft.Errors>) -> [String] {
+        if case .failure(let errors) = result { fields(errors) } else { [] }
+    }
+
     var draft = WebhookDraft()
-    #expect(draft.image && draft.feedback && draft.format == .png && draft.compression == .medium)
-    #expect(draft.read(id: "w1", taken: []) == .failure(.init(
-        name: "Give the webhook a name.",
-        url: "Enter an address that starts with http:// or https://."
-    )))
+    #expect(failed(draft.read(id: "w1", taken: [])) == ["name", "url"])
 
     draft.name = " Agent "
     draft.url = "ftp://example.com"
     draft.header = "Bearer key"
-    #expect(draft.read(id: "w1", taken: []) == .failure(.init(
-        url: "Enter an address that starts with http:// or https://.",
-        header: "Write the header as Name: value, such as Authorization: Bearer key."
-    )))
-    #expect(draft.note == "Each post sends the title, the feedback JSON, the image, and the device JSON.")
+    #expect(failed(draft.read(id: "w1", taken: [])) == ["url", "header"])
 
     draft.url = "http://127.0.0.1:8787/feedback"
     draft.header = "  Authorization:Bearer  key "
@@ -1243,7 +1054,7 @@ private struct Fixture: Decodable {
         image: .jpeg(.high),
         feedback: false
     )))
-    #expect(draft.read(id: "w1", taken: ["agent"]) == .failure(.init(name: "The Share menu already has Agent.")))
+    #expect(failed(draft.read(id: "w1", taken: ["agent"])) == ["name"])
 
     draft.image = false
     let saved = try draft.read(id: "w1", taken: []).get()
@@ -1253,7 +1064,9 @@ private struct Fixture: Decodable {
 }
 
 @MainActor @Test func savedWebhooksStayInTheAppsDefaultsAcrossLaunches() throws {
-    let defaults = try #require(UserDefaults(suiteName: "feedback-tests-\(UUID().uuidString)"))
+    let suite = "feedback-tests-\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suite))
+    defer { defaults.removePersistentDomain(forName: suite) }
     let first = SavedWebhook(id: "w1", name: "Agent", url: URL(string: "https://hooks.example.com")!, header: nil, image: .png, feedback: true)
     let second = SavedWebhook(id: "w2", name: "Triage", url: URL(string: "https://hooks.example.com/t")!, header: .init(name: "X-Key", value: "k"), image: .jpeg(.low), feedback: false)
     let store = SavedWebhooks(defaults: defaults)

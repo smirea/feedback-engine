@@ -11,7 +11,7 @@ const missingBase =
 	!base || /^0+$/.test(base) || (await $`git cat-file -e ${base}^{commit}`.nothrow().quiet()).exitCode !== 0;
 const full = event === 'workflow_dispatch' || missingBase;
 const comparison = event === 'pull_request' ? `${base}...${head}` : `${base}..${head}`;
-// `spec/` is documentation that `bun test` checks, so it counts as code.
+// `spec/` is documentation that the checks read, so it counts as code.
 const isDocs = (name: string) =>
 	!name.startsWith('spec/') && (['.md', '.rst'].includes(extname(name).toLowerCase()) || name.startsWith('docs/'));
 const paths = (full ? [] : (await $`git diff --name-only -z ${comparison}`.text()).split('\0')).filter(

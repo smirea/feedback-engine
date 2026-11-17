@@ -18,14 +18,9 @@ pre-commit:
           - name: test
             glob: '*.{js,mjs,mts,ts,tsx}'
             run: bun --no-env-file scripts/test-changed.ts {staged_files}
-          # The browser tests reach the package through the example app's dev server, which test-changed's import walk cannot see.
-          - name: web
-            glob: '{packages/web,examples/todo-svelte,examples/todo-react}/**'
-            run: bun --no-env-file run test:web
-          # test-changed follows imports, and the features check reads its table from disk.
-          - name: spec
-            glob: 'spec/*.md'
-            run: bun --no-env-file test spec
+          - name: features
+            glob: 'spec/features.md'
+            run: ./scripts/check-features.ts
 
 pre-push:
   commands:
@@ -33,5 +28,6 @@ pre-push:
       glob: '*.{js,mjs,mts,ts,tsx}'
       run: bun --no-env-file scripts/test-changed.ts {push_files}
     # A push to master releases what its changesets name, so a web package change without one is never published.
+    # Git sets GIT_DIR for a hook in a worktree, and changesets then reads its paths against the wrong folder.
     changeset:
-      run: bunx changeset status --since=origin/master
+      run: env -u GIT_DIR bunx changeset status --since=origin/master

@@ -212,14 +212,15 @@ bun run hooks   # once per clone, for the git hooks that lint, type-check, and t
 
 ```sh
 swift build   # compiles the package for macOS
-swift test    # tree building, hit-testing, stitching, JSON export, and value description tests
+swift test    # the core's rules: tree building, hit-testing, stitching, the JSON export, webhooks, and the shared fixture
 ```
 
 ```sh
 bun run lint        # oxlint and oxfmt
+bun run lint:ci     # the same without fixes, then the checks on spec/features.md and the packed package's files
 bun run typecheck   # each example app, svelte-check for the web package, then the repository's TypeScript
-bun test            # the web core, the Vite plugin, the shared fixture, and the checks on spec/features.md
-bun run test:web    # both example apps in Chromium and WebKit, on a dev server and a production build, then a Svelte, a React, and a Next.js app that install the packed package
+bun test            # the web core's rules, the Vite plugin, webhooks, and the shared fixture
+bun run test:web    # how the page is read in Chromium and WebKit, then in a Svelte, a React, and a Next.js app that install the packed package
 ```
 
 `bun run test:web` needs Playwright's browsers once:
