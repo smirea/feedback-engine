@@ -1,5 +1,12 @@
 # @stefan.inc/feedback-engine
 
+## 1.6.2
+
+### Patch Changes
+
+- ebb4696: **Copy Error** sits directly under a failure's message, above **Details**, so it stays in view when the details are long.
+- 01f1e91: An export that cannot be copied, saved, or shared shows a red toast that stays until it is clicked, and the click opens the whole error with **Copy Error**. The toast used to be green with a check mark and left after three seconds.
+
 ## 1.6.1
 
 ### Patch Changes
