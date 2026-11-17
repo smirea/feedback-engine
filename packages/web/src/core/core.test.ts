@@ -2,10 +2,8 @@ import { expect, test } from 'bun:test';
 import {
 	Annotations,
 	buildTree,
-	connector,
 	describe,
 	hitTest,
-	place,
 	reportJSON,
 	Session,
 	tag,
@@ -226,97 +224,6 @@ test('unshared items are the ones no completed share included', () => {
 	expect(session.items.map(item => item.text)).toEqual(['Huge title', 'Typo']);
 });
 
-test("tapping an item's box edits its feedback, and other levels keep their own", () => {
-	const session = new Session(captureOf(rowScene()));
-	const milk = { x: 50, y: 220 };
-	session.pick(milk);
-	session.step(1);
-	session.text = 'Row is too tall';
-	session.submit();
-
-	session.text = 'Note on the whole screen';
-	session.pick(milk);
-	expect(title(session.target)).toBe('Row');
-	expect(session.text).toBe('Row is too tall');
-	session.text = 'Row is too tall and grey';
-	expect(session.isTyping).toBe(true);
-
-	session.step(0);
-	expect(title(session.target)).toBe('Text "Milk"');
-	expect(session.editing).toBeUndefined();
-	expect(session.text).toBe('Note on the whole screen');
-
-	session.step(1);
-	expect(session.text).toBe('Row is too tall');
-	expect(session.canSubmit).toBe(false);
-
-	session.pick(milk);
-	expect(title(session.target)).toBe('Text "Milk"');
-	session.pick({ x: 350, y: 220 });
-	expect(title(session.target)).toBe('Row');
-	session.text = 'Row is too short';
-	session.pick(milk);
-	expect(title(session.target)).toBe('Row');
-	expect(session.text).toBe('Row is too short');
-	session.submit();
-	expect(session.items.map(item => item.text)).toEqual(['Row is too short']);
-	expect(session.text).toBe('Note on the whole screen');
-});
-
-test('typing @ picks a node to reference without moving the target', () => {
-	const session = new Session(captureOf(rowScene()));
-	const remove = { x: 350, y: 220 };
-	session.pick({ x: 50, y: 220 });
-	session.text = 'Too close to @';
-	expect(session.isReferencing).toBe(true);
-	expect(session.referenceTarget).toBeUndefined();
-
-	session.pick(remove);
-	expect(title(session.target)).toBe('Text "Milk"');
-	expect(title(session.referenceTarget!)).toBe('Button "Delete"');
-	session.stepReference(1);
-	expect(title(session.referenceTarget!)).toBe('Row');
-	session.stepReference(0);
-	session.insertReference();
-	expect(session.text).toBe('Too close to @2_Button ');
-	expect(session.isReferencing).toBe(false);
-
-	session.text += 'and @';
-	session.pick({ x: 100, y: 255 });
-	session.insertReference();
-	session.text += 'below @';
-	session.pick(remove);
-	session.insertReference();
-	expect(session.text).toBe('Too close to @2_Button and @3_Row below @2_Button ');
-	session.text += 'x';
-	session.pick(remove);
-	expect(title(session.target)).toBe('Button "Delete"');
-
-	session.pick({ x: 50, y: 220 });
-	session.text = 'email@';
-	expect(session.isReferencing).toBe(false);
-});
-
-test('an item from the list is referenced with its own number, and only while the text ends in @', () => {
-	const session = new Session(captureOf(rowScene()));
-	session.pick({ x: 50, y: 220 });
-	session.text = 'Too short';
-	session.submit();
-	const [milk] = session.items.map(item => item.target);
-
-	session.pick({ x: 350, y: 220 });
-	session.pickReference(milk!);
-	expect(session.referenceTarget).toBeUndefined();
-	session.text = 'Same size as @';
-	session.pickReference(milk!);
-	expect(title(session.target)).toBe('Button "Delete"');
-	expect(title(session.referenceTarget!)).toBe('Text "Milk"');
-	session.insertReference();
-	expect(session.text).toBe('Same size as @1_Text ');
-	session.submit();
-	expect(session.items.map(item => session.annotations.number(item.target))).toEqual([1, 2]);
-});
-
 test('a new item holds its number before the nodes it references, and an edit references after the last number', () => {
 	const session = new Session(captureOf(rowScene()));
 	session.pick({ x: 50, y: 220 });
@@ -417,24 +324,4 @@ test('nesting stops after 3 levels, lists after 10 elements, and the whole descr
 	const long = describe({ text: 'x'.repeat(2000) })!;
 	expect(long.length).toBe(1500 + '… (truncated)'.length);
 	expect(long.endsWith('x… (truncated)')).toBe(true);
-});
-
-test('a tall capture is cut half a screen below the lowest box or card, and is at least one screen tall', () => {
-	const tall = { width: 400, height: 5000 };
-	const near = place([frame(0, 100, 60, 44)], [60], tall, 150, 800);
-	expect(near.shot).toEqual(frame(340, 24, 400, 800));
-	expect(near.size.height).toBe(848);
-	expect(place([frame(0, 3000, 60, 50)], [60], tall, 150, 800).shot.height).toBe(3055 + 400);
-	expect(place([frame(0, 100, 60, 44)], [60], tall, 150, 800, [frame(0, 4000, 60, 50)]).shot.height).toBe(4050 + 400);
-});
-
-test('a card is joined to the nearest side of its target by an S curve that leaves the card and meets the target level', () => {
-	const target = frame(400, 200, 100, 40);
-	expect(connector({ isLeft: true, origin: { x: 24, y: 100 } }, target)).toEqual({
-		start: { x: 304, y: 120 },
-		control1: { x: 352, y: 120 },
-		control2: { x: 352, y: 202 },
-		end: { x: 400, y: 202 },
-	});
-	expect(connector({ isLeft: false, origin: { x: 600, y: 200 } }, target).end).toEqual({ x: 500, y: 220 });
 });

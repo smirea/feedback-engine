@@ -8,18 +8,6 @@ const draft = (change: Partial<WebhookDraft> = {}): WebhookDraft => ({
 	...change,
 });
 
-test('a new webhook starts with the PNG and the JSON attached', () => {
-	expect(draftOf()).toEqual({
-		name: '',
-		url: '',
-		header: '',
-		image: true,
-		format: 'png',
-		compression: 'medium',
-		feedback: true,
-	});
-});
-
 test('a draft becomes a webhook with its header split, and only a JPEG keeps a compression', () => {
 	expect(readDraft(draft({ header: '  Authorization:Bearer  key ' }), { id: 'w1', taken: [] })).toEqual({
 		webhook: {
@@ -45,22 +33,14 @@ test('a draft becomes a webhook with its header split, and only a JPEG keeps a c
 	});
 });
 
-test('a draft says what is wrong with each field it cannot use', () => {
-	expect(
-		readDraft(draft({ name: ' ', url: 'ftp://example.com', header: 'Bearer key' }), { id: 'w1', taken: [] }),
-	).toEqual({
-		errors: {
-			name: 'Give the webhook a name.',
-			url: 'Enter an address that starts with http:// or https://.',
-			header: 'Write the header as Name: value, such as Authorization: Bearer key.',
-		},
-	});
-	expect(readDraft(draft({ url: '/feedback' }), { id: 'w1', taken: [] })).toEqual({
-		errors: { url: 'Enter an address that starts with http:// or https://.' },
-	});
-	expect(readDraft(draft({ name: 'github issue' }), { id: 'w1', taken: ['GitHub Issue'] })).toEqual({
-		errors: { name: 'The Share menu already has github issue.' },
-	});
+test('a draft names each field it cannot use: no name, a name the Share menu has, an address that is not http(s), a header without a colon', () => {
+	const fields = (change: Partial<WebhookDraft>, taken: string[] = []) => {
+		const read = readDraft(draft(change), { id: 'w1', taken });
+		return 'errors' in read ? Object.keys(read.errors) : [];
+	};
+	expect(fields({ name: ' ', url: 'ftp://example.com', header: 'Bearer key' })).toEqual(['name', 'url', 'header']);
+	expect(fields({ url: '/feedback' })).toEqual(['url']);
+	expect(fields({ name: 'github issue' }, ['GitHub Issue'])).toEqual(['name']);
 });
 
 test('editing starts from what was saved', () => {

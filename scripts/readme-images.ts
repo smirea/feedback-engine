@@ -9,7 +9,45 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Page } from 'playwright';
 import env from '../env.ts';
-import { canvas, field, lastExport, present, root, tap } from '../packages/web/e2e/app.ts';
+
+const root = join(import.meta.dir, '..');
+const editor = (page: Page) => page.getByRole('dialog', { name: 'Feedback', exact: true });
+const canvas = (page: Page) => page.getByRole('img', { name: /^Screenshot/ });
+const field = (page: Page) => page.getByRole('textbox', { name: 'Feedback text' });
+
+async function present(page: Page) {
+	await page.evaluate(() => globalThis.__feedbackEngine!.present());
+	await editor(page).waitFor();
+}
+
+/** Clicks the screenshot at a point given in the captured page's own coordinates. */
+async function tap(page: Page, x: number, y: number) {
+	const box = (await canvas(page).boundingBox())!;
+	const size = await page.evaluate(() => {
+		const drawn = document.querySelector('[data-feedback-engine]')!.shadowRoot!.querySelector('canvas')!;
+		return { width: drawn.width, height: drawn.height };
+	});
+	const scale = box.width / (size.width / 2);
+	await canvas(page).evaluate((node, to) => node.parentElement!.scrollTo(to), {
+		top: Math.max(0, y * scale - 100),
+		left: Math.max(0, x * scale - 100),
+	});
+	const moved = (await canvas(page).boundingBox())!;
+	await page.mouse.click(moved.x + x * scale, moved.y + y * scale);
+}
+
+/** The files of the last export, as the page holds them for automation. */
+async function lastExport(page: Page) {
+	const files = await page.evaluate(async () =>
+		Promise.all(
+			globalThis.__feedbackEngine!.lastExport.map(async file => ({
+				name: file.name,
+				bytes: [...new Uint8Array(await file.blob.arrayBuffer())],
+			})),
+		),
+	);
+	return files.map(file => ({ name: file.name, bytes: Buffer.from(file.bytes) }));
+}
 
 const center = async (locator: ReturnType<Page['locator']>) => {
 	const box = (await locator.boundingBox())!;

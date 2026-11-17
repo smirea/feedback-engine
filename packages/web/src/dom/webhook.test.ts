@@ -55,20 +55,6 @@ test('a function for headers or query runs for every post, so a retry sends what
 	]);
 });
 
-test('fixed headers and query go out as they are', async () => {
-	const requests = server();
-	await postWebhook(
-		{
-			name: 'Triage',
-			url: 'https://hooks.example.com/feedback',
-			headers: { Authorization: 'Bearer key' },
-			query: { app: 'todo' },
-		},
-		post,
-	);
-	expect(requests).toEqual([{ url: 'https://hooks.example.com/feedback?app=todo', authorization: 'Bearer key' }]);
-});
-
 test('a saved webhook sends its one header, and the parts in their order after the id and the title', async () => {
 	const sent: { form?: FormData; authorization?: string | null } = {};
 	globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {

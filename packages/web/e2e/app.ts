@@ -4,192 +4,26 @@ import pixelmatch from 'pixelmatch';
 import { chromium, webkit, type Browser, type BrowserContext, type Page } from 'playwright';
 import { PNG } from 'pngjs';
 import env from '../../../env.ts';
-import type { FeedbackEngine } from '../src/editor/setup.ts';
 
 export const root = join(import.meta.dir, '../../..');
 
 // Beside the ports `bun run dev` and `bun run dev:react` use, so the tests run while an example app is open.
 const apps = {
-	svelte: { folder: 'examples/todo-svelte', dev: env.UI_PORT + 1, preview: env.UI_PORT + 2 },
-	react: { folder: 'examples/todo-react', dev: env.UI_PORT + 6, preview: env.UI_PORT + 7 },
+	svelte: { folder: 'examples/todo-svelte', port: env.UI_PORT + 1 },
+	react: { folder: 'examples/todo-react', port: env.UI_PORT + 6 },
 };
 export type AppName = keyof typeof apps;
 export const appNames = Object.keys(apps) as AppName[];
 
-export type Mode = 'dev' | 'preview';
-export const modes: Mode[] = ['dev', 'preview'];
 export const engines = { chromium, webkit };
 export type EngineName = keyof typeof engines;
-
-const procrastimatePort = env.UI_PORT + 3;
-const webhookPort = env.UI_PORT + 4;
-export const url = (app: AppName, mode: Mode, path = '/') => `http://127.0.0.1:${apps[app][mode]}${path}`;
-
-/** A stand-in for ProcrastiMate's agent API that keeps what it was sent. The dev server's proxy forwards to it. */
-export const procrastimate = {
-	token: 'test-token',
-	uploads: new Map<string, { type: string; bytes: number; file?: string }>(),
-	tasks: [] as {
-		id: string;
-		title: string;
-		projectId: string | null;
-		sectionId: string | null;
-		attachments?: unknown[];
-	}[],
-	unauthorized: 0,
-	/** The next image upload's answer instead of storing it, as a proxy in front of ProcrastiMate would refuse it. */
-	refuseUpload: undefined as { status: number; body: string } | undefined,
-	/** Holds the next project list back until it settles, as a slow connection would. */
-	holdView: undefined as Promise<void> | undefined,
-};
-
-const procrastimateEnv = {
-	PROCRASTIMATE_URL: `http://127.0.0.1:${procrastimatePort}`,
-	PROCRASTIMATE_TOKEN: procrastimate.token,
-	PROCRASTIMATE_PROJECT: 'todo app',
-};
-
-function serveProcrastimate(port: number) {
-	return Bun.serve({
-		port,
-		hostname: '127.0.0.1',
-		async fetch(request) {
-			const { pathname, searchParams } = new URL(request.url);
-			if (request.headers.get('authorization') !== `Bearer ${procrastimate.token}`) {
-				procrastimate.unauthorized += 1;
-				return Response.json({ message: 'Not signed in' }, { status: 401 });
-			}
-			const id = searchParams.get('id');
-			if (request.method === 'GET' && pathname === '/api/view') {
-				const hold = procrastimate.holdView;
-				procrastimate.holdView = undefined;
-				await hold;
-				return Response.json({
-					projects: [
-						{ id: 'p2', name: 'Later', order: 2, createdAt: 1 },
-						{ id: 'p1', name: 'Todo app', order: 1, createdAt: 1 },
-					],
-					sections: [
-						{ id: 's2', projectId: 'p1', name: 'Polish', order: 2, createdAt: 1 },
-						{ id: 's1', projectId: 'p1', name: 'Bugs', order: 1, createdAt: 1 },
-					],
-				});
-			}
-			if (request.method === 'PUT' && pathname === '/api/images' && procrastimate.refuseUpload) {
-				const { status, body } = procrastimate.refuseUpload;
-				procrastimate.refuseUpload = undefined;
-				return new Response(body, { status, headers: { 'Content-Type': 'text/html' } });
-			}
-			if (request.method === 'PUT' && pathname === '/api/images') {
-				const bytes = (await request.arrayBuffer()).byteLength;
-				procrastimate.uploads.set(`${id}/${searchParams.get('size')}`, {
-					type: request.headers.get('content-type')!,
-					bytes,
-					...(searchParams.has('name') && { file: `${searchParams.get('name')} ${searchParams.get('type')}` }),
-				});
-				return Response.json({});
-			}
-			if (request.method === 'POST' && pathname === '/api/tasks') {
-				const task = { id: `task-${procrastimate.tasks.length + 1}`, ...((await request.json()) as object) };
-				procrastimate.tasks.push(task as (typeof procrastimate.tasks)[number]);
-				return Response.json(task);
-			}
-			if (request.method === 'PATCH' && pathname === '/api/tasks') {
-				Object.assign(
-					procrastimate.tasks.find(task => task.id === id)!,
-					await request.json(),
-				);
-				return Response.json({});
-			}
-			return Response.json({ message: 'Not found' }, { status: 404 });
-		},
-	});
-}
-
-/** A stand-in for an app's webhook server that keeps every post it was sent. The page posts to it from another origin. */
-export const webhook = {
-	key: 'test-key',
-	posts: [] as {
-		authorization: string | null;
-		query: Record<string, string>;
-		id: string;
-		title: string;
-		/** Every part after `id` and `title`, in the order sent. */
-		parts: string[];
-		image?: { name: string; type: string; bytes: Buffer };
-		report?: { name: string; type: string; text: string };
-		feedback?: { name: string; type: string; text: string };
-		device?: { name: string; type: string; text: string };
-	}[],
-	/** The next post's answer instead of the link, as a server that could not file it. */
-	refuse: undefined as { status: number; body: string } | undefined,
-};
-
-export const webhookURL = `http://127.0.0.1:${webhookPort}/feedback`;
-const webhookEnv = {
-	FEEDBACK_WEBHOOK_URL: webhookURL,
-	FEEDBACK_WEBHOOK_KEY: webhook.key,
-};
-
-function serveWebhook(port: number) {
-	// A post with an `Authorization` header from another origin is preflighted, and its answer is read only with these.
-	const cors = {
-		'Access-Control-Allow-Origin': '*',
-		'Access-Control-Allow-Headers': 'Authorization',
-	};
-	return Bun.serve({
-		port,
-		hostname: '127.0.0.1',
-		async fetch(request) {
-			if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-			const form = await request.formData();
-			const image = form.get('image') as File | null;
-			// Bun adds `;charset=utf-8` to a text part's type when it reads the form.
-			const text = async (name: string) => {
-				const file = form.get(name) as File | null;
-				return file ? { name: file.name, type: file.type.split(';')[0]!, text: await file.text() } : undefined;
-			};
-			webhook.posts.push({
-				authorization: request.headers.get('authorization'),
-				query: Object.fromEntries(new URL(request.url).searchParams),
-				id: form.get('id') as string,
-				title: form.get('title') as string,
-				parts: [...form.keys()].filter(name => name !== 'id' && name !== 'title'),
-				image: image
-					? { name: image.name, type: image.type, bytes: Buffer.from(await image.arrayBuffer()) }
-					: undefined,
-				report: await text('report'),
-				feedback: await text('feedback'),
-				device: await text('device'),
-			});
-			if (webhook.refuse) {
-				const { status, body } = webhook.refuse;
-				webhook.refuse = undefined;
-				return new Response(body, { status, headers: cors });
-			}
-			return Response.json({ url: `https://github.com/example/app/issues/${webhook.posts.length}` }, { headers: cors });
-		},
-	});
-}
+export const engineNames = Object.keys(engines) as EngineName[];
 
 const servers: ChildProcess[] = [];
-let stand: ReturnType<typeof serveProcrastimate> | undefined;
-let hook: ReturnType<typeof serveWebhook> | undefined;
 const browsers = new Map<EngineName, Browser>();
 
 export async function startServers() {
-	// `bun test` sets NODE_ENV to `test`, which would make this a development build.
-	const build = Bun.spawnSync(['bun', 'run', 'build'], {
-		cwd: root,
-		// The token is the switch for the Share menu's ProcrastiMate entry, and a build bakes that in, as it does the webhook's address.
-		env: { ...process.env, NODE_ENV: 'production', ...procrastimateEnv, ...webhookEnv },
-		stdout: 'pipe',
-		stderr: 'pipe',
-	});
-	if (build.exitCode !== 0) throw new Error(`The example apps did not build:\n${build.stdout}${build.stderr}`);
-	stand = serveProcrastimate(procrastimatePort);
-	hook = serveWebhook(webhookPort);
-	for (const [app, mode] of appNames.flatMap(name => modes.map(each => [name, each] as const))) {
+	for (const app of appNames) {
 		const child = spawn(
 			'bun',
 			[
@@ -197,32 +31,28 @@ export async function startServers() {
 				'--env-file=../../.env.local',
 				'--bun',
 				'vite',
-				...(mode === 'preview' ? ['preview'] : []),
 				'--host',
 				'127.0.0.1',
 				'--port',
-				String(apps[app][mode]),
+				String(apps[app].port),
 				'--strictPort',
 			],
-			{
-				cwd: join(root, apps[app].folder),
-				stdio: 'pipe',
-				env: { ...process.env, ...procrastimateEnv, ...webhookEnv },
-			},
+			{ cwd: join(root, apps[app].folder), stdio: 'pipe' },
 		);
 		let log = '';
 		child.stdout!.on('data', chunk => (log += chunk));
 		child.stderr!.on('data', chunk => (log += chunk));
 		servers.push(child);
+		const url = `http://127.0.0.1:${apps[app].port}/`;
 		for (let attempt = 0; ; attempt++) {
 			if (
-				await fetch(url(app, mode)).then(
+				await fetch(url).then(
 					response => response.ok,
 					() => false,
 				)
 			)
 				break;
-			if (attempt === 150) throw new Error(`The ${mode} server of ${app} did not start:\n${log}`);
+			if (attempt === 150) throw new Error(`The dev server of ${app} did not start:\n${log}`);
 			await Bun.sleep(100);
 		}
 	}
@@ -231,68 +61,30 @@ export async function startServers() {
 export async function stopServers() {
 	for (const browser of browsers.values()) await browser.close();
 	for (const server of servers) server.kill();
-	await stand?.stop(true);
-	await hook?.stop(true);
 }
 
 export type Opened = { page: Page; context: BrowserContext; errors: string[] };
 
 /** Opens a page of an example app. `errors` collects page errors and console errors, which every test expects to stay empty. */
-export async function open(
-	app: AppName,
-	engine: EngineName,
-	mode: Mode,
-	path: string,
-	viewport = { width: 390, height: 700 },
-): Promise<Opened> {
+export async function open(app: AppName, engine: EngineName, path: string): Promise<Opened> {
 	if (!browsers.has(engine)) browsers.set(engine, await engines[engine].launch());
-	const context = await browsers.get(engine)!.newContext({ viewport, deviceScaleFactor: 2 });
-	if (engine === 'chromium') await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+	const context = await browsers
+		.get(engine)!
+		.newContext({ viewport: { width: 390, height: 700 }, deviceScaleFactor: 2 });
 	const page = await context.newPage();
 	const errors: string[] = [];
 	page.on('pageerror', error => errors.push(String(error)));
 	page.on('console', message => {
 		if (message.type() === 'error') errors.push(message.text());
 	});
-	await page.goto(url(app, mode, path));
+	await page.goto(`http://127.0.0.1:${apps[app].port}${path}`);
 	await page.getByRole('heading', { level: 1 }).waitFor();
 	return { page, context, errors };
 }
 
-export const editor = (page: Page) => page.getByRole('dialog', { name: 'Feedback', exact: true });
-export const canvas = (page: Page) => page.getByRole('img', { name: /^Screenshot/ });
-export const field = (page: Page) => page.getByRole('textbox', { name: 'Feedback text' });
-
-/** Opens the editor the way an app's own button does. */
-export async function present(page: Page) {
-	await page.evaluate(() => globalThis.__feedbackEngine!.present());
-	await editor(page).waitFor();
-}
-
-/** Clicks the screenshot at a point given in the captured page's own coordinates. */
-export async function tap(page: Page, x: number, y: number) {
-	const box = (await canvas(page).boundingBox())!;
-	const size = await page.evaluate(() => {
-		const drawn = document.querySelector('[data-feedback-engine]')!.shadowRoot!.querySelector('canvas')!;
-		return { width: drawn.width, height: drawn.height };
-	});
-	const scale = box.width / (size.width / 2);
-	await canvas(page).evaluate((node, to) => node.parentElement!.scrollTo(to), {
-		top: Math.max(0, y * scale - 100),
-		left: Math.max(0, x * scale - 100),
-	});
-	const moved = (await canvas(page).boundingBox())!;
-	await page.mouse.click(moved.x + x * scale, moved.y + y * scale);
-}
-
 export type Report = {
-	app: string;
 	size: { width: number; height: number };
 	visible: { x: number; y: number; width: number; height: number };
-	environment: { name: string; value: string }[];
-	context: { name: string; value: string }[];
-	items: { number: number; text: string; target: number; title: string; path: number[]; code?: string }[];
-	references: { number: number; token: string; target: number; title: string }[];
 	nodes: {
 		id: number;
 		parent?: number;
@@ -306,30 +98,24 @@ export type Report = {
 	}[];
 };
 
-type ExportedFile = FeedbackEngine['lastExport'][number];
-
-/** The files of the last export, as the page holds them for automation. */
-export async function lastExport(page: Page) {
-	const files = await page.evaluate(async () =>
-		Promise.all(
-			globalThis.__feedbackEngine!.lastExport.map(async (file: ExportedFile) => ({
-				name: file.name,
-				bytes: [...new Uint8Array(await file.blob.arrayBuffer())],
-			})),
-		),
+/**
+ * Captures the page the way the editor does, through the package's own modules as the dev server serves them to the
+ * app, so the capture reads the same tags. Returns the report and the drawn screenshot as PNG bytes.
+ */
+export async function capture(page: Page) {
+	const { json, png } = await page.evaluate(
+		async folder => {
+			const { captureScreen } = await import(/* @vite-ignore */ `/@fs${folder}/src/dom/capture.ts`);
+			const { Annotations, reportJSON } = await import(/* @vite-ignore */ `/@fs${folder}/src/core/index.ts`);
+			const screen = await captureScreen({ context: [] });
+			return {
+				json: reportJSON(screen.capture, new Annotations()) as string,
+				png: (screen.image as HTMLCanvasElement).toDataURL('image/png'),
+			};
+		},
+		join(root, 'packages/web'),
 	);
-	return files.map(file => ({ name: file.name, bytes: Buffer.from(file.bytes) }));
-}
-
-/** Adds one item on the whole screen, exports JSON, and returns the report. */
-export async function exportReport(page: Page): Promise<Report> {
-	await field(page).fill('Looks off');
-	await field(page).press('Enter');
-	await page.getByRole('button', { name: 'Share' }).click();
-	await page.getByRole('menuitem', { name: 'JSON', exact: true }).click();
-	await page.getByRole('dialog', { name: 'Share JSON' }).getByRole('button', { name: 'Cancel' }).click();
-	const [file] = await lastExport(page);
-	return JSON.parse(file!.bytes.toString());
+	return { report: JSON.parse(json) as Report, image: Buffer.from(png.split(',')[1]!, 'base64') };
 }
 
 /** The tree as indented titles, with each component's source. */
@@ -345,14 +131,6 @@ export function outline(report: Report, layer?: number) {
 			const title = node.label ? `${node.name} "${node.label}"` : node.name;
 			return `${'  '.repeat(depth.get(node.id)!)}${title}${node.kind === 'component' ? `  ${node.source}` : ''}`;
 		});
-}
-
-/** The capture the editor shows, as PNG bytes. */
-export async function captureImage(page: Page) {
-	const data = await page.evaluate(() =>
-		document.querySelector('[data-feedback-engine]')!.shadowRoot!.querySelector('canvas')!.toDataURL('image/png'),
-	);
-	return Buffer.from(data.split(',')[1]!, 'base64');
 }
 
 /**

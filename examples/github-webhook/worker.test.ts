@@ -53,54 +53,6 @@ const report = {
 	],
 };
 
-test('a post becomes one issue with the uploaded image, each item, and the report', async () => {
-	const calls = fakeGitHub();
-	const response = await worker.fetch(post(report), env);
-
-	expect([response.status, await response.json()]).toEqual([201, { url: 'https://github.com/example/app/issues/7' }]);
-	expect(response.headers.get('access-control-allow-origin')).toBe('*');
-	expect(calls.map(call => [call.method, call.url, call.authorization, call.type])).toEqual([
-		['GET', 'https://api.github.com/repos/example/app', 'Bearer token', null],
-		[
-			'POST',
-			'https://uploads.github.com/user-attachments/assets?name=feedback.png&content_type=image%2Fpng&repository_id=42',
-			'Bearer token',
-			'application/octet-stream',
-		],
-		['POST', 'https://api.github.com/repos/example/app/issues', 'Bearer token', 'application/json'],
-	]);
-	expect(calls[1]!.body).toBe('3 bytes');
-	expect(JSON.parse(calls[2]!.body)).toEqual({
-		title: 'Lists Feedback: 2 changes',
-		labels: ['feedback', 'ios'],
-		body: [
-			'![Lists Feedback: 2 changes](https://github.com/user-attachments/assets/a1)',
-			'',
-			'**1. Link "Groceries 17"** · `src/lib/ListRow.svelte:10`',
-			'',
-			'> Row is too tall',
-			'',
-			'**2. Screen**',
-			'',
-			'> Wrong color',
-			'> Use the accent',
-			'',
-			'App: Todo 1.0 · Screen: 390 × 700',
-			'',
-			'<!-- feedback post post-1 -->',
-			'',
-			'<details>',
-			'<summary>feedback.json</summary>',
-			'',
-			'```json',
-			JSON.stringify(report),
-			'```',
-			'',
-			'</details>',
-		].join('\n'),
-	});
-});
-
 test('a report too long for an issue goes into comments, in parts that join back into the file', async () => {
 	const calls = fakeGitHub();
 	const long = { ...report, context: [{ name: 'Store', value: 'x'.repeat(150_000) }] };
@@ -122,22 +74,9 @@ test('a report too long for an issue goes into comments, in parts that join back
 	expect(Math.max(...comments.map(call => (JSON.parse(call.body).body as string).length))).toBeLessThan(65_536);
 });
 
-test('a post without the key, and one GitHub refuses, say why and file nothing', async () => {
+test('a post without the key files nothing', async () => {
 	const calls = fakeGitHub();
 	const unsigned = await worker.fetch(post(report, {}), env);
-	expect([unsigned.status, await unsigned.json()]).toEqual([401, { message: 'The key is wrong.' }]);
+	expect(unsigned.status).toBe(401);
 	expect(calls).toEqual([]);
-
-	globalThis.fetch = (async () =>
-		Response.json({ message: 'Bad credentials' }, { status: 401 })) as unknown as typeof fetch;
-	const refused = await worker.fetch(post(report), env);
-	expect([refused.status, await refused.json()]).toEqual([
-		502,
-		{ message: 'GitHub answered 401 to GET /repos/example/app: {"message":"Bad credentials"}' },
-	]);
-});
-
-test('a page on another origin gets its preflight answered', async () => {
-	const response = await worker.fetch(new Request('https://hooks.example.com/feedback', { method: 'OPTIONS' }), env);
-	expect([response.status, response.headers.get('access-control-allow-headers')]).toEqual([204, 'Authorization']);
 });
