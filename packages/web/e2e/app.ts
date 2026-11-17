@@ -28,7 +28,7 @@ export const url = (app: AppName, mode: Mode, path = '/') => `http://127.0.0.1:$
 /** A stand-in for ProcrastiMate's agent API that keeps what it was sent. The dev server's proxy forwards to it. */
 export const procrastimate = {
 	token: 'test-token',
-	uploads: new Map<string, { type: string; bytes: number }>(),
+	uploads: new Map<string, { type: string; bytes: number; file?: string }>(),
 	tasks: [] as {
 		id: string;
 		title: string;
@@ -85,6 +85,7 @@ function serveProcrastimate(port: number) {
 				procrastimate.uploads.set(`${id}/${searchParams.get('size')}`, {
 					type: request.headers.get('content-type')!,
 					bytes,
+					...(searchParams.has('name') && { file: `${searchParams.get('name')} ${searchParams.get('type')}` }),
 				});
 				return Response.json({});
 			}

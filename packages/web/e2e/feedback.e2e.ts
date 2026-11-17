@@ -678,9 +678,10 @@ for (const app of appNames) {
 			expect(procrastimate.uploads.get(`${image!.id}/full`)!.bytes).toBeLessThanOrEqual(1_500_000);
 			expect(procrastimate.uploads.get(`${image!.id}/thumb`)!.bytes).toBeLessThanOrEqual(200_000);
 			expect({ name: report!.name, type: report!.type }).toEqual({ name: 'feedback.json', type: 'application/json' });
-			expect(procrastimate.uploads.get(`${report!.id}/part0`)).toEqual({
+			expect(procrastimate.uploads.get(`${report!.id}/file`)).toEqual({
 				type: 'application/octet-stream',
 				bytes: report!.bytes!,
+				file: 'feedback.json application/json',
 			});
 
 			const popup = context.waitForEvent('page');

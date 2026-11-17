@@ -24,7 +24,7 @@ struct PendingPost: Codable, Identifiable, Equatable, Sendable {
     let createdAt: Date
     /// Facts about the capture that go into a failure's details.
     let context: [Problem.Fact]
-    /// The image sizes and report parts the server already stored.
+    /// The image sizes and the report the server already stored.
     var uploaded: Set<String> = []
     var attempts = 0
     /// The last attempt's failure.
@@ -238,22 +238,15 @@ final class Outbox {
     private func create(_ post: PendingPost, client: Procrastimate.Client, step: inout String) async throws {
         let folder = folder(post.id)
         let report = try Data(contentsOf: folder.appending(path: "feedback.json"))
-        var uploads = [
-            (key: "full", id: post.image.id, name: "the image", type: "image/jpeg", data: { try Data(contentsOf: folder.appending(path: "full.jpg")) }),
-            (key: "thumb", id: post.image.id, name: "the thumbnail", type: "image/jpeg", data: { try Data(contentsOf: folder.appending(path: "thumb.jpg")) }),
+        let uploads: [(key: String, id: String, name: String, type: String, file: (name: String, type: String)?, data: () throws -> Data)] = [
+            (key: "full", id: post.image.id, name: "the image", type: "image/jpeg", file: nil, data: { try Data(contentsOf: folder.appending(path: "full.jpg")) }),
+            (key: "thumb", id: post.image.id, name: "the thumbnail", type: "image/jpeg", file: nil, data: { try Data(contentsOf: folder.appending(path: "thumb.jpg")) }),
+            (key: "file", id: post.report.id, name: "feedback.json", type: "application/octet-stream", file: (post.report.name ?? "feedback.json", post.report.type ?? "application/json"), data: { report }),
         ]
-        // ProcrastiMate stores a file in parts that each fit one database row.
-        let starts = Array(stride(from: 0, to: report.count, by: Procrastimate.filePartBytes))
-        for (index, start) in starts.enumerated() {
-            let name = starts.count == 1 ? "feedback.json" : "feedback.json, part \(index + 1) of \(starts.count)"
-            uploads.append((key: "part\(index)", id: post.report.id, name: name, type: "application/octet-stream", data: {
-                report.subdata(in: start..<min(start + Procrastimate.filePartBytes, report.count))
-            }))
-        }
         for upload in uploads where !(posts.first { $0.id == post.id }?.uploaded.contains("\(upload.id)/\(upload.key)") ?? false) {
             step = "Uploading \(upload.name)"
             sending = (post.id, step)
-            try await client.put(id: upload.id, key: upload.key, data: upload.data(), type: upload.type)
+            try await client.put(id: upload.id, key: upload.key, data: upload.data(), type: upload.type, file: upload.file)
             update(post.id) { $0.uploaded.insert("\(upload.id)/\(upload.key)") }
         }
         step = "Creating the task"

@@ -16,9 +16,8 @@ export type Project = { id: string; name: string; sections: Section[] };
 /** Where a task goes: the Inbox without a project, and the project's top, above its sections, without a section. */
 export type Place = { projectId?: string; sectionId?: string };
 
-/** ProcrastiMate's `FILE_PART_BYTES` and `FILE_MAX_BYTES` (`shared/images.ts` there). */
-const filePartBytes = 1_500_000;
-const fileMaxBytes = 25_000_000;
+/** ProcrastiMate's `FILE_PART_BYTES` (`shared/images.ts` there): the most it takes as a file in one request. */
+const fileMaxBytes = 16 * 1024 * 1024;
 const defaultApp = 'https://procrastimate.stf.lol';
 
 const projectsKey = 'feedback.procrastimate.projects';
@@ -161,7 +160,8 @@ export async function postTask(
 	step: (text: string) => void,
 ) {
 	const bytes = new TextEncoder().encode(report);
-	if (bytes.length > fileMaxBytes) throw new Error("The JSON report is over ProcrastiMate's 25 MB file limit.");
+	if (bytes.length > fileMaxBytes)
+		throw new Error('The JSON report is over the 16 MB ProcrastiMate takes in one upload.');
 	step('Encoding the image');
 	const full = await jpeg(image, 2048, 1_500_000);
 	const thumb = await jpeg(image, 320, 200_000);
@@ -171,12 +171,15 @@ export async function postTask(
 	await send(config, 'PUT', 'api/images', { id: imageId, size: 'full' }, full.blob, 'image/jpeg');
 	step('Uploading the thumbnail');
 	await send(config, 'PUT', 'api/images', { id: imageId, size: 'thumb' }, thumb.blob, 'image/jpeg');
-	const parts = Math.max(1, Math.ceil(bytes.length / filePartBytes));
-	for (let start = 0, part = 0; start < bytes.length; start += filePartBytes, part++) {
-		step(parts === 1 ? 'Uploading feedback.json' : `Uploading feedback.json, part ${part + 1} of ${parts}`);
-		const chunk = bytes.slice(start, start + filePartBytes);
-		await send(config, 'PUT', 'api/images', { id: reportId, size: `part${part}` }, chunk, 'application/octet-stream');
-	}
+	step('Uploading feedback.json');
+	await send(
+		config,
+		'PUT',
+		'api/images',
+		{ id: reportId, size: 'file', name: 'feedback.json', type: 'application/json' },
+		bytes,
+		'application/octet-stream',
+	);
 	step('Creating the task');
 	const created = await send(
 		config,

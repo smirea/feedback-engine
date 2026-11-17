@@ -17,8 +17,7 @@ enum Procrastimate {
     /// the picker says to sign in.
     static var isAvailable: Bool { Client.session().status != errSecMissingEntitlement }
     /// ProcrastiMate's `FILE_PART_BYTES` and `FILE_MAX_BYTES` (`shared/images.ts`).
-    static let filePartBytes = 1_500_000
-    static let fileMaxBytes = 25_000_000
+    static let fileMaxBytes = 16 * 1024 * 1024
 
     struct Project: Codable, Identifiable, Hashable, Sendable {
         let id: String
@@ -121,7 +120,7 @@ enum Procrastimate {
             case .server(let status, let message): message.map { "ProcrastiMate: \($0)" } ?? "ProcrastiMate answered \(status)."
             case .unreadable: "ProcrastiMate sent a response Feedback could not read."
             case .imageTooLarge: "The image could not be made small enough to upload."
-            case .reportTooLarge: "The JSON report is over ProcrastiMate's 25 MB file limit."
+            case .reportTooLarge: "The JSON report is over the 16 MB ProcrastiMate takes in one upload."
             }
         }
     }
@@ -173,10 +172,15 @@ enum Procrastimate {
             }
         }
 
-        /// Stores one image size or file part. ProcrastiMate keeps the first bytes stored under an
-        /// id, so sending them again is safe.
-        func put(id: String, key: String, data: Data, type: String) async throws {
-            _ = try await send("PUT", "api/images", query: ["id": id, "size": key], body: data, type: type)
+        /// Stores one image size, or a file under the name and type it is served with. ProcrastiMate
+        /// keeps the first bytes stored under an id, so sending them again is safe.
+        func put(id: String, key: String, data: Data, type: String, file: (name: String, type: String)? = nil) async throws {
+            var query = ["id": id, "size": key]
+            if let file {
+                query["name"] = file.name
+                query["type"] = file.type
+            }
+            _ = try await send("PUT", "api/images", query: query, body: data, type: type)
         }
 
         /// Creates the task with its attachments in one write. The id is the client's, so a retry
