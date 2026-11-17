@@ -1,5 +1,11 @@
 # @stefan.inc/feedback-engine
 
+## 1.6.1
+
+### Patch Changes
+
+- bb82595: Posting to ProcrastiMate uploads the JSON report as one file, with its name and type, which is how ProcrastiMate now stores files. ProcrastiMate no longer takes the parts earlier versions sent, so an app on an earlier version cannot post a report there.
+
 ## 1.6.0
 
 ### Minor Changes
