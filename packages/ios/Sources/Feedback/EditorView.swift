@@ -10,6 +10,7 @@ struct EditorView: View {
     let dismiss: () -> Void
     let share: (ShareTarget) -> Void
     let newWebhook: () -> Void
+    let showFailure: (Toast.Failure) -> Void
     @State private var confirmsClose = false
     /// The panel's first height. The screenshot's scale stays fixed to it, so the picture does not
     /// jump as the panel grows with a selection or a longer draft.
@@ -29,24 +30,42 @@ struct EditorView: View {
                         if let toast = session.toast {
                             Button {
                                 if let link = toast.link { UIApplication.shared.open(link) }
+                                if let failure = toast.failure { showFailure(failure) }
                                 session.toast = nil
                             } label: {
                                 HStack(spacing: 6) {
-                                    Label(toast.text, systemImage: "checkmark.circle.fill")
-                                    if toast.link != nil { Image(systemName: "arrow.up.forward.app").accessibilityHidden(true) }
+                                    if let failure = toast.failure {
+                                        Label {
+                                            VStack(alignment: .leading, spacing: 1) {
+                                                Text(toast.text)
+                                                Text(failure.problem.message).font(.footnote).lineLimit(2)
+                                            }
+                                        } icon: {
+                                            Image(systemName: "exclamationmark.triangle.fill")
+                                        }
+                                        Image(systemName: "chevron.right").accessibilityHidden(true)
+                                    } else {
+                                        Label(toast.text, systemImage: "checkmark.circle.fill")
+                                        if toast.link != nil { Image(systemName: "arrow.up.forward.app").accessibilityHidden(true) }
+                                    }
                                 }
                                 .font(.subheadline.weight(.semibold))
+                                .multilineTextAlignment(.leading)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 10)
-                                .background(.green.opacity(0.9), in: Capsule())
+                                // A toast of one line is as tall as twice the radius, so it stays a capsule.
+                                .background(toast.failure == nil ? .green.opacity(0.9) : .red.opacity(0.9), in: RoundedRectangle(cornerRadius: 20))
                                 .foregroundStyle(.white)
                             }
                             .buttonStyle(.plain)
-                            .accessibilityHint(toast.link == nil ? "" : "Opens the link")
+                            .accessibilityHint(toast.failure != nil ? "Shows the error" : toast.link != nil ? "Opens the link" : "")
                             .padding(.top, 8)
+                            .padding(.horizontal, 12)
                             .transition(.move(edge: .top).combined(with: .opacity))
                             .task(id: toast) {
-                                UIAccessibility.post(notification: .announcement, argument: toast.text)
+                                UIAccessibility.post(notification: .announcement, argument: toast.failure.map { "\(toast.text). \($0.problem.message)" } ?? toast.text)
+                                // A failure stays until it is tapped: it is the only place that says a post did not land.
+                                guard toast.failure == nil else { return }
                                 // A toast that replaces this one cancels the sleep, and must not be cleared in its place.
                                 guard (try? await Task.sleep(for: .seconds(toast.link == nil ? 3 : 5))) != nil else { return }
                                 session.toast = nil

@@ -73,7 +73,7 @@ public enum Feedback {
         let session = Session(capture: capture)
         let window = UIWindow(windowScene: scene)
         window.windowLevel = .alert + 1
-        window.rootViewController = UIHostingController(rootView: EditorView(session: session, dismiss: dismiss, share: { share(session, as: $0) }, newWebhook: { edit(nil, session: session) }))
+        window.rootViewController = UIHostingController(rootView: EditorView(session: session, dismiss: dismiss, share: { share(session, as: $0) }, newWebhook: { edit(nil, session: session) }, showFailure: { show($0, session: session) }))
         // `accessibilityViewIsModal` only hides siblings in the same window, so the app's windows
         // are hidden from VoiceOver and UI automation one by one. The keyboard's windows stay
         // visible for the editor's own text field.
@@ -88,8 +88,9 @@ public enum Feedback {
                 session?.toast = Toast(text: "Saved. It goes to ProcrastiMate once the connection is back.")
             case .waiting:
                 break
-            case .failed:
-                session?.toast = Toast(text: "Couldn't add to ProcrastiMate. Share › ProcrastiMate says why.")
+            case .failed(let post):
+                guard let problem = post.problem else { break }
+                session?.toast = Toast(text: "Couldn't add to ProcrastiMate", failure: .init(problem: problem, post: post.id))
             }
         }
         window.makeKeyAndVisible()
@@ -154,6 +155,16 @@ public enum Feedback {
         }, animated: true)
     }
 
+    /// A failed ProcrastiMate post in full, from its toast. **Retry** sends the outbox's post again.
+    private static func show(_ failure: Toast.Failure, session: Session) {
+        guard case .editing(let editing) = state, var presenter = editing.overlay.rootViewController else { return }
+        while let presented = presenter.presentedViewController { presenter = presented }
+        presenter.present(FailureSheet.controller(name: "ProcrastiMate", problem: failure.problem) { [weak session] in
+            session?.toast = Toast(text: "Sending to ProcrastiMate…")
+            Outbox.shared.retryNow(failure.post)
+        }, animated: true)
+    }
+
     /// Sends the feedback to a webhook. A failure opens a sheet with the reason and **Retry**, which
     /// sends the same post again.
     private static func post(_ session: Session, to webhook: FeedbackWebhook, carrying contents: WebhookContents, retrying earlier: WebhookPost? = nil) {
@@ -200,7 +211,7 @@ public enum Feedback {
                 )
                 guard case .editing(let editing) = state, var presenter = editing.overlay.rootViewController else { return }
                 while let presented = presenter.presentedViewController { presenter = presented }
-                presenter.present(WebhookFailureSheet.controller(name: webhook.name, problem: problem) {
+                presenter.present(FailureSheet.controller(name: webhook.name, problem: problem) {
                     self.post(session, to: webhook, carrying: contents, retrying: post)
                 }, animated: true)
             }

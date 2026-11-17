@@ -549,8 +549,13 @@ private struct ProblemSection: View {
 /// A failure's message, with its facts under **Details** and a button that copies both.
 struct ProblemRows: View {
     let problem: Problem
-    @State private var expanded = false
+    @State private var expanded: Bool
     @State private var copied = false
+
+    init(problem: Problem, expanded: Bool = false) {
+        self.problem = problem
+        _expanded = State(initialValue: expanded)
+    }
 
     var body: some View {
         Label {

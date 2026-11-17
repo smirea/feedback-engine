@@ -3,13 +3,13 @@
 <script lang="ts">
 	import type { Problem } from '../core/index.ts';
 
-	let { problem }: { problem: Problem } = $props();
+	let { problem, open = false }: { problem: Problem; open?: boolean } = $props();
 </script>
 
 <div class="problem" role="alert">
 	<p class="message">{problem.message}</p>
 	{#if problem.facts.length}
-		<details>
+		<details {open}>
 			<summary>Details</summary>
 			<pre>{problem.details}</pre>
 		</details>
