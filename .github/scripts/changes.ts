@@ -20,8 +20,7 @@ const paths = (full ? [] : (await $`git diff --name-only -z ${comparison}`.text(
 const isSwift = (name: string) =>
 	['packages/ios/', 'examples/todo-ios/', 'Package.swift', 'spec/fixtures/'].some(prefix => name.startsWith(prefix));
 const common = full || paths.some(name => name.startsWith('.github/'));
-// Both suites read `spec/fixtures`.
-const bun = common || paths.some(name => !isSwift(name) || name.startsWith('spec/fixtures/'));
+const web = common || paths.some(name => !isSwift(name));
 const swift = common || paths.some(isSwift);
 
-appendFileSync(output, `bun=${bun}\nswift=${swift}\n`);
+appendFileSync(output, `web=${web}\nswift=${swift}\n`);

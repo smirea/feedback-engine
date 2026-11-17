@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      bun: ${{ steps.changes.outputs.bun }}
+      web: ${{ steps.changes.outputs.web }}
       swift: ${{ steps.changes.outputs.swift }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,53 +59,36 @@ jobs:
         run: bunx changeset status --since="$BASE_SHA"
 
   bun:
-    name: ${{ matrix.task }} (Bun)
-    needs: changes
-    if: ${{ !cancelled() }}
+    name: ${{ matrix.task }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
-        task: [checks, tests, build]
+        task: ['lint:ci', typecheck, test, build]
     env:
       CI: 'true'
       LEFTHOOK: '0'
     steps:
-      - name: Verify change detection
-        env:
-          CHANGE_RESULT: ${{ needs.changes.result }}
-        run: test "$CHANGE_RESULT" = success
-      - name: No relevant changes
-        if: needs.changes.outputs.bun != 'true'
-        run: echo "No Bun changes; ${{ matrix.task }} passed."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: needs.changes.outputs.bun == 'true'
         with:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        if: needs.changes.outputs.bun == 'true'
         with:
           bun-version-file: .bun-version
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: needs.changes.outputs.bun == 'true'
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('.bun-version') }}-${{ hashFiles('bun.lock', 'bun.lockb') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('.bun-version') }}-
       - name: Install dependencies
-        if: needs.changes.outputs.bun == 'true'
         run: bun install --frozen-lockfile
-      - name: Checks
-        if: needs.changes.outputs.bun == 'true' && matrix.task == 'checks'
-        run: bun run lint:ci && bun run typecheck
-      - name: Tests
-        if: needs.changes.outputs.bun == 'true' && matrix.task == 'tests'
-        run: bun run test
-      - name: Build
-        if: needs.changes.outputs.bun == 'true' && matrix.task == 'build'
-        run: bun run build
+      - name: Run ${{ matrix.task }}
+        env:
+          TASK: ${{ matrix.task }}
+        run: bun run "$TASK"
+
   web:
     name: web (Playwright)
     needs: changes
@@ -121,33 +104,33 @@ jobs:
           CHANGE_RESULT: ${{ needs.changes.result }}
         run: test "$CHANGE_RESULT" = success
       - name: No relevant changes
-        if: needs.changes.outputs.bun != 'true'
-        run: echo "No Bun changes; web passed."
+        if: needs.changes.outputs.web != 'true'
+        run: echo "No web changes; web passed."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: needs.changes.outputs.bun == 'true'
+        if: needs.changes.outputs.web == 'true'
         with:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        if: needs.changes.outputs.bun == 'true'
+        if: needs.changes.outputs.web == 'true'
         with:
           bun-version-file: .bun-version
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: needs.changes.outputs.bun == 'true'
+        if: needs.changes.outputs.web == 'true'
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('.bun-version') }}-${{ hashFiles('bun.lock', 'bun.lockb') }}
           restore-keys: |
             ${{ runner.os }}-${{ runner.arch }}-bun-${{ hashFiles('.bun-version') }}-
       - name: Install dependencies
-        if: needs.changes.outputs.bun == 'true'
+        if: needs.changes.outputs.web == 'true'
         run: bun install --frozen-lockfile
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: needs.changes.outputs.bun == 'true'
+        if: needs.changes.outputs.web == 'true'
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-${{ runner.arch }}-playwright-${{ hashFiles('bun.lock', 'bun.lockb') }}
       - name: Install browsers
-        if: needs.changes.outputs.bun == 'true'
+        if: needs.changes.outputs.web == 'true'
         # The runner's resolver has failed on Ubuntu's mirrors for whole jobs while other hosts resolved. apt then
         # retries every package until the job's time limit. A public resolver stands in, and if that fails too the
         # step stops at once.
@@ -159,7 +142,7 @@ jobs:
           fi
           bunx playwright install --with-deps chromium webkit
       - name: Browser tests
-        if: needs.changes.outputs.bun == 'true'
+        if: needs.changes.outputs.web == 'true'
         run: bun run test:web
 
   swift:
@@ -171,7 +154,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        task: [checks, tests, build]
+        task: [package, app]
     env:
       CI: 'true'
       LEFTHOOK: '0'
