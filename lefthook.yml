@@ -28,5 +28,6 @@ pre-push:
       glob: '*.{js,mjs,mts,ts,tsx}'
       run: bun --no-env-file scripts/test-changed.ts {push_files}
     # A push to master releases what its changesets name, so a web package change without one is never published.
+    # Git sets GIT_DIR for a hook in a worktree, and changesets then reads its paths against the wrong folder.
     changeset:
-      run: bunx changeset status --since=origin/master
+      run: env -u GIT_DIR bunx changeset status --since=origin/master
