@@ -1,5 +1,11 @@
 # @stefan.inc/feedback-engine
 
+## 1.6.3
+
+### Patch Changes
+
+- 63c7af9: Items and references cycle through 12 distinct colors instead of 8, so the first 12 marked elements never share a color, and no two look alike (red and pink did before).
+
 ## 1.6.2
 
 ### Patch Changes
