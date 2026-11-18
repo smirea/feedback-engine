@@ -107,7 +107,20 @@ export class Annotations {
 	}
 }
 
-/** The colors items and references take, in order. They are iOS's system colors, so both platforms' exports match. */
-export const palette = ['#FF3B30', '#007AFF', '#34C759', '#FF9500', '#AF52DE', '#FF2D55', '#30B0C7', '#5856D6'];
+/** The colors items and references take, in order. iOS has the same list, so both platforms' exports match. Each pair is at least 18 apart in CIEDE2000, and none is too dark to see on a dark page. */
+export const palette = [
+	'#E6194B',
+	'#1F6FEB',
+	'#2E9E44',
+	'#F58231',
+	'#8E44D9',
+	'#0EA5B7',
+	'#E040B0',
+	'#8B5A2B',
+	'#307060',
+	'#9AB500',
+	'#D4A000',
+	'#6B7280',
+];
 
 export const paletteColor = (index: number) => palette[index % palette.length]!;

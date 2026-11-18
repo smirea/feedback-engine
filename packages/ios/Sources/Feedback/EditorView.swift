@@ -634,7 +634,10 @@ private struct ShareMenu: View {
 }
 
 enum Palette {
-    static let colors: [UIColor] = [.systemRed, .systemBlue, .systemGreen, .systemOrange, .systemPurple, .systemPink, .systemTeal, .systemIndigo]
+    /// The web package's `palette`, in the same order.
+    static let colors: [UIColor] = [0xE6194B, 0x1F6FEB, 0x2E9E44, 0xF58231, 0x8E44D9, 0x0EA5B7, 0xE040B0, 0x8B5A2B, 0x307060, 0x9AB500, 0xD4A000, 0x6B7280].map { hex in
+        UIColor(red: CGFloat(hex >> 16 & 0xFF) / 255, green: CGFloat(hex >> 8 & 0xFF) / 255, blue: CGFloat(hex & 0xFF) / 255, alpha: 1)
+    }
 
     static func uiColor(_ index: Int) -> UIColor { colors[index % colors.count] }
     static func color(_ index: Int) -> Color { Color(uiColor: uiColor(index)) }
