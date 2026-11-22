@@ -1,5 +1,11 @@
 # @stefan.inc/feedback-engine
 
+## 1.10.0
+
+### Minor Changes
+
+- d9dc3d6: Remove ProcrastiMate proxy mode (`feedbackProcrastimate()`, `ProcrastimateSheet`, and `url`/`token` on `ProcrastimateConfig`). ProcrastiMate now posts exclusively through the `/feedback` popup on the ProcrastiMate web app using whoever is signed in there: pass `setupFeedbackEngine({ procrastimate: { projects: ['Your Project'] } })`.
+
 ## 1.9.0
 
 ### Minor Changes
