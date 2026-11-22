@@ -26,7 +26,8 @@ const { name, version } = await Bun.file(manifest).json();
 const published = (await $`npm view ${`${name}@${version}`} version`.nothrow().quiet().text()).trim() === version;
 // Publishing before pushing lets a rerun converge: a version npm already has is skipped, and its commit is pushed.
 if (published) console.log(`${name}@${version} is already on npm.`);
-else await $`npm publish`.cwd('packages/web');
+// 2.0.0 went out by mistake and was re-released as 1.9.0, and npm will not move `latest` below it unless told to.
+else await $`npm publish --tag latest`.cwd('packages/web');
 
 if (pending.length) {
 	await $`git add --all .changeset packages/web bun.lock`;
