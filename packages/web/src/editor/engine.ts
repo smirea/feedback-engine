@@ -125,13 +125,15 @@ export class Engine {
 		this.remember();
 		this.hidePill();
 		this.capturing = true;
-		this.pointed = at && { x: at.x + scrollX, y: at.y + scrollY };
 		try {
-			this.screen = await captureScreen({
+			const screen = await captureScreen({
 				app: this.options.app,
 				version: this.options.version,
 				context: this.providers,
 			});
+			const { visible } = screen.capture;
+			this.pointed = at && { x: at.x + visible.x, y: at.y + visible.y };
+			this.screen = screen;
 		} finally {
 			this.capturing = false;
 			this.holding = false;

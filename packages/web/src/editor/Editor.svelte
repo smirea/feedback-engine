@@ -88,6 +88,7 @@
 
 	let dialog = $state<HTMLDialogElement>();
 	let pane = $state<HTMLElement>();
+	let sharp = $state<HTMLCanvasElement>();
 	let field = $state<HTMLTextAreaElement>();
 	let paneSize = $state({ width: 0, height: 0 });
 	let zoom = $state(1);
@@ -147,6 +148,53 @@
 		queueMicrotask(() => node.scrollTo({ top: capture.visible.y * fit }));
 		addEventListener('resize', measure);
 		return () => removeEventListener('resize', measure);
+	});
+
+	/**
+	 * The base image has as many pixels as one canvas can hold, which a zoom or a tall capture can outgrow. Then the part
+	 * in view is drawn again from the picture at the screen's resolution, over the base image, once scrolling settles
+	 * into a frame. A zoom hides it at once, since its place and scale no longer match.
+	 */
+	let sharpening = 0;
+	function sharpen() {
+		cancelAnimationFrame(sharpening);
+		sharpening = requestAnimationFrame(() => {
+			const canvas = sharp;
+			if (!pane || !canvas) return;
+			const ratio = devicePixelRatio;
+			if (scale * ratio <= screen.image.width / capture.size.width + 0.01) {
+				canvas.hidden = true;
+				return;
+			}
+			const shown = pane.getBoundingClientRect();
+			const whole = canvas.parentElement!.getBoundingClientRect();
+			const left = Math.floor(Math.max(0, shown.left - whole.left));
+			const top = Math.floor(Math.max(0, shown.top - whole.top));
+			const width = Math.ceil(Math.min(whole.width, shown.right - whole.left)) - left;
+			const height = Math.ceil(Math.min(whole.height, shown.bottom - whole.top)) - top;
+			if (width <= 0 || height <= 0) {
+				canvas.hidden = true;
+				return;
+			}
+			canvas.width = Math.round(width * ratio);
+			canvas.height = Math.round(height * ratio);
+			canvas.style.cssText = `left:${left}px;top:${top}px;width:${width}px;height:${height}px`;
+			screen.picture.draw(
+				canvas.getContext('2d')!,
+				{ x: left / scale, y: top / scale, width: width / scale, height: height / scale },
+				{ x: 0, y: 0 },
+				scale * ratio,
+			);
+			canvas.hidden = false;
+		});
+	}
+
+	$effect(() => {
+		void scale;
+		void paneSize;
+		if (sharp) sharp.hidden = true;
+		sharpen();
+		return () => cancelAnimationFrame(sharpening);
 	});
 
 	$effect(() => {
@@ -364,6 +412,7 @@
 			aria-label="Screenshot"
 			bind:this={pane}
 			onwheel={wheel}
+			onscroll={sharpen}
 			onpointerdown={pointer}
 			onpointermove={pointer}
 			onpointerup={pointer}
@@ -379,10 +428,15 @@
 				onclick={event => act(() => session.pick(pointAt(event)))}
 				onmousemove={event => (hover = hitTest(capture, pointAt(event)))}
 				onmouseleave={() => (hover = undefined)}
-				{@attach node => {
-					node.prepend(screen.image);
-				}}
 			>
+				<div
+					class="picture"
+					{@attach node => {
+						node.prepend(screen.image);
+					}}
+				>
+					<canvas class="sharp" hidden bind:this={sharp}></canvas>
+				</div>
 				{#each view.similar as id (id)}
 					<span class="box similar" style={box(capture.nodes[id]!.frame)}></span>
 				{/each}
@@ -861,11 +915,25 @@
 	}
 
 	/* The picture is clipped, not the boxes over it, so a number badge on a box at the edge stays whole. */
-	.canvas :global(canvas) {
+	.picture {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		border-radius: 10px;
+	}
+
+	.picture :global(canvas) {
 		display: block;
 		width: 100%;
 		height: 100%;
-		border-radius: 10px;
+	}
+
+	.picture .sharp {
+		position: absolute;
+	}
+
+	.sharp[hidden] {
+		display: none;
 	}
 
 	.box {

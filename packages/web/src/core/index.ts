@@ -1,6 +1,7 @@
 export * from './annotations.ts';
 export * from './cardLayout.ts';
 export * from './describe.ts';
+export * from './extent.ts';
 export * from './model.ts';
 export * from './problem.ts';
 export * from './report.ts';

@@ -1,8 +1,22 @@
-import { buildTree, contextLimit, describe, type Capture, type ContextEntry } from '../core/index.ts';
-import { readScene } from './scene.ts';
-import { captureScale, screenshot } from './screenshot.ts';
+import {
+	buildTree,
+	captureLimit,
+	captureRange,
+	contextLimit,
+	describe,
+	type Capture,
+	type ContextEntry,
+	type Frame,
+} from '../core/index.ts';
+import { readScene, type Scene } from './scene.ts';
+import { takePicture, type Picture } from './screenshot.ts';
 
-export type Screen = { capture: Capture; image: HTMLCanvasElement; scale: number };
+/**
+ * A capture and its picture. `image` is the whole picture on one canvas, at the screen's pixel ratio or lower when the
+ * capture is too large for one, which the editor shows until it draws the part in view sharp. `pixelRatio` is the
+ * screen's, the resolution an export aims for.
+ */
+export type Screen = { capture: Capture; picture: Picture; image: HTMLCanvasElement; pixelRatio: number };
 
 export type CaptureOptions = {
 	app?: string;
@@ -39,9 +53,25 @@ function environment(options: CaptureOptions, date: Date): ContextEntry[] {
 	return entries.filter(entry => !!entry);
 }
 
+/** Moves the scene up by `top` and ends it `height` points down. The tree leaves out what is outside. */
+function cropped(scene: Scene, top: number, height: number): Scene {
+	const up = (frame: Frame) => ({ ...frame, y: frame.y - top });
+	return {
+		size: { width: scene.size.width, height },
+		layers: scene.layers.map((layer, index) =>
+			index === 0
+				? { ...layer, frame: { x: 0, y: 0, width: scene.size.width, height } }
+				: { ...layer, frame: up(layer.frame) },
+		),
+		nodes: scene.nodes.map(node => ({ ...node, frame: up(node.frame) })),
+		fixed: scene.fixed.map(root => ({ ...root, frame: up(root.frame) })),
+	};
+}
+
 /**
  * Reads the page at the moment of the trigger. The window scrolls to its origin while the page is read, so a sticky
- * bar is where the screenshot draws it, and then returns to where it was.
+ * bar is where the picture draws it, and then returns to where it was. A page taller than iOS's limit of 16,000 pixels
+ * is captured by the iOS rules, which `captureRange` holds, and `top` is where the capture starts in the document.
  */
 function readPage(options: CaptureOptions) {
 	const date = new Date();
@@ -57,27 +87,36 @@ function readPage(options: CaptureOptions) {
 	// Reading and scrolling back happen in one task, so the browser never paints the jump.
 	const moved = scroll.x !== 0 || scroll.y !== 0;
 	if (moved) scrollTo({ left: 0, top: 0, behavior: 'instant' });
-	const scene = readScene(scroll);
+	const page = readScene(scroll);
 	if (moved) scrollTo({ left: scroll.x, top: scroll.y, behavior: 'instant' });
 
+	const { top, height } = captureRange(
+		page.size.height,
+		innerHeight,
+		scroll.y,
+		Math.floor(captureLimit / devicePixelRatio),
+		page.nodes.filter(node => node.layer === 0).map(node => node.frame),
+	);
+	const scene = cropped(page, top, height);
 	const capture: Capture = {
 		date,
 		size: scene.size,
-		visible: { x: scroll.x, y: scroll.y, width: innerWidth, height: innerHeight },
+		visible: { x: scroll.x, y: scroll.y - top, width: innerWidth, height: innerHeight },
 		nodes: buildTree(scene),
 		environment: environment(options, date),
 		context,
 		screenName: document.title || undefined,
 	};
-	return { capture, scene };
+	return { capture, scene, top };
 }
 
 /** Reads the page without drawing it, for automation that needs only the tree. */
 export const captureTree = (options: CaptureOptions) => readPage(options).capture;
 
-/** Reads the page and draws it. */
+/** Reads the page and copies it. */
 export async function captureScreen(options: CaptureOptions): Promise<Screen> {
-	const { capture, scene } = readPage(options);
-	const scale = captureScale(scene.size);
-	return { capture, image: await screenshot(scene.size, scale, capture.visible, scene.fixed), scale };
+	const { capture, scene, top } = readPage(options);
+	const picture = await takePicture(scene.size, top, capture.visible, scene.fixed);
+	const pixelRatio = devicePixelRatio;
+	return { capture, picture, image: picture.canvas(pixelRatio), pixelRatio };
 }

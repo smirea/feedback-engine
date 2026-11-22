@@ -3,6 +3,8 @@ import fixture from '../../../../spec/fixtures/capture.json';
 import {
 	Annotations,
 	buildTree,
+	captureRange,
+	cut,
 	describe,
 	hitTest,
 	place,
@@ -361,4 +363,20 @@ test('the shared fixture gives the same answers as on iOS', () => {
 		prompt: name.prompt,
 		summarized: name.summarized(fixture.summary),
 	}).toEqual(expected.taskTitle);
+});
+
+test('a capped capture ends between two rows, as on iOS', () => {
+	const rows = [frame(0, 100, 400, 80), frame(0, 180, 400, 80), frame(0, 260, 400, 80)];
+	const texts = [frame(16, 270, 100, 20), frame(16, 300, 100, 20)];
+	expect(cut(300, 120, [...rows, ...texts])).toBe(260);
+	expect(cut(340, 120, [...rows, ...texts])).toBe(340);
+	expect(cut(250, 190, rows)).toBeUndefined();
+});
+
+test('a page past the limit is captured from its top, or around the screen when scrolled deep, and ends between rows', () => {
+	const rows = Array.from({ length: 300 }, (_, index) => frame(0, index * 75, 400, 75));
+	expect(captureRange(3000, 800, 1500, 8000, rows)).toEqual({ top: 0, height: 3000 });
+	expect(captureRange(20_000, 800, 3000, 8000, rows)).toEqual({ top: 0, height: 7950 });
+	expect(captureRange(20_000, 800, 9000, 8000, rows)).toEqual({ top: 5400, height: 7950 });
+	expect(captureRange(20_000, 800, 19_200, 8000, rows)).toEqual({ top: 12_000, height: 8000 });
 });

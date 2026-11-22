@@ -204,7 +204,7 @@ function watermark(context: CanvasRenderingContext2D, { isLeft, origin }: Card) 
  * The image export: the screenshot with numbered boxes, each item's text and code location in a card beside it, a
  * tagged box for each referenced node, and the capture's environment, so the one file is enough on its own.
  */
-export function annotatedImage({ capture, image, scale }: Screen, annotations: Annotations): HTMLCanvasElement {
+export function annotatedImage({ capture, picture, pixelRatio }: Screen, annotations: Annotations): HTMLCanvasElement {
 	const { column, padding, badge: badgeSize } = metrics;
 	const textWidth = column - padding * 3 - badgeSize;
 	const canvas = document.createElement('canvas');
@@ -307,7 +307,7 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 		annotations.used.map(reference => capture.nodes[reference.target]!.frame),
 	);
 	const { shot, size } = placed;
-	const exportScale = Math.min(scale, Math.sqrt(pixelBudget / (size.width * size.height)));
+	const exportScale = Math.min(pixelRatio, Math.sqrt(pixelBudget / (size.width * size.height)));
 	canvas.width = Math.round(size.width * exportScale);
 	canvas.height = Math.round(size.height * exportScale);
 	context.scale(exportScale, exportScale);
@@ -317,7 +317,7 @@ export function annotatedImage({ capture, image, scale }: Screen, annotations: A
 	context.save();
 	roundedRect(context, shot, 12);
 	context.clip();
-	context.drawImage(image, shot.x, shot.y, capture.size.width, capture.size.height);
+	picture.draw(context, { x: 0, y: 0, width: shot.width, height: shot.height }, shot, 1);
 	context.restore();
 	roundedRect(context, shot, 12);
 	context.lineWidth = 1;

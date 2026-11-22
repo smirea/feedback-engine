@@ -248,7 +248,7 @@ The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows
 ## How capture works
 
 - The browser gives a page no way to read its own pixels without a permission prompt, so Feedback draws the DOM again into a canvas with [modern-screenshot](https://github.com/qq15725/modern-screenshot). On the example app, a scrolled page differs from the browser's own screenshot in under 0.5% of pixels, and a page with an open dialog in about 1%.
-- The whole document is drawn at its full scroll height in one pass. Nothing scrolls on screen. The window jumps to its origin and back inside one task, so a sticky bar is read where the document has it, and scroll listeners run.
+- The document is copied in one pass, as vector images of the DOM, so the editor draws the part in view sharp at any zoom and the image export draws at the screen's pixel ratio. Nothing scrolls on screen. The window jumps to its origin and back inside one task, so a sticky bar is read where the document has it, and scroll listeners run.
 - Content that stays put while the page scrolls, such as a `position: fixed` tab bar, is drawn where it was on screen, over the visible part of the capture.
 - A modal `<dialog>`, an open popover, and an `aria-modal` dialog are separate layers. Clicks on a layer only select what is inside it, and whatever it hides completely is left out of the tree.
 - Roles and names come from the DOM with [dom-accessibility-api](https://github.com/eps1lon/dom-accessibility-api). There is nothing to switch on first, and reading a screen takes a few milliseconds.
@@ -256,7 +256,7 @@ The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows
 ## Limits
 
 - The screenshot is a re-draw, not the screen's pixels. A `<canvas>`, an inline SVG, and an image from another origin that allows CORS are drawn. An image from an origin that does not allow CORS, a `<video>`, and an iframe can come out blank, and a field's placeholder is drawn in its text color. It is tested in Chromium, in Google Chrome, and in Playwright's WebKit, not in Safari itself.
-- A very tall page is drawn at a lower scale, so the capture fits a 16 megapixel canvas.
+- A capture stops at 16,000 device pixels tall, 8,000 CSS pixels on a 2x screen, as on iOS, and ends between two rows. When the page was scrolled deep, it starts partway down with the part on screen near its middle.
 - A scroll container inside the page shows what was on screen in it.
 - A minified production build shows a class's minified name in component data, such as `a(count: 2)`.
 - Element locations for untagged content exist only in development builds, unless a React app turns on `elementSources`. Components keep theirs in every build.
