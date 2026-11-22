@@ -166,7 +166,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 
 | ID | Feature | iOS | Svelte | React | Notes |
 | --- | --- | --- | --- | --- | --- |
-| A1 | A skill tells an app's agents how to make screens accessible and precise to point at. | shipped | shipped | shipped | `packages/web/skills/feedback-accessibility` has one section per package: SwiftUI, Svelte, and React. Web: the npm package ships it, and `feedback-engine init` links it into the app's `.agents/skills`. iOS: the app's `AGENTS.md` reads it from GitHub. |
+| A1 | A skill tells an app's agents how to make screens accessible and precise to point at. | shipped | shipped | shipped | `packages/web/skills/feedback-accessibility` has one section per package: SwiftUI, Svelte, and React. Web: the npm package ships it, and `feedback-engine init` links it into the app's `.agents/skills`, or a monorepo's, from the workspace that installed it. iOS: the app's `AGENTS.md` reads it from GitHub. |
 | A2 | A script replays every tap on an exported tree and reports the taps that fall through. | shipped | shipped | shipped | `scripts/taps.js` in the skill reads `feedback.json` from any platform. It is plain JavaScript, run with `node` or `bun`. |
 | A3 | An example app with every screen tagged is there to try Feedback on. | shipped | shipped | shipped | iOS: `examples/todo-ios`. It is not in ProcrastiMate's keychain group, so a post needs another app. Web: `examples/todo-svelte` and `examples/todo-react`, the same app twice. |
 | A4 | An agent can trigger a capture and read the export without a person. | shipped | shipped | shipped | iOS: `simctl` shake and the app's container. Web: `__feedbackEngine.present()` and `__feedbackEngine.lastExport` from Playwright. |

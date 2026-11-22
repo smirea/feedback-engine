@@ -1,5 +1,14 @@
 #!/usr/bin/env node
-import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+	existsSync,
+	lstatSync,
+	mkdirSync,
+	readdirSync,
+	readFileSync,
+	symlinkSync,
+	unlinkSync,
+	writeFileSync,
+} from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 
 const name = '@stefan.inc/feedback-engine';
@@ -9,7 +18,8 @@ const end = '<!-- feedback-engine:end -->';
 
 const usage = `Usage: feedback-engine init
 
-Run it from the root of an app that has ${name} installed. It links the package's
+Run it from the root of an app that has ${name} installed, or from the root of a
+workspace whose app has it. It links the package's
 ${skill} skill into .agents/skills, and adds a section to AGENTS.md that tells the app's
 agents about the skill, the editor, and __feedbackEngine.capture(). Run it again after an
 upgrade: the skill follows the installed version through the link, and the section is replaced.`;
@@ -19,13 +29,35 @@ function fail(message) {
 	process.exit(1);
 }
 
-/** The installed package, through node_modules rather than its real path, so the link survives an upgrade. */
+/** The workspace folders a root `package.json` lists, for the `dir/*` and plain-folder patterns npm, Bun, and Yarn take. */
+function workspaces(root) {
+	const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+	const patterns = Array.isArray(manifest.workspaces) ? manifest.workspaces : (manifest.workspaces?.packages ?? []);
+	return patterns.flatMap(pattern => {
+		if (!pattern.endsWith('/*')) return [join(root, pattern)];
+		const parent = join(root, pattern.slice(0, -2));
+		if (!existsSync(parent)) return [];
+		return readdirSync(parent, { withFileTypes: true })
+			.filter(entry => entry.isDirectory())
+			.map(entry => join(parent, entry.name));
+	});
+}
+
+/**
+ * The installed package, through node_modules rather than its real path, so the link survives an upgrade, and the app
+ * that depends on it. In a workspace whose packages each keep their own node_modules, as Bun's isolated installs do,
+ * that app is the workspace package that has it.
+ */
 function installed(root) {
+	const at = folder => join(folder, 'node_modules', name);
+	const has = folder => existsSync(join(at(folder), 'package.json'));
 	for (let folder = root; ; folder = dirname(folder)) {
-		const candidate = join(folder, 'node_modules', name);
-		if (existsSync(join(candidate, 'package.json'))) return candidate;
-		if (dirname(folder) === folder) fail(`${name} is not installed here. Add it first: bun add ${name}`);
+		if (has(folder)) return { source: at(folder), app: root };
+		if (dirname(folder) === folder) break;
 	}
+	const app = workspaces(root).find(has);
+	if (app) return { source: at(app), app };
+	fail(`${name} is not installed here. Add it first: bun add ${name}`);
 }
 
 function link(root, source) {
@@ -42,8 +74,8 @@ function link(root, source) {
 	return target;
 }
 
-function section(root) {
-	const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+function section(root, app) {
+	const manifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
 	const dependencies = { ...manifest.dependencies, ...manifest.devDependencies };
 	const framework = dependencies.svelte && !dependencies.react ? 'Svelte' : 'React';
 	const run = existsSync(join(root, 'bun.lock')) || existsSync(join(root, 'bun.lockb')) ? 'bun' : 'node';
@@ -81,13 +113,14 @@ if (command !== 'init' || rest.length > 0) fail(`unknown command.\n\n${usage}`);
 
 const root = resolve('.');
 if (!existsSync(join(root, 'package.json'))) fail('run init from the folder that holds the app’s package.json.');
-const source = join(installed(root), 'skills', skill);
+const { source: installation, app } = installed(root);
+const source = join(installation, 'skills', skill);
 if (!existsSync(join(source, 'SKILL.md'))) fail(`${source} has no SKILL.md. Upgrade ${name}.`);
 
 const linked = link(root, source);
 console.log(`Linked ${relative(root, linked)} to ${relative(root, source)}`);
 
-const text = section(root);
+const text = section(root, app);
 const files = [join(root, 'AGENTS.md')];
 // Claude Code reads CLAUDE.md and not AGENTS.md, unless CLAUDE.md points to it.
 const claude = join(root, 'CLAUDE.md');
