@@ -150,7 +150,26 @@ function svgImageURL(svg: SVGElement) {
  * Safari 2.4 s on a page with 20 icons, so the copy is drawn once and waits one interval in all.
  */
 async function svgImage(node: Element, options: Options) {
-	const context = await createContext(node, options);
+	// modern-screenshot leaves a scrolled container's copy at its top unless `restoreScrollPosition` is on, which shifts
+	// the children of a scrolled element by its scroll. The window's scroll is the root's, and the copy of the document
+	// must start at its top, so the shift is taken back off the root's children.
+	const transforms = new WeakMap<Node, string>();
+	const scrolledRoot = node === document.scrollingElement && (node.scrollTop !== 0 || node.scrollLeft !== 0);
+	const context = await createContext(node, {
+		...options,
+		features: { restoreScrollPosition: true },
+		onCloneEachNode: scrolledRoot
+			? clone => void (clone instanceof HTMLElement && transforms.set(clone, clone.style.transform))
+			: undefined,
+		onCloneNode: scrolledRoot
+			? clone => {
+					for (const child of (clone as HTMLElement).children as HTMLCollectionOf<HTMLElement>) {
+						const transform = transforms.get(child);
+						if (transform !== undefined) child.style.transform = transform;
+					}
+				}
+			: undefined,
+	});
 	try {
 		const svg = await domToForeignObjectSvg(context);
 		const image = await loadMedia(svgImageURL(svg), { timeout: context.timeout });
