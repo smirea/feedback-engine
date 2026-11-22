@@ -1,5 +1,11 @@
 # @stefan.inc/feedback-engine
 
+## 1.7.2
+
+### Patch Changes
+
+- a6ec99d: The screenshot shows a scrolled container inside the page where the user had scrolled it, instead of at its top.
+
 ## 1.7.1
 
 ### Patch Changes
