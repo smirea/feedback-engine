@@ -1,23 +1,12 @@
 import { expect, test } from 'bun:test';
-import { listedProjects, startingProject, type Project } from './procrastimate.ts';
+import { defaultProcrastimateApp, procrastimateAppURL } from './procrastimate.ts';
 import { FEEDBACK_CANCELLED, FEEDBACK_POSTED, FEEDBACK_READY, parsePopupReply } from './procrastimatePopup.ts';
 
-const project = (id: string, name: string): Project => ({ id, name, sections: [] });
-const all = [project('p1', 'Groceries'), project('p2', 'Feedback Engine'), project('p3', 'Garden')];
-const ids = (projects: Project[]) => projects.map(({ id }) => id);
-
-test('the picker lists only the named projects, in the app order, and reports names ProcrastiMate lacks', () => {
-	const listed = listedProjects(all, ['feedback engine', 'Nope', 'p1', 'Groceries']);
-	expect(ids(listed.projects)).toEqual(['p2', 'p1']);
-	expect(listed.missing).toEqual(['Nope']);
-});
-
-test('the picker never starts on the Inbox', () => {
-	const config = { url: '', projects: ['Garden', 'Groceries'] };
-	const listed = listedProjects(all, config.projects).projects;
-	expect(startingProject(listed, config, 'p2')).toBe('p3');
-	expect(startingProject(listed, config, 'p1')).toBe('p1');
-	expect(startingProject(listed, config, undefined)).toBe('p3');
+test('procrastimateAppURL defaults to the hosted app and trims trailing slashes', () => {
+	expect(procrastimateAppURL({ projects: ['Feedback Engine'] })).toBe(defaultProcrastimateApp);
+	expect(procrastimateAppURL({ app: 'https://pm.example.com/', projects: ['Feedback Engine'] })).toBe(
+		'https://pm.example.com',
+	);
 });
 
 test('the popup handoff accepts only replies from the configured ProcrastiMate origin, popup window, and nonce', () => {

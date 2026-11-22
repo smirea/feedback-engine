@@ -31,7 +31,6 @@
 	import { destinations, pinnedDestinations, type Destination } from './destinations.ts';
 	import type { Engine } from './engine.ts';
 	import ProblemCard from './ProblemCard.svelte';
-	import ProcrastimateSheet from './ProcrastimateSheet.svelte';
 	import WebhookDialog from './WebhookDialog.svelte';
 	import WebhookSheet from './WebhookSheet.svelte';
 
@@ -99,7 +98,6 @@
 	/** The list of items starts open beside the screenshot, and closed under it on a phone, where it would cover the picture. */
 	let showsItems = $state(matchMedia('(min-width: 900px)').matches);
 	let showsShare = $state(false);
-	let showsProcrastimate = $state(false);
 	let popup = { cancel() {} };
 	let posting = $state<Delivery>();
 
@@ -270,8 +268,8 @@
 			failure = undefined;
 		} else if (confirmsClose) {
 			confirmsClose = false;
-		} else if (showsInfo || showsShare || showsProcrastimate || posting || pending || editing) {
-			showsInfo = showsShare = showsProcrastimate = false;
+		} else if (showsInfo || showsShare || posting || pending || editing) {
+			showsInfo = showsShare = false;
 			posting = pending = editing = undefined;
 		} else if (session.isTyping || session.unshared.length) {
 			confirmsClose = true;
@@ -285,32 +283,28 @@
 		if (destination.kind === 'procrastimate') {
 			const config = engine.options.procrastimate;
 			if (!config) return;
-			if (config.url !== undefined) {
-				showsProcrastimate = true;
-			} else {
-				popup.cancel();
-				const items = [...session.items];
-				const names = taskTitle(session.capture, items);
-				popup = openProcrastimatePopup({
-					config,
-					title: names.placeholder,
-					app: engine.options.app ?? (document.title.trim() || undefined),
-					screen,
-					annotations: session.annotations,
-					report: session.compactJSON,
-					onposted: ({ destination: where, url }) => {
-						act(() => {
-							session.markShared(items);
-							session.toast = { text: `Added to ${where} in ProcrastiMate`, link: url };
-						});
-					},
-					onerror: problem => {
-						act(() => {
-							session.toast = { text: 'Couldn’t open ProcrastiMate', problem };
-						});
-					},
-				});
-			}
+			popup.cancel();
+			const items = [...session.items];
+			const names = taskTitle(session.capture, items);
+			popup = openProcrastimatePopup({
+				config,
+				title: names.placeholder,
+				app: engine.options.app ?? (document.title.trim() || undefined),
+				screen,
+				annotations: session.annotations,
+				report: session.compactJSON,
+				onposted: ({ destination: where, url }) => {
+					act(() => {
+						session.markShared(items);
+						session.toast = { text: `Added to ${where} in ProcrastiMate`, link: url };
+					});
+				},
+				onerror: problem => {
+					act(() => {
+						session.toast = { text: 'Couldn’t open ProcrastiMate', problem };
+					});
+				},
+			});
 		} else if (destination.kind === 'saved') edit(destination.saved);
 		else posting = destination.delivery;
 	}
@@ -668,22 +662,6 @@
 				{#if problem}⚠ {text}: {problem.message} ›{:else}✓ {text}{link ? ' ↗' : ''}{/if}
 			</button>
 		</div>
-	{/if}
-
-	{#if showsProcrastimate && engine.options.procrastimate}
-		<ProcrastimateSheet
-			{screen}
-			{session}
-			config={engine.options.procrastimate}
-			onclose={() => (showsProcrastimate = false)}
-			onposted={(items, toast) => {
-				showsProcrastimate = false;
-				act(() => {
-					session.markShared(items);
-					session.toast = toast;
-				});
-			}}
-		/>
 	{/if}
 
 	{#if editing}

@@ -19,10 +19,4 @@ Alt+Meta+click anything, which is Option+Command+click on a Mac, to open the edi
 
 ## Post to ProcrastiMate
 
-The dev server forwards the editor's ProcrastiMate calls to `PROCRASTIMATE_URL` and adds `PROCRASTIMATE_TOKEN`. Put a token in the root `.env.local`:
-
-```sh
-PROCRASTIMATE_TOKEN=<a ProcrastiMate API token>
-```
-
-The token is the switch. With it, the Share menu lists **ProcrastiMate**. Without it, the entry is not there.
+Choosing **ProcrastiMate** opens a popup on `PROCRASTIMATE_URL` (`/feedback`) using whoever is signed into ProcrastiMate in your browser, with no token and no proxy. Set `PROCRASTIMATE_PROJECTS` (or `PROCRASTIMATE_URL` for a local ProcrastiMate instance) in the root `.env.local` if you want to point it elsewhere.

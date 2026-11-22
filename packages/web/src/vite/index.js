@@ -1,7 +1,6 @@
 import { basename, relative, sep } from 'node:path';
 import { parse } from 'svelte/compiler';
 
-export { feedbackProcrastimate } from './procrastimate.js';
 export { addReact, feedbackEngineReact, sourceAttribute } from './react.js';
 
 const entry = '@stefan.inc/feedback-engine/svelte';

@@ -13,27 +13,6 @@ export function feedbackEngine(options?: {
 }): { name: string; markup(input: { content: string; filename?: string }): { code: string } | undefined };
 
 /**
- * A Vite plugin that forwards `path` on the dev and preview servers to ProcrastiMate and adds the token there. With a
- * token, the Share menu lists ProcrastiMate. Without one it does not. It forwards only what a post needs, and creates
- * tasks only in the listed projects.
- */
-export function feedbackProcrastimate(options: {
-	/** ProcrastiMate's origin. Defaults to `https://procrastimate.stf.lol`. */
-	url?: string;
-	/** A ProcrastiMate API token. Pass `process.env.PROCRASTIMATE_TOKEN`, so the entry shows only where it is set. */
-	token?: string;
-	/** Defaults to `/__feedback/procrastimate`. */
-	path?: string;
-	/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
-	project?: string;
-	/**
-	 * The only projects Feedback posts to, by name (ignoring case) or id, in the picker's order, each with a link to its
-	 * page in ProcrastiMate. The proxy refuses a task anywhere else, the Inbox included. Required, and not empty.
-	 */
-	projects: string[];
-}): Plugin;
-
-/**
  * Registers a React module's components, rewrites its `feedback(` calls to carry their `file:line`, and, with
  * `elementSources`, writes each HTML element's `file:line` into an attribute. `undefined` when nothing changed.
  */

@@ -26,10 +26,8 @@ export type FeedbackOptions = {
 	 */
 	threeFingerHold?: boolean;
 	/**
-	 * Adds ProcrastiMate to the Share menu. Pass `{ projects: ['Website'] }` (with no `url`) to post through a popup on
-	 * the ProcrastiMate web app using whoever is signed in there, with no token and no proxy. Pass `{ url, projects }`
-	 * for a same-origin API or a proxy of your own. Leave it out behind `feedbackProcrastimate()` from the Vite entry
-	 * point, which adds the entry by itself when it has a token.
+	 * Adds ProcrastiMate to the Share menu. Pass `{ projects: ['Website'] }` to post through a popup on the
+	 * ProcrastiMate web app (`/feedback`) using whoever is signed in there, with no token and no proxy.
 	 */
 	procrastimate?: ProcrastimateConfig;
 	/**

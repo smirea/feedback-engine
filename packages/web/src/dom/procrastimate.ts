@@ -1,176 +1,26 @@
-import { Problem } from '../core/problem.ts';
-import { postId } from './webhook.ts';
-
 export type ProcrastimateConfig = {
-	/**
-	 * Where ProcrastiMate's API answers: the Vite plugin's proxy path, or a server that allows this origin. Leave it out
-	 * to open a popup on the ProcrastiMate web app (`app`) that posts using whoever is signed in there, with no token
-	 * and no proxy.
-	 */
-	url?: string;
-	/** Sent as a bearer token. Leave it out behind the proxy or when posting through the popup. */
-	token?: string;
-	/** The ProcrastiMate web app, for the popup and for links to posted tasks and projects. */
+	/** The ProcrastiMate web app whose `/feedback` popup opens. Defaults to `https://procrastimate.stf.lol`. */
 	app?: string;
 	/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
 	project?: string;
 	/**
-	 * The only projects the picker offers, by name (ignoring case) or id, in this order. The Inbox is not offered.
-	 * Required, and not empty. A proxy of your own should refuse tasks anywhere else.
+	 * The only projects the `/feedback` popup offers, by name (ignoring case) or id, in this order. The Inbox is not
+	 * offered. Required, and not empty.
 	 */
 	projects: string[];
 	/**
-	 * Another user's space (their ProcrastiMate user id) whose shared projects the picker lists. Leave it out to match
-	 * across the signed-in user's own and edit-shared projects in the popup, or the token's space behind a proxy.
+	 * Another user's space (their ProcrastiMate user id) whose shared projects the popup lists. Leave it out to match
+	 * across the signed-in user's own and edit-shared projects.
 	 */
 	space?: string;
 };
-
-export type Section = { id: string; name: string };
-export type Project = { id: string; name: string; sections: Section[] };
-/** Where a task goes: the project's top, above its sections, without a section. No project yet while none is listed. */
-export type Place = { projectId?: string; sectionId?: string };
 
 /** ProcrastiMate's `FILE_PART_BYTES` (`shared/images.ts` there): the most it takes as a file in one request. */
 export const fileMaxBytes = 16 * 1024 * 1024;
 export const defaultProcrastimateApp = 'https://procrastimate.stf.lol';
 
-const projectsKey = 'feedback.procrastimate.projects';
-const lastProjectKey = 'feedback.procrastimate.project';
-
-function stored<T>(key: string): T | undefined {
-	try {
-		const value = localStorage.getItem(key);
-		return value === null ? undefined : (JSON.parse(value) as T);
-	} catch {
-		return undefined;
-	}
-}
-
-const store = (key: string, value: unknown) => {
-	try {
-		if (value === undefined) localStorage.removeItem(key);
-		else localStorage.setItem(key, JSON.stringify(value));
-	} catch {
-		// Storage can be off, as in a private window. The picker then opens empty.
-	}
-};
-
-/** The projects from the last time the picker loaded them, so it opens filled. */
-export const cachedProjects = () => stored<Project[]>(projectsKey) ?? [];
-/** The project of the last post. Its section is not kept, so a new post starts at the project's top. */
-export const lastProject = () => stored<string>(lastProjectKey);
-
-/** The project `config.project` names, by id or by name ignoring case. */
-export const namedProject = (projects: Project[], name: string) =>
-	projects.find(project => project.id === name) ??
-	projects.find(project => project.name.toLowerCase() === name.toLowerCase());
-
-/** The projects the picker lists: those `names` lists, in its order. `missing` has the names ProcrastiMate lacks. */
-export function listedProjects(all: Project[], names: string[]) {
-	const projects: Project[] = [];
-	const missing: string[] = [];
-	for (const name of names) {
-		const project = namedProject(all, name);
-		if (!project) missing.push(name);
-		else if (!projects.includes(project)) projects.push(project);
-	}
-	return { projects, missing };
-}
-
-/**
- * The project the picker opens on, among the listed ones: the one the app names, else the last one posted to, else
- * the first. `undefined` only while none is listed.
- */
-export function startingProject(listed: Project[], config: ProcrastimateConfig, last: string | undefined) {
-	if (config.project) return namedProject(listed, config.project)?.id;
-	if (listed.some(project => project.id === last)) return last;
-	return listed[0]?.id;
-}
-
 export const procrastimateAppURL = (config: ProcrastimateConfig) =>
 	(config.app ?? defaultProcrastimateApp).replace(/\/$/, '');
-
-/** The project's page in the ProcrastiMate web app, which opens for someone signed in to its space. */
-export const projectLink = (config: ProcrastimateConfig, id: string) =>
-	`${procrastimateAppURL(config)}/projects/${encodeURIComponent(id)}`;
-
-export const taskLink = (config: ProcrastimateConfig, id: string) =>
-	`${procrastimateAppURL(config)}/inbox?task=${encodeURIComponent(id)}`;
-
-async function send(
-	config: ProcrastimateConfig,
-	method: string,
-	path: string,
-	query: Record<string, string> = {},
-	body?: BodyInit,
-	type?: string,
-) {
-	if (config.url === undefined) {
-		throw new Error('ProcrastiMate has no API URL; popup mode posts from the ProcrastiMate web app.');
-	}
-	const fullQuery = config.space ? { space: config.space, ...query } : query;
-	const search = new URLSearchParams(Object.entries(fullQuery).toSorted(([a], [b]) => a.localeCompare(b)));
-	const url = `${config.url.replace(/\/$/, '')}/${path}${search.size ? `?${search}` : ''}`;
-	let response: Response;
-	try {
-		response = await fetch(url, {
-			method,
-			body,
-			headers: {
-				...(config.token ? { Authorization: `Bearer ${config.token}` } : {}),
-				...(type ? { 'Content-Type': type } : {}),
-			},
-		});
-	} catch (error) {
-		throw Problem.request(method, url, undefined, undefined, error);
-	}
-	if (response.ok) return response;
-	const text = await response.text().catch(() => '');
-	if (response.status === 401) {
-		throw Problem.request(
-			method,
-			url,
-			response.status,
-			text,
-			new Error('ProcrastiMate rejected the token. Check the token Feedback was set up with.'),
-		);
-	}
-	let message: string | undefined;
-	try {
-		message = (JSON.parse(text) as { message?: string }).message;
-	} catch {
-		// A proxy's HTML error page, which the details show as it came.
-	}
-	throw Problem.request(
-		method,
-		url,
-		response.status,
-		text,
-		new Error(message ? `ProcrastiMate: ${message}` : `ProcrastiMate answered ${response.status}.`),
-	);
-}
-
-type Row = { id: string; name: string; order: number; createdAt: number };
-const inOrder = <T extends Row>(rows: T[]) => rows.toSorted((a, b) => a.order - b.order || a.createdAt - b.createdAt);
-
-/** The space's projects and their sections in the app's order. `/api/view` is the only route that lists them. */
-export async function loadProjects(config: ProcrastimateConfig): Promise<Project[]> {
-	const view = (await (await send(config, 'GET', 'api/view')).json()) as {
-		projects: Row[];
-		sections: (Row & { projectId: string })[];
-	};
-	const projects = inOrder(view.projects).map(project => ({
-		id: project.id,
-		name: project.name,
-		sections: inOrder(view.sections.filter(section => section.projectId === project.id)).map(({ id, name }) => ({
-			id,
-			name,
-		})),
-	}));
-	store(projectsKey, projects);
-	return projects;
-}
 
 export type EncodedImage = { blob: Blob; width: number; height: number };
 
@@ -199,61 +49,4 @@ export async function encodeTaskImages(image: HTMLCanvasElement): Promise<{ full
 	const full = await jpeg(image, 2048, 1_500_000);
 	const thumb = await jpeg(image, 320, 200_000);
 	return { full, thumb };
-}
-
-/**
- * Creates one task with the image export and `feedback.json` attached, and returns its id. The attachments upload
- * before the task that lists them, as ProcrastiMate's own clients do, so the task never names bytes the server
- * cannot serve.
- */
-export async function postTask(
-	config: ProcrastimateConfig,
-	title: string,
-	place: Place,
-	image: HTMLCanvasElement,
-	report: string,
-	step: (text: string) => void,
-) {
-	const bytes = new TextEncoder().encode(report);
-	if (bytes.length > fileMaxBytes)
-		throw new Error('The JSON report is over the 16 MB ProcrastiMate takes in one upload.');
-	step('Encoding the image');
-	const { full, thumb } = await encodeTaskImages(image);
-	const imageId = postId();
-	const reportId = postId();
-	const taskId = postId();
-	step('Uploading the image');
-	await send(config, 'PUT', 'api/images', { id: imageId, size: 'full' }, full.blob, 'image/jpeg');
-	step('Uploading the thumbnail');
-	await send(config, 'PUT', 'api/images', { id: imageId, size: 'thumb' }, thumb.blob, 'image/jpeg');
-	step('Uploading feedback.json');
-	await send(
-		config,
-		'PUT',
-		'api/images',
-		{ id: reportId, size: 'file', name: 'feedback.json', type: 'application/json' },
-		bytes,
-		'application/octet-stream',
-	);
-	step('Creating the task');
-	const created = await send(
-		config,
-		'POST',
-		'api/tasks',
-		{},
-		JSON.stringify({
-			id: taskId,
-			title,
-			projectId: place.projectId ?? null,
-			sectionId: place.sectionId ?? null,
-			attachments: [
-				{ id: imageId, width: full.width, height: full.height },
-				{ id: reportId, name: 'feedback.json', type: 'application/json', bytes: bytes.length },
-			],
-		}),
-		'application/json',
-	);
-	const { id } = (await created.json()) as { id: string };
-	store(lastProjectKey, place.projectId);
-	return id;
 }

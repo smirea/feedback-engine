@@ -7,9 +7,15 @@
 	let { children } = $props();
 
 	const webhook: string = import.meta.env.FEEDBACK_WEBHOOK_URL;
+	const projects: string[] = import.meta.env.FEEDBACK_PROCRASTIMATE_PROJECTS;
 	const feedback = setupFeedbackEngine({
 		app: 'Todo',
 		version: '1.0',
+		procrastimate: {
+			app: import.meta.env.FEEDBACK_PROCRASTIMATE_APP,
+			project: import.meta.env.FEEDBACK_PROCRASTIMATE_PROJECT || undefined,
+			projects,
+		},
 		webhooks: webhook
 			? [
 					{
