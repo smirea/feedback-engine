@@ -1,5 +1,16 @@
 # @stefan.inc/feedback-engine
 
+## 1.9.0
+
+### Minor Changes
+
+- f2ddd75: - ProcrastiMate can now post through a popup on the ProcrastiMate web app (`/feedback`) using whoever is signed in there, with no hardcoded token, no proxy, and no CORS: pass `setupFeedbackEngine({ procrastimate: { projects: ['Your Project'] } })` without `url`.
+  - ProcrastiMate posts only to the projects an app lists, and nothing allows every project. `feedbackProcrastimate()` and `setupFeedbackEngine({ procrastimate })` require a non-empty `projects` list (by name or id), the picker no longer offers the Inbox, and both the dev server's proxy and ProcrastiMate's `/feedback` popup enforce the list.
+
+### Patch Changes
+
+- 0299cad: Everything Escape closes in the editor now also closes with the mouse: a click outside the Share menu closes it, a click outside **Discard feedback?** keeps editing (and Escape there now keeps editing too, instead of asking again), and a webhook post in progress has a **Cancel** button. The editor's close button shows a "Close" tooltip.
+
 ## 1.8.0
 
 ### Minor Changes
