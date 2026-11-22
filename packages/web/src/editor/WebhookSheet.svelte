@@ -63,6 +63,7 @@
 			<button type="button" onclick={onclose}>Cancel</button>
 		{:else}
 			<p role="status">{step}…</p>
+			<button type="button" onclick={onclose}>Cancel</button>
 		{/if}
 	</div>
 </div>

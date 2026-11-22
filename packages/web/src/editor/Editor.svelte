@@ -268,6 +268,8 @@
 		// The error is drawn over the other sheets, so it is the one to leave first.
 		if (failure) {
 			failure = undefined;
+		} else if (confirmsClose) {
+			confirmsClose = false;
 		} else if (showsInfo || showsShare || showsProcrastimate || posting || pending || editing) {
 			showsInfo = showsShare = showsProcrastimate = false;
 			posting = pending = editing = undefined;
@@ -378,7 +380,10 @@
 	class="editor"
 	aria-label="Feedback"
 	onpointerdown={event => {
-		if (showsInfo && !(event.target as Element).closest('.title')) showsInfo = false;
+		const target = event.target as Element;
+		if (showsInfo && !target.closest('.title')) showsInfo = false;
+		// The close button leaves the menu itself, as Escape does, instead of the editor behind it.
+		if (showsShare && !target.closest('.menu, .close')) showsShare = false;
 	}}
 	oncancel={event => {
 		event.preventDefault();
@@ -386,7 +391,7 @@
 	}}
 >
 	<header>
-		<button type="button" class="nav" aria-label="Close" onclick={requestClose}>
+		<button type="button" class="nav close" aria-label="Close" title="Close" onclick={requestClose}>
 			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
 		</button>
 		<h1>Feedback</h1>
@@ -729,7 +734,11 @@
 	{/if}
 
 	{#if confirmsClose}
-		<div class="scrim" role="presentation">
+		<div
+			class="scrim"
+			role="presentation"
+			onclick={event => event.target === event.currentTarget && (confirmsClose = false)}
+		>
 			<div class="sheet actions" role="alertdialog" tabindex="-1" aria-label="Discard feedback?">
 				<h2>Discard feedback?</h2>
 				<p>

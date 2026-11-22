@@ -99,7 +99,7 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 | E5 | The user types feedback and submits it. Each item gets a numbered box. | shipped | shipped | shipped | Web: Enter submits, and Shift with Enter adds a line. The number badge of a box at the screenshot's edge is drawn whole, outside the picture's rounded corners. |
 | E6 | A tap inside a numbered box brings back that item's feedback for editing. A second tap drills down. | shipped | shipped | shipped | |
 | E7 | Feedback belongs to one level of the hierarchy. | shipped | shipped | shipped | |
-| E9 | Closing asks first when items were never shared, and gives focus back to the field that had it. | shipped | shipped | shipped | |
+| E9 | Closing asks first when items were never shared, and gives focus back to the field that had it. | shipped | shipped | shipped | Web: Escape and the close button leave the topmost popover, menu, or sheet first, and each of those also has a button or closes on a click outside it. Escape or a click outside the question keeps editing. |
 | E10 | A draft survives a visit to a target that already has feedback. | shipped | shipped | shipped | |
 | E11 | While the editor is open, assistive technology and UI automation see only the editor. | shipped | shipped | shipped | iOS: hides the app's windows from accessibility. Web: a modal dialog in the top layer makes the page inert. |
 | E12 | The editor's text stops growing at the largest standard text size. | shipped | no | no | Web: browsers zoom the whole page, so the screenshot scales with the text. |
