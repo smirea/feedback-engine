@@ -24,23 +24,34 @@ export type FeedbackOptions = {
 	 */
 	threeFingerHold?: boolean;
 	/**
-	 * Adds ProcrastiMate to the Share menu. Leave it out behind `feedbackProcrastimate()` from the Vite entry point,
-	 * which adds the entry by itself when it has a token. Set it for a proxy of your own.
+	 * Adds ProcrastiMate to the Share menu. Pass `{ projects: ['Website'] }` (with no `url`) to post through a popup on
+	 * the ProcrastiMate web app using whoever is signed in there, with no token and no proxy. Pass `{ url, projects }`
+	 * for a same-origin API or a proxy of your own. Leave it out behind `feedbackProcrastimate()` from the Vite entry
+	 * point, which adds the entry by itself when it has a token.
 	 */
 	procrastimate?: {
-		/** Where ProcrastiMate's API answers: the Vite plugin's proxy path, or a server that allows this origin. */
-		url: string;
-		/** Sent as a bearer token. Leave it out behind the proxy, which adds its own. */
+		/**
+		 * Where ProcrastiMate's API answers: the Vite plugin's proxy path, or a server that allows this origin. Leave it
+		 * out to open a popup on the ProcrastiMate web app (`app`) that posts using whoever is signed in there, with no
+		 * token and no proxy.
+		 */
+		url?: string;
+		/** Sent as a bearer token. Leave it out behind the proxy or when posting through the popup. */
 		token?: string;
-		/** The ProcrastiMate web app, for the link to a posted task. */
+		/** The ProcrastiMate web app, for the popup and for links to posted tasks and projects. */
 		app?: string;
 		/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
 		project?: string;
 		/**
-		 * The only projects the picker offers, by name (ignoring case) or id, in this order. The Inbox is not offered
-		 * with it. Without it, the picker lists the Inbox and every project.
+		 * The only projects the picker offers, by name (ignoring case) or id, in this order. The Inbox is not offered.
+		 * Required, and not empty. A proxy of your own should refuse tasks anywhere else.
 		 */
-		projects?: string[];
+		projects: string[];
+		/**
+		 * Another user's space (their ProcrastiMate user id) whose shared projects the picker lists. Leave it out to match
+		 * across the signed-in user's own and edit-shared projects in the popup, or the token's space behind a proxy.
+		 */
+		space?: string;
 	};
 	/**
 	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export and the JSON export to the

@@ -14,9 +14,10 @@ export function feedbackEngine(options?: {
 
 /**
  * A Vite plugin that forwards `path` on the dev and preview servers to ProcrastiMate and adds the token there. With a
- * token, the Share menu lists ProcrastiMate. Without one it does not.
+ * token, the Share menu lists ProcrastiMate. Without one it does not. It forwards only what a post needs, and creates
+ * tasks only in the listed projects.
  */
-export function feedbackProcrastimate(options?: {
+export function feedbackProcrastimate(options: {
 	/** ProcrastiMate's origin. Defaults to `https://procrastimate.stf.lol`. */
 	url?: string;
 	/** A ProcrastiMate API token. Pass `process.env.PROCRASTIMATE_TOKEN`, so the entry shows only where it is set. */
@@ -26,10 +27,10 @@ export function feedbackProcrastimate(options?: {
 	/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
 	project?: string;
 	/**
-	 * The only projects the picker offers, by name (ignoring case) or id, in this order, each with a link to its page
-	 * in ProcrastiMate. The Inbox is not offered with it. Without it, the picker lists the Inbox and every project.
+	 * The only projects Feedback posts to, by name (ignoring case) or id, in the picker's order, each with a link to its
+	 * page in ProcrastiMate. The proxy refuses a task anywhere else, the Inbox included. Required, and not empty.
 	 */
-	projects?: string[];
+	projects: string[];
 }): Plugin;
 
 /**

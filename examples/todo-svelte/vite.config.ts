@@ -14,7 +14,7 @@ export default defineConfig({
 			url: env.PROCRASTIMATE_URL,
 			token: env.PROCRASTIMATE_TOKEN,
 			project: env.PROCRASTIMATE_PROJECT,
-			projects: env.PROCRASTIMATE_PROJECTS?.split(',').map(name => name.trim()),
+			projects: env.PROCRASTIMATE_PROJECTS.split(',').map(name => name.trim()),
 		}),
 		sveltekit({
 			preprocess: [feedbackEngine()],

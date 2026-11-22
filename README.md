@@ -179,7 +179,7 @@ setupFeedbackEngine({ webhooks, pinned: ['ProcrastiMate'] });
 
 [ProcrastiMate](https://github.com/smirea/procrastimate) is the task app that Feedback's author files feedback into. The integration is optional and off until you set it up. Without it, the Share menu has **Image**, **JSON**, and **Image and JSON (ZIP)**, and nothing in the editor mentions ProcrastiMate.
 
-- **Web.** Add `feedbackProcrastimate()` with a token, as under [Post to ProcrastiMate](packages/web/README.md#post-to-procrastimate).
+- **Web.** Pass `procrastimate: { projects: ['Your Project'] }` to `setupFeedbackEngine()` to post through a popup on the ProcrastiMate web app using whoever is signed in there (no token, no proxy), or add `feedbackProcrastimate()` with a token for a dev-server proxy, as under [Post to ProcrastiMate](packages/web/README.md#post-to-procrastimate).
 - **iOS.** The Share menu lists **ProcrastiMate** only in an app whose entitlements include ProcrastiMate's keychain group, `FNYFHG5SV7.com.stefan.shared`. ProcrastiMate keeps its session there while it is signed in on the device, and Feedback posts with that session. A keychain group belongs to one Apple developer team, so this works only in apps that team signs. For such an app, add `$(AppIdentifierPrefix)com.stefan.shared` to its `keychain-access-groups` entitlement. A simulator build has to be signed, even ad hoc (`CODE_SIGN_IDENTITY=-`), for the group to count.
 
 ## Example apps

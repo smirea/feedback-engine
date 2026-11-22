@@ -39,8 +39,6 @@
 	let all = $state(cachedProjects());
 	const projects = $derived(listedProjects(all, config.projects).projects);
 	// svelte-ignore state_referenced_locally
-	const inbox = !config.projects;
-	// svelte-ignore state_referenced_locally
 	let place = $state<Place>({ projectId: startingProject(projects, config, lastProject()) });
 	let loading = $state(true);
 	/** Whether the user chose a place, which a project list that finishes loading must not undo. */
@@ -50,8 +48,8 @@
 	/** What the post is doing, while it runs. */
 	let step = $state<string>();
 	const posting = $derived(step !== undefined);
-	/** Without a project, a post would land in the Inbox, which a project the app named or listed rules out. */
-	const unresolved = $derived(!place.projectId && (!inbox || (loading && !!config.project)));
+	/** Without a project, a post would land in the Inbox, which Feedback never posts to. */
+	const unresolved = $derived(!place.projectId);
 	let status = $state<HTMLElement>();
 	// svelte-ignore state_referenced_locally
 	const environment: Fact[] = session.capture.environment.map(entry => ({ label: entry.name, value: entry.value }));
@@ -63,18 +61,13 @@
 				const listed = listedProjects(loaded, config.projects);
 				if (!chosen) place = { projectId: startingProject(listed.projects, config, lastProject()) };
 				const project = listed.projects.find(candidate => candidate.id === place.projectId);
-				if (!project)
-					place = { projectId: startingProject(listed.projects, { ...config, project: undefined }, undefined) };
+				if (!project) place = { projectId: listed.projects[0]?.id };
 				else if (!project.sections.some(section => section.id === place.sectionId)) place = { projectId: project.id };
 				const missing = [...listed.missing];
 				if (config.project && !startingProject(listed.projects, config, undefined)) missing.push(config.project);
 				if (missing.length) {
 					const names = [...new Set(missing)].map(name => `"${name}"`).join(', ');
-					throw new Error(
-						config.projects
-							? `ProcrastiMate has no project named ${names} among the projects Feedback was set up with`
-							: `ProcrastiMate has no project named ${names}`,
-					);
+					throw new Error(`ProcrastiMate has no project named ${names} among the projects Feedback may post to`);
 				}
 			})
 			.catch(
@@ -95,18 +88,18 @@
 		const facts: Fact[] = [
 			{
 				label: 'Place',
-				value: [project ? `${project.name} (${project.id})` : 'Inbox', section && `${section.name} (${section.id})`]
+				value: [project && `${project.name} (${project.id})`, section && `${section.name} (${section.id})`]
 					.filter(Boolean)
 					.join(' / '),
 			},
 			{ label: 'Report', value: `${new TextEncoder().encode(report).length} bytes` },
-			{ label: 'Server', value: config.url },
+			{ label: 'Server', value: config.url ?? '' },
 		];
 		try {
 			const image = annotatedImage(screen, session.annotations);
 			facts.push({ label: 'Image', value: `${image.width} × ${image.height} px` });
 			const id = await postTask(config, name.trim(), place, image, report, text => (step = text));
-			const destination = [project?.name ?? 'Inbox', section?.name].filter(Boolean).join(' / ');
+			const destination = [project?.name, section?.name].filter(Boolean).join(' / ');
 			onposted(items, { text: `Added to ${destination} in ProcrastiMate`, link: taskLink(config, id) });
 		} catch (error) {
 			const elapsed = { label: 'Elapsed', value: `${((performance.now() - started) / 1000).toFixed(1)} s` };
@@ -172,7 +165,6 @@
 	</label>
 	<span class="caption">Project{loading ? ' · loading…' : ''}</span>
 	<div class="list" role="listbox" aria-label="Project">
-		{#if inbox}{@render row('Inbox', !place.projectId, false, () => (place = {}))}{/if}
 		{#each projects as project (project.id)}
 			{@const open = project.id === place.projectId && project.sections.length > 0}
 			{@render row(

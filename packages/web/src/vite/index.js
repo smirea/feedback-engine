@@ -1,14 +1,10 @@
 import { basename, relative, sep } from 'node:path';
 import { parse } from 'svelte/compiler';
 
+export { feedbackProcrastimate } from './procrastimate.js';
 export { addReact, feedbackEngineReact, sourceAttribute } from './react.js';
 
 const entry = '@stefan.inc/feedback-engine/svelte';
-
-/** What `setupFeedbackEngine()` reads for the proxy's path. `editor/setup.ts` spells the same name. */
-const procrastimateDefine = 'import.meta.env.FEEDBACK_PROCRASTIMATE';
-const procrastimateProjectDefine = 'import.meta.env.FEEDBACK_PROCRASTIMATE_PROJECT';
-const procrastimateProjectsDefine = 'import.meta.env.FEEDBACK_PROCRASTIMATE_PROJECTS';
 
 /**
  * The name a tag gets without one: the file's, as `.feedback(self)` uses the type's on iOS. A SvelteKit route file is
@@ -144,74 +140,6 @@ export function feedbackEngine(options = {}) {
 			if (!filename || filename.includes('node_modules')) return;
 			const code = addLocations(content, relative(root, filename).split(sep).join('/'));
 			return code === undefined ? undefined : { code };
-		},
-	};
-}
-
-/**
- * A Vite plugin that lets the page post to ProcrastiMate. A browser on another origin cannot call ProcrastiMate, and a
- * token in the page would be public, so the dev and preview servers forward `path` to ProcrastiMate and add the
- * token there.
- *
- * The token is the switch. With one, the plugin tells the page where the proxy is, and the Share menu lists
- * ProcrastiMate. Without one the page is told nothing, so the entry is not there. A page that names the path itself
- * then gets a 501 that says why.
- *
- * @param {{ url?: string, token?: string, path?: string, project?: string, projects?: string[] }} [options]
- */
-export function feedbackProcrastimate(options = {}) {
-	if (options.projects && !options.projects.length)
-		throw new Error('feedbackProcrastimate({ projects }) lists no projects. Leave it out to offer every project.');
-	const path = options.path ?? '/__feedback/procrastimate';
-	const target = (options.url ?? 'https://procrastimate.stf.lol').replace(/\/$/, '');
-	/** @type {import('vite').Connect.NextHandleFunction} */
-	const handler = async (request, response, next) => {
-		if (!request.url?.startsWith(`${path}/`)) return next();
-		const reply = (/** @type {number} */ status, /** @type {string} */ message) => {
-			response.statusCode = status;
-			response.setHeader('Content-Type', 'application/json');
-			response.end(JSON.stringify({ message }));
-		};
-		if (!options.token)
-			return reply(501, 'the dev server has no ProcrastiMate token. Pass one to feedbackProcrastimate().');
-		try {
-			const chunks = [];
-			for await (const chunk of request) chunks.push(chunk);
-			const body = Buffer.concat(chunks);
-			const upstream = await fetch(target + request.url.slice(path.length), {
-				method: request.method,
-				headers: {
-					Authorization: `Bearer ${options.token}`,
-					'User-Agent': 'Feedback',
-					...(request.headers['content-type'] ? { 'Content-Type': request.headers['content-type'] } : {}),
-				},
-				body: body.length ? body : undefined,
-			});
-			response.statusCode = upstream.status;
-			response.setHeader('Content-Type', upstream.headers.get('content-type') ?? 'application/json');
-			response.end(Buffer.from(await upstream.arrayBuffer()));
-		} catch (error) {
-			reply(502, `the dev server could not reach ${target}: ${/** @type {Error} */ (error).message}`);
-		}
-	};
-	return {
-		name: 'feedback-engine-procrastimate',
-		config() {
-			return {
-				define: {
-					[procrastimateDefine]: JSON.stringify(options.token ? path : ''),
-					[procrastimateProjectDefine]: JSON.stringify(options.project ?? ''),
-					[procrastimateProjectsDefine]: JSON.stringify(JSON.stringify(options.projects ?? [])),
-				},
-			};
-		},
-		/** @param {import('vite').ViteDevServer} server */
-		configureServer(server) {
-			server.middlewares.use(handler);
-		},
-		/** @param {import('vite').PreviewServer} server */
-		configurePreviewServer(server) {
-			server.middlewares.use(handler);
 		},
 	};
 }

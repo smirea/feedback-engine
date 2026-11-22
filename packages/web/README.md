@@ -198,7 +198,7 @@ export function Feedback() {
 - Client components are in the capture under their own names, as in a Vite app. A server component leaves no component in the page, so it is not a node. The elements it draws are, each with its own `file:line`.
 - On a deployed preview, such as a Vercel preview link, pass `withFeedbackEngine(config, { elementSources: true })` so a production build keeps every element's `file:line`. Components keep theirs in every build without it. The attribute puts your file paths in the page's HTML, so leave it off a public production deploy, for example with `elementSources: process.env.VERCEL_ENV === 'preview'`.
 - To keep Feedback off a production deploy, render `<Feedback />` only where you want it, for example behind `process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production'`.
-- `feedbackProcrastimate()` is a Vite plugin, so a Next.js app has no ProcrastiMate entry unless you pass `procrastimate: { url }` for a proxy of your own.
+- `feedbackProcrastimate()` is a Vite plugin, so a Next.js app has no ProcrastiMate entry unless you pass `procrastimate: { url, projects }` for a proxy of your own.
 
 ## Component data and untagged content
 
@@ -227,25 +227,45 @@ The editor works as on iOS, with these differences:
 
 ## Post to ProcrastiMate
 
-Optional, and off until the dev server has a token. [ProcrastiMate](https://github.com/smirea/procrastimate) is the task app that Feedback's author files feedback into. A page cannot call ProcrastiMate from another origin, and a token in the page would be public, so the dev server forwards the calls and adds the token:
+Optional, and off until you configure it. [ProcrastiMate](https://github.com/smirea/procrastimate) is the task app that Feedback's author files feedback into.
+
+### With the signed-in ProcrastiMate account (recommended)
+
+Pass the whitelisted `projects` to `setupFeedbackEngine()` with no `url` and no token:
+
+```ts
+setupFeedbackEngine({
+	app: 'My App',
+	procrastimate: { projects: ['Website'] },
+});
+```
+
+Choosing **ProcrastiMate** opens a popup on `https://procrastimate.stf.lol/feedback` (or `procrastimate.app`) and hands over the annotated screenshot and `feedback.json` via `postMessage`. Because the popup runs on ProcrastiMate's own origin, it uses whoever is signed into ProcrastiMate in that browser (or lets them sign in there) with no hardcoded token, no backend proxy, and no CORS setup, so it works on deployed static sites, Vite, and Next.js alike. Anyone with an `edit` share on a listed project posts under their own account. Pass `space` (the project owner's user id) only if two spaces share the same project name.
+
+### With a dev-server proxy and token
+
+For local development with a fixed personal token instead of the browser's ProcrastiMate login, `feedbackProcrastimate()` forwards calls from the Vite dev and preview servers and adds the token there:
 
 ```ts
 // vite.config.ts
 import { feedbackProcrastimate } from '@stefan.inc/feedback-engine/vite';
 
 export default defineConfig({
-	plugins: [feedbackProcrastimate({ token: process.env.PROCRASTIMATE_TOKEN }) /* and the plugins above */],
+	plugins: [
+		feedbackProcrastimate({ token: process.env.PROCRASTIMATE_TOKEN, projects: ['Website'] }),
+		/* and the plugins above */
+	],
 });
 ```
 
-The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows in the Share menu, with the same picker and task as on iOS. Without it, the entry is not there, and nothing else changes. `setupFeedbackEngine()` needs no option for either case.
+With the proxy plugin, the token is the switch: when `PROCRASTIMATE_TOKEN` is set, **ProcrastiMate** shows in the Share menu without any `setupFeedbackEngine()` option.
 
 - The token is a ProcrastiMate personal token, from Settings › Personal token. An AI account's token lists the projects but cannot upload the image, so the post fails with `Not for AI accounts`. `feedbackProcrastimate({ url })` names another ProcrastiMate server.
-- `feedbackProcrastimate({ projects: ['Feedback Engine', 'Website'] })` lists the only projects the picker offers, by name (ignoring case) or id, in that order, so feedback cannot land anywhere else. The Inbox is not offered then, and the picker opens on the last of them posted to, or the first. A listed name ProcrastiMate does not have shows as an error above the list.
+- `projects` is required in every mode: the only projects Feedback posts to, by name (ignoring case) or id, in the picker's order. There is no way to allow every project, and the Inbox is never offered. The picker opens on the last of them posted to, or the first. A listed name ProcrastiMate does not have shows as an error above the list.
+- Both the Vite proxy and ProcrastiMate's `/feedback` popup enforce the list. The proxy shows the page only the listed projects, creates a task only in one of them, and forwards nothing but the calls a post makes; anything else answers 403.
 - Each project in the picker has a ↗ link to its page in ProcrastiMate, which opens in a new tab for someone signed in to its space.
-- `feedbackProcrastimate({ project })` names the project the picker opens on, by name (ignoring case) or id, so an app's feedback lands in its own project. Without it, the picker opens on the last project posted to. A name ProcrastiMate does not have shows as an error above the list.
-- The proxy runs in `vite dev` and `vite preview`. A build reads the token too. Build a site you deploy without it, because a static host has no proxy.
-- For a proxy of your own, pass its address to the page instead: `setupFeedbackEngine({ procrastimate: { url: '/my-proxy' } })`.
+- `project` names the project the picker opens on, by name (ignoring case) or id, so an app's feedback lands in its own project. It has to be one of `projects`. Without it, the picker opens on the last project posted to.
+- For a proxy or same-origin API of your own, pass its address and the projects to the page instead: `setupFeedbackEngine({ procrastimate: { url: '/my-proxy', projects: ['Website'] } })`. Your proxy should refuse tasks anywhere else, as this one does.
 
 ## How capture works
 

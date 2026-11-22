@@ -61,13 +61,14 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 	const proxy = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE;
 	const project = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE_PROJECT;
 	const projects = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE_PROJECTS;
-	const listed = projects ? (JSON.parse(projects) as string[]) : [];
-	const engine = new Engine({
-		...options,
-		procrastimate:
-			options.procrastimate ??
-			(proxy ? { url: proxy, project: project || undefined, projects: listed.length ? listed : undefined } : undefined),
-	});
+	const procrastimate =
+		options.procrastimate ??
+		(proxy
+			? { url: proxy, project: project || undefined, projects: JSON.parse(projects || '[]') as string[] }
+			: undefined);
+	if (procrastimate && !procrastimate.projects?.length)
+		throw new Error('setupFeedbackEngine({ procrastimate }) needs the projects Feedback may post to, by name or id.');
+	const engine = new Engine({ ...options, procrastimate });
 	const host = document.createElement('div');
 	host.setAttribute(hostAttribute, '');
 	// The shadow root keeps the app's styles out of the editor and the editor's styles out of the app.

@@ -9,11 +9,13 @@
 		Problem,
 		Session,
 		tag,
+		taskTitle,
 		title,
 		type Frame,
 		type SavedWebhook,
 	} from '../core/index.ts';
 	import type { Screen } from '../dom/capture.ts';
+	import { openProcrastimatePopup } from '../dom/procrastimatePopup.ts';
 	import {
 		buildExport,
 		canShare,
@@ -98,7 +100,10 @@
 	let showsItems = $state(matchMedia('(min-width: 900px)').matches);
 	let showsShare = $state(false);
 	let showsProcrastimate = $state(false);
+	let popup = { cancel() {} };
 	let posting = $state<Delivery>();
+
+	$effect(() => () => popup.cancel());
 	let saved = $state(loadSavedWebhooks());
 	/** The dialog for a saved webhook, `webhook` unset for a new one. */
 	let editing = $state<{ webhook?: SavedWebhook }>();
@@ -275,8 +280,36 @@
 
 	function send(destination: Destination) {
 		showsShare = false;
-		if (destination.kind === 'procrastimate') showsProcrastimate = true;
-		else if (destination.kind === 'saved') edit(destination.saved);
+		if (destination.kind === 'procrastimate') {
+			const config = engine.options.procrastimate;
+			if (!config) return;
+			if (config.url !== undefined) {
+				showsProcrastimate = true;
+			} else {
+				popup.cancel();
+				const items = [...session.items];
+				const names = taskTitle(session.capture, items);
+				popup = openProcrastimatePopup({
+					config,
+					title: names.placeholder,
+					app: engine.options.app ?? (document.title.trim() || undefined),
+					screen,
+					annotations: session.annotations,
+					report: session.compactJSON,
+					onposted: ({ destination: where, url }) => {
+						act(() => {
+							session.markShared(items);
+							session.toast = { text: `Added to ${where} in ProcrastiMate`, link: url };
+						});
+					},
+					onerror: problem => {
+						act(() => {
+							session.toast = { text: 'Couldn’t open ProcrastiMate', problem };
+						});
+					},
+				});
+			}
+		} else if (destination.kind === 'saved') edit(destination.saved);
 		else posting = destination.delivery;
 	}
 
