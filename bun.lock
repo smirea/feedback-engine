@@ -58,7 +58,10 @@
     },
     "packages/web": {
       "name": "@stefan.inc/feedback-engine",
-      "version": "1.6.3",
+      "version": "1.7.0",
+      "bin": {
+        "feedback-engine": "./src/cli/index.js",
+      },
       "dependencies": {
         "dom-accessibility-api": "^0.7.1",
         "modern-screenshot": "^4.7.0",

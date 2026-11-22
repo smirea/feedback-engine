@@ -1,5 +1,15 @@
 # @stefan.inc/feedback-engine
 
+## 1.7.0
+
+### Minor Changes
+
+- 82d0a0b: The package now ships the `feedback-accessibility` skill, and `bunx feedback-engine init` links it into your app's `.agents/skills` and adds a Feedback section to `AGENTS.md`, so your agents find the skill and the editor. `__feedbackEngine.capture()` returns a screen's JSON export without opening the editor, for agents that check what each tap selects. The skill's tap replay is now `scripts/taps.js`, run with `node` or `bun`, in place of the Python script.
+
+### Patch Changes
+
+- 4dbf098: The screenshot stays sharp on high-density screens. The page is copied once as vector images, so the editor redraws the part in view at the screen's resolution at any zoom, and the image export renders at the screen's pixel ratio instead of a scale lowered to fit one canvas. A capture now follows the iOS rules for long pages: it stops at 16,000 device pixels (8,000 CSS pixels on a 2x screen), ends between two rows, and centers on the part on screen when the page was scrolled deep. Pages with images capture much faster in Safari, which used to wait about a tenth of a second per image.
+
 ## 1.6.3
 
 ### Patch Changes
