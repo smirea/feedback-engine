@@ -1,5 +1,11 @@
 # @stefan.inc/feedback-engine
 
+## 1.8.0
+
+### Minor Changes
+
+- 56a1dc9: `feedbackProcrastimate({ projects })` lists the only ProcrastiMate projects the picker offers, by name or id, without the Inbox. Each project in the picker also links to its page in ProcrastiMate.
+
 ## 1.7.2
 
 ### Patch Changes
