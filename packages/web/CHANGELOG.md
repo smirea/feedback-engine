@@ -1,5 +1,11 @@
 # @stefan.inc/feedback-engine
 
+## 1.7.1
+
+### Patch Changes
+
+- 5f00331: `feedback-engine init` works from a monorepo's root. It finds the package in the workspace that installed it, as Bun's isolated installs leave it, and writes the section for that workspace's framework, so the skill and the Feedback section sit at the repository's root, where every agent reads them.
+
 ## 1.7.0
 
 ### Minor Changes
