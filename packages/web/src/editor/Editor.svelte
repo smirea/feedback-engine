@@ -382,7 +382,8 @@
 	onpointerdown={event => {
 		const target = event.target as Element;
 		if (showsInfo && !target.closest('.title')) showsInfo = false;
-		if (showsShare && !target.closest('.menu')) showsShare = false;
+		// The close button leaves the menu itself, as Escape does, instead of the editor behind it.
+		if (showsShare && !target.closest('.menu, .close')) showsShare = false;
 	}}
 	oncancel={event => {
 		event.preventDefault();
@@ -390,7 +391,7 @@
 	}}
 >
 	<header>
-		<button type="button" class="nav" aria-label="Close" title="Close" onclick={requestClose}>
+		<button type="button" class="nav close" aria-label="Close" title="Close" onclick={requestClose}>
 			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
 		</button>
 		<h1>Feedback</h1>
