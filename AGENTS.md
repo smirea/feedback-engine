@@ -20,7 +20,7 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
   - `patch`: a bug fix, or a change with no new API, such as a faster capture.
   - `minor`: anything new that leaves existing apps working, such as a new option, export, or Share entry.
   - `major`: only a change that is not backwards compatible and breaks such an app, such as a removed or renamed export or option, a changed signature, a new required setup step, a dropped framework version, or a report field removed or changed in `spec/report.md`. A large change that leaves every app working is `minor`.
-- Before you write a `major` changeset, ask the maintainer to confirm it, unless they asked for a major release in this task. Name what breaks and for which apps. Without a confirmation, find a backwards-compatible way or stop.
+- Never publish a major version without asking the maintainer to confirm the major bump first, even if they asked for a breaking change or a `major` changeset is already in the working tree. Name what breaks and for which apps, and wait for explicit confirmation of the major version before writing, committing, or pushing a `major` changeset.
 - Changesets that land on `master` together release as one version, at the highest level among them.
 
 # Layout
