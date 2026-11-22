@@ -60,9 +60,13 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 	type Meta = { env?: Record<string, string | undefined> };
 	const proxy = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE;
 	const project = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE_PROJECT;
+	const projects = (import.meta as Meta).env && (import.meta as Meta).env!.FEEDBACK_PROCRASTIMATE_PROJECTS;
+	const listed = projects ? (JSON.parse(projects) as string[]) : [];
 	const engine = new Engine({
 		...options,
-		procrastimate: options.procrastimate ?? (proxy ? { url: proxy, project: project || undefined } : undefined),
+		procrastimate:
+			options.procrastimate ??
+			(proxy ? { url: proxy, project: project || undefined, projects: listed.length ? listed : undefined } : undefined),
 	});
 	const host = document.createElement('div');
 	host.setAttribute(hostAttribute, '');

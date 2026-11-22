@@ -25,6 +25,11 @@ export function feedbackProcrastimate(options?: {
 	path?: string;
 	/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
 	project?: string;
+	/**
+	 * The only projects the picker offers, by name (ignoring case) or id, in this order, each with a link to its page
+	 * in ProcrastiMate. The Inbox is not offered with it. Without it, the picker lists the Inbox and every project.
+	 */
+	projects?: string[];
 }): Plugin;
 
 /**

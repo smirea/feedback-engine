@@ -8,6 +8,7 @@ const entry = '@stefan.inc/feedback-engine/svelte';
 /** What `setupFeedbackEngine()` reads for the proxy's path. `editor/setup.ts` spells the same name. */
 const procrastimateDefine = 'import.meta.env.FEEDBACK_PROCRASTIMATE';
 const procrastimateProjectDefine = 'import.meta.env.FEEDBACK_PROCRASTIMATE_PROJECT';
+const procrastimateProjectsDefine = 'import.meta.env.FEEDBACK_PROCRASTIMATE_PROJECTS';
 
 /**
  * The name a tag gets without one: the file's, as `.feedback(self)` uses the type's on iOS. A SvelteKit route file is
@@ -156,9 +157,11 @@ export function feedbackEngine(options = {}) {
  * ProcrastiMate. Without one the page is told nothing, so the entry is not there. A page that names the path itself
  * then gets a 501 that says why.
  *
- * @param {{ url?: string, token?: string, path?: string, project?: string }} [options]
+ * @param {{ url?: string, token?: string, path?: string, project?: string, projects?: string[] }} [options]
  */
 export function feedbackProcrastimate(options = {}) {
+	if (options.projects && !options.projects.length)
+		throw new Error('feedbackProcrastimate({ projects }) lists no projects. Leave it out to offer every project.');
 	const path = options.path ?? '/__feedback/procrastimate';
 	const target = (options.url ?? 'https://procrastimate.stf.lol').replace(/\/$/, '');
 	/** @type {import('vite').Connect.NextHandleFunction} */
@@ -198,6 +201,7 @@ export function feedbackProcrastimate(options = {}) {
 				define: {
 					[procrastimateDefine]: JSON.stringify(options.token ? path : ''),
 					[procrastimateProjectDefine]: JSON.stringify(options.project ?? ''),
+					[procrastimateProjectsDefine]: JSON.stringify(JSON.stringify(options.projects ?? [])),
 				},
 			};
 		},

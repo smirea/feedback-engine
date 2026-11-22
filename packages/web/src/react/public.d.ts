@@ -36,6 +36,11 @@ export type FeedbackOptions = {
 		app?: string;
 		/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
 		project?: string;
+		/**
+		 * The only projects the picker offers, by name (ignoring case) or id, in this order. The Inbox is not offered
+		 * with it. Without it, the picker lists the Inbox and every project.
+		 */
+		projects?: string[];
 	};
 	/**
 	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export and the JSON export to the

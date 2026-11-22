@@ -9,6 +9,11 @@ export type ProcrastimateConfig = {
 	app?: string;
 	/** The project the picker opens on, by name (ignoring case) or id, in place of the last one posted to. */
 	project?: string;
+	/**
+	 * The only projects the picker offers, by name (ignoring case) or id, in this order. The Inbox is not offered with
+	 * it. Without it, the picker lists the Inbox and every project.
+	 */
+	projects?: string[];
 };
 
 export type Section = { id: string; name: string };
@@ -51,8 +56,40 @@ export const namedProject = (projects: Project[], name: string) =>
 	projects.find(project => project.id === name) ??
 	projects.find(project => project.name.toLowerCase() === name.toLowerCase());
 
+/**
+ * The projects the picker lists: every one, or only those `names` lists, in its order. `missing` has the names
+ * ProcrastiMate does not have.
+ */
+export function listedProjects(all: Project[], names: string[] | undefined) {
+	if (!names) return { projects: all, missing: [] as string[] };
+	const projects: Project[] = [];
+	const missing: string[] = [];
+	for (const name of names) {
+		const project = namedProject(all, name);
+		if (!project) missing.push(name);
+		else if (!projects.includes(project)) projects.push(project);
+	}
+	return { projects, missing };
+}
+
+/**
+ * The project the picker opens on, among the listed ones: the one the app names, else the last one posted to, else
+ * the first when the app lists its projects, as the Inbox is not offered then. `undefined` is the Inbox.
+ */
+export function startingProject(listed: Project[], config: ProcrastimateConfig, last: string | undefined) {
+	if (config.project) return namedProject(listed, config.project)?.id;
+	if (listed.some(project => project.id === last)) return last;
+	return config.projects ? listed[0]?.id : undefined;
+}
+
+const appURL = (config: ProcrastimateConfig) => (config.app ?? defaultApp).replace(/\/$/, '');
+
+/** The project's page in the ProcrastiMate web app, which opens for someone signed in to its space. */
+export const projectLink = (config: ProcrastimateConfig, id: string) =>
+	`${appURL(config)}/projects/${encodeURIComponent(id)}`;
+
 export const taskLink = (config: ProcrastimateConfig, id: string) =>
-	`${(config.app ?? defaultApp).replace(/\/$/, '')}/inbox?task=${encodeURIComponent(id)}`;
+	`${appURL(config)}/inbox?task=${encodeURIComponent(id)}`;
 
 async function send(
 	config: ProcrastimateConfig,

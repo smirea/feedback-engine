@@ -7,9 +7,11 @@
 	import {
 		cachedProjects,
 		lastProject,
+		listedProjects,
 		loadProjects,
-		namedProject,
 		postTask,
+		projectLink,
+		startingProject,
 		taskLink,
 		type Place,
 		type ProcrastimateConfig,
@@ -34,11 +36,12 @@
 	// svelte-ignore state_referenced_locally
 	const names = taskTitle(session.capture, session.items);
 	let name = $state(names.placeholder);
-	let projects = $state(cachedProjects());
+	let all = $state(cachedProjects());
+	const projects = $derived(listedProjects(all, config.projects).projects);
 	// svelte-ignore state_referenced_locally
-	let place = $state<Place>({
-		projectId: config.project ? namedProject(projects, config.project)?.id : lastProject(),
-	});
+	const inbox = !config.projects;
+	// svelte-ignore state_referenced_locally
+	let place = $state<Place>({ projectId: startingProject(projects, config, lastProject()) });
 	let loading = $state(true);
 	/** Whether the user chose a place, which a project list that finishes loading must not undo. */
 	let chosen = false;
@@ -47,8 +50,8 @@
 	/** What the post is doing, while it runs. */
 	let step = $state<string>();
 	const posting = $derived(step !== undefined);
-	/** Until the projects load, a post would land in the Inbox instead of the project the app named. */
-	const unresolved = $derived(loading && !!config.project && !place.projectId);
+	/** Without a project, a post would land in the Inbox, which a project the app named or listed rules out. */
+	const unresolved = $derived(!place.projectId && (!inbox || (loading && !!config.project)));
 	let status = $state<HTMLElement>();
 	// svelte-ignore state_referenced_locally
 	const environment: Fact[] = session.capture.environment.map(entry => ({ label: entry.name, value: entry.value }));
@@ -56,15 +59,23 @@
 	$effect(() => {
 		loadProjects(config)
 			.then(loaded => {
-				projects = loaded;
-				if (config.project) {
-					const named = namedProject(loaded, config.project);
-					if (!named) throw new Error(`ProcrastiMate has no project named "${config.project}"`);
-					if (!chosen) place = { projectId: named.id };
-				}
-				const project = loaded.find(candidate => candidate.id === place.projectId);
-				if (!project) place = {};
+				all = loaded;
+				const listed = listedProjects(loaded, config.projects);
+				if (!chosen) place = { projectId: startingProject(listed.projects, config, lastProject()) };
+				const project = listed.projects.find(candidate => candidate.id === place.projectId);
+				if (!project)
+					place = { projectId: startingProject(listed.projects, { ...config, project: undefined }, undefined) };
 				else if (!project.sections.some(section => section.id === place.sectionId)) place = { projectId: project.id };
+				const missing = [...listed.missing];
+				if (config.project && !startingProject(listed.projects, config, undefined)) missing.push(config.project);
+				if (missing.length) {
+					const names = [...new Set(missing)].map(name => `"${name}"`).join(', ');
+					throw new Error(
+						config.projects
+							? `ProcrastiMate has no project named ${names} among the projects Feedback was set up with`
+							: `ProcrastiMate has no project named ${names}`,
+					);
+				}
 			})
 			.catch(
 				(error: unknown) =>
@@ -113,22 +124,32 @@
 	});
 </script>
 
-{#snippet row(label: string, picked: boolean, indented: boolean, pick: () => void)}
-	<button
-		type="button"
-		class="row"
-		class:indented
-		role="option"
-		aria-selected={picked}
-		disabled={posting}
-		onclick={() => {
-			chosen = true;
-			pick();
-		}}
-	>
-		<span>{label}</span>
-		{#if picked}<span class="check" aria-hidden="true">✓</span>{/if}
-	</button>
+{#snippet row(label: string, picked: boolean, indented: boolean, pick: () => void, link?: string)}
+	<div class="row" class:indented>
+		<button
+			type="button"
+			role="option"
+			aria-selected={picked}
+			disabled={posting}
+			onclick={() => {
+				chosen = true;
+				pick();
+			}}
+		>
+			<span>{label}</span>
+			{#if picked}<span class="check" aria-hidden="true">✓</span>{/if}
+		</button>
+		{#if link}
+			<a
+				class="open"
+				href={link}
+				target="_blank"
+				rel="noopener"
+				aria-label="Open {label} in ProcrastiMate"
+				title="Open in ProcrastiMate">↗</a
+			>
+		{/if}
+	</div>
 {/snippet}
 
 <Sheet label="Add to ProcrastiMate" onsubmit={() => void post()}>
@@ -151,7 +172,7 @@
 	</label>
 	<span class="caption">Project{loading ? ' · loading…' : ''}</span>
 	<div class="list" role="listbox" aria-label="Project">
-		{@render row('Inbox', !place.projectId, false, () => (place = {}))}
+		{#if inbox}{@render row('Inbox', !place.projectId, false, () => (place = {}))}{/if}
 		{#each projects as project (project.id)}
 			{@const open = project.id === place.projectId && project.sections.length > 0}
 			{@render row(
@@ -159,6 +180,7 @@
 				project.id === place.projectId && !open,
 				false,
 				() => (place = { projectId: project.id }),
+				projectLink(config, project.id),
 			)}
 			{#if open}
 				{@render row('No section', !place.sectionId, true, () => (place = { projectId: project.id }))}
@@ -189,15 +211,29 @@
 
 	.row {
 		display: flex;
+		border-bottom: 1px solid rgb(255 255 255 / 0.08);
+	}
+
+	.row > button {
+		display: flex;
+		flex: 1;
 		justify-content: space-between;
 		gap: 8px;
-		border-bottom: 1px solid rgb(255 255 255 / 0.08);
 		padding: 11px 12px;
 		text-align: left;
 	}
 
-	.row.indented {
+	.row.indented > button {
 		padding-left: 40px;
+	}
+
+	.open {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		border-left: 1px solid rgb(255 255 255 / 0.08);
+		color: #0a84ff;
+		text-decoration: none;
 	}
 
 	.check {
