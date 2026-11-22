@@ -130,11 +130,10 @@ Agent-device's XCTest runner turns accessibility on for the whole simulator, whi
 
 Do this after changing a screen, against the dev server, with realistic data:
 
-1. Open the screen in Playwright and call `await page.evaluate(() => __feedbackEngine.present())`. Alt+Meta+click is the path a person takes: `await page.getByRole('heading').first().click({ modifiers: ['Alt', 'Meta'] })`.
-2. Export the tree: add one item, then **Share › JSON**. The page holds the file: `await page.evaluate(() => __feedbackEngine.lastExport[0].blob.text())`.
-3. [Replay every tap](#replay-every-tap) on the export.
-4. Spot-check with real clicks on the regions you changed and read the selection title in the panel. The screenshot is scaled, so convert page points with the bounding box of the element with the role `img` and the name `Screenshot`.
-5. Check both a development build and a production build if untagged elements matter: only a development build gives them a `file:line`.
+1. Open the screen in Playwright and read the tree as Feedback sees it: `await page.evaluate(() => __feedbackEngine.capture())` returns the JSON export without opening the editor. Save it as `feedback.json`.
+2. [Replay every tap](#replay-every-tap) on the export.
+3. Spot-check with real clicks on the regions you changed and read the selection title in the panel. Open the editor with `await page.evaluate(() => __feedbackEngine.present())`, or the way a person does, with Alt+Meta+click: `await page.getByRole('heading').first().click({ modifiers: ['Alt', 'Meta'] })`. The screenshot is scaled, so convert page points with the bounding box of the element with the role `img` and the name `Screenshot`.
+4. Check both a development build and a production build if untagged elements matter: only a development build gives them a `file:line`.
 
 ## React
 
@@ -191,20 +190,25 @@ Every component of the app is in a capture already, under its own name, with its
 
 Do this after changing a screen, against the dev server, with realistic data:
 
-1. Open the screen in Playwright and call `await page.evaluate(() => __feedbackEngine.present())`. Alt+Meta+click is the path a person takes: `await page.getByRole('heading').first().click({ modifiers: ['Alt', 'Meta'] })`.
-2. Export the tree: add one item, then **Share › JSON**. The page holds the file: `await page.evaluate(() => __feedbackEngine.lastExport[0].blob.text())`.
-3. [Replay every tap](#replay-every-tap) on the export. Add `--wrapper App`, with the name of each component that wraps the whole app, so the screen's own component counts as the root.
-4. Read the tree for what should not be there: a component named after a wrapper, the same name twice in one path, or a screen component missing because it was declared inside another function.
-5. Spot-check with real clicks on the regions you changed and read the selection title in the panel. The screenshot is scaled, so convert page points with the bounding box of the element with the role `img` and the name `Screenshot`.
-6. Check a production build once: components keep their names and locations there, and untagged elements lose their `file:line`.
+1. Open the screen in Playwright and read the tree as Feedback sees it: `await page.evaluate(() => __feedbackEngine.capture())` returns the JSON export without opening the editor. Save it as `feedback.json`.
+2. [Replay every tap](#replay-every-tap) on the export. Add `--wrapper App`, with the name of each component that wraps the whole app, so the screen's own component counts as the root.
+3. Read the tree for what should not be there: a component named after a wrapper, the same name twice in one path, or a screen component missing because it was declared inside another function.
+4. Spot-check with real clicks on the regions you changed and read the selection title in the panel. Open the editor with `await page.evaluate(() => __feedbackEngine.present())`, or the way a person does, with Alt+Meta+click: `await page.getByRole('heading').first().click({ modifiers: ['Alt', 'Meta'] })`. The screenshot is scaled, so convert page points with the bounding box of the element with the role `img` and the name `Screenshot`.
+5. Check a production build once: components keep their names and locations there, and untagged elements lose their `file:line`.
 
 ## Replay every tap
 
-`scripts/taps.py`, in this skill's folder, reads a `feedback.json` from any package. Without a local copy, stream it from GitHub:
+`scripts/taps.js`, in this skill's folder, reads a `feedback.json` from any package. It is plain JavaScript, so `node` or `bun` runs it. In a web app it ships with the package:
 
 ```sh
-gh api repos/smirea/feedback-engine/contents/skills/feedback-accessibility/scripts/taps.py \
-  -H 'Accept: application/vnd.github.raw' | python3 - feedback.json
+node node_modules/@stefan.inc/feedback-engine/skills/feedback-accessibility/scripts/taps.js feedback.json
+```
+
+Without a local copy, such as in an iOS app, stream it from GitHub:
+
+```sh
+gh api repos/smirea/feedback-engine/contents/packages/web/skills/feedback-accessibility/scripts/taps.js \
+  -H 'Accept: application/vnd.github.raw' | node - feedback.json
 ```
 
 It mirrors Feedback's hit testing on an 8 pt grid and prints the share of taps that fall through to a screen or layer root, the bands where most of a row falls through, and the elements that sit directly under a root. Every band should be a margin, a gap, or empty space, and every listed element should be a precise target on its own, such as a lone button. Anything else is a missing tag or, in React, a region that should be its own component. This covers the parts of a long screen that the editor canvas doesn't show without scrolling.

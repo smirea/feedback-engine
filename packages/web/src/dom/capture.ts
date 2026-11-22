@@ -40,10 +40,10 @@ function environment(options: CaptureOptions, date: Date): ContextEntry[] {
 }
 
 /**
- * Reads the page and draws it, at the moment of the trigger. The window scrolls to its origin while the page is read,
- * so a sticky bar is where the screenshot draws it, and then returns to where it was.
+ * Reads the page at the moment of the trigger. The window scrolls to its origin while the page is read, so a sticky
+ * bar is where the screenshot draws it, and then returns to where it was.
  */
-export async function captureScreen(options: CaptureOptions): Promise<Screen> {
+function readPage(options: CaptureOptions) {
 	const date = new Date();
 	const scroll = { x: scrollX, y: scrollY };
 	const context = options.context.flatMap(({ name, value }) => {
@@ -60,19 +60,24 @@ export async function captureScreen(options: CaptureOptions): Promise<Screen> {
 	const scene = readScene(scroll);
 	if (moved) scrollTo({ left: scroll.x, top: scroll.y, behavior: 'instant' });
 
-	const visible = { x: scroll.x, y: scroll.y, width: innerWidth, height: innerHeight };
-	const scale = captureScale(scene.size);
-	return {
-		capture: {
-			date,
-			size: scene.size,
-			visible,
-			nodes: buildTree(scene),
-			environment: environment(options, date),
-			context,
-			screenName: document.title || undefined,
-		},
-		image: await screenshot(scene.size, scale, visible, scene.fixed),
-		scale,
+	const capture: Capture = {
+		date,
+		size: scene.size,
+		visible: { x: scroll.x, y: scroll.y, width: innerWidth, height: innerHeight },
+		nodes: buildTree(scene),
+		environment: environment(options, date),
+		context,
+		screenName: document.title || undefined,
 	};
+	return { capture, scene };
+}
+
+/** Reads the page without drawing it, for automation that needs only the tree. */
+export const captureTree = (options: CaptureOptions) => readPage(options).capture;
+
+/** Reads the page and draws it. */
+export async function captureScreen(options: CaptureOptions): Promise<Screen> {
+	const { capture, scene } = readPage(options);
+	const scale = captureScale(scene.size);
+	return { capture, image: await screenshot(scene.size, scale, capture.visible, scene.fixed), scale };
 }

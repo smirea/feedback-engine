@@ -13,4 +13,5 @@ export const same: [
 	Same<Real.Webhook, Declared.Webhook>,
 	Same<Real.WebhookValues, Declared.WebhookValues>,
 	Same<typeof Real.githubIcon, typeof Declared.githubIcon>,
-] = [true, true, true, true, true, true, true, true];
+	Same<Real.FeedbackReport, Declared.FeedbackReport>,
+] = [true, true, true, true, true, true, true, true, true];

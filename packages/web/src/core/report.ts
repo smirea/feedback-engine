@@ -14,8 +14,34 @@ const rect = (frame: Frame) => ({
 export const formatNumber = (value: number) =>
 	Number.isFinite(value) ? (Number.isInteger(value) ? String(value) : value.toFixed(1)) : String(value);
 
+type Rect = { x: number; y: number; width: number; height: number };
+type Pointer = { target: number; title: string; path: number[]; code?: string };
+
+/** The JSON export, as `spec/report.md` defines it. */
+export type FeedbackReport = {
+	app: string;
+	captured: string;
+	size: { width: number; height: number };
+	visible: Rect;
+	environment: { name: string; value: string }[];
+	items: (Pointer & { number: number; text: string })[];
+	references: (Pointer & { number: number; token: string })[];
+	context: { name: string; value: string }[];
+	nodes: {
+		id: number;
+		parent?: number;
+		layer: number;
+		kind: 'screen' | 'layer' | 'component' | 'element';
+		name: string;
+		label?: string;
+		frame: Rect;
+		source?: string;
+		data?: string;
+	}[];
+};
+
 /** The JSON export as an object: everything the capture knows except the image. */
-export function report(capture: Capture, annotations: Annotations) {
+export function report(capture: Capture, annotations: Annotations): FeedbackReport {
 	const pointer = (target: number) => ({
 		target,
 		title: title(capture.nodes[target]!),

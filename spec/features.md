@@ -166,7 +166,8 @@ Add or update a row in the same change that adds, changes, or removes behavior o
 
 | ID | Feature | iOS | Svelte | React | Notes |
 | --- | --- | --- | --- | --- | --- |
-| A1 | A skill tells an app's agents how to make screens accessible and precise to point at. | shipped | shipped | shipped | `skills/feedback-accessibility` has one section per package: SwiftUI, Svelte, and React. |
-| A2 | A script replays every tap on an exported tree and reports the taps that fall through. | shipped | shipped | shipped | `skills/feedback-accessibility/scripts/taps.py` reads `feedback.json`, so it runs on a web export unchanged. |
+| A1 | A skill tells an app's agents how to make screens accessible and precise to point at. | shipped | shipped | shipped | `packages/web/skills/feedback-accessibility` has one section per package: SwiftUI, Svelte, and React. Web: the npm package ships it, and `feedback-engine init` links it into the app's `.agents/skills`. iOS: the app's `AGENTS.md` reads it from GitHub. |
+| A2 | A script replays every tap on an exported tree and reports the taps that fall through. | shipped | shipped | shipped | `scripts/taps.js` in the skill reads `feedback.json` from any platform. It is plain JavaScript, run with `node` or `bun`. |
 | A3 | An example app with every screen tagged is there to try Feedback on. | shipped | shipped | shipped | iOS: `examples/todo-ios`. It is not in ProcrastiMate's keychain group, so a post needs another app. Web: `examples/todo-svelte` and `examples/todo-react`, the same app twice. |
 | A4 | An agent can trigger a capture and read the export without a person. | shipped | shipped | shipped | iOS: `simctl` shake and the app's container. Web: `__feedbackEngine.present()` and `__feedbackEngine.lastExport` from Playwright. |
+| A5 | An agent can read a screen's tree as Feedback sees it, without opening the editor or drawing the screenshot. | no | shipped | shipped | iOS: an agent has no way to call into a running app. The shake and the JSON export (A4) give the same tree. Web: `__feedbackEngine.capture()` returns the JSON export with no items, ready for the tap replay (A2). |

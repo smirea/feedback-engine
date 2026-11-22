@@ -1,6 +1,6 @@
 import { tick } from 'svelte';
-import type { Point } from '../core/index.ts';
-import { captureScreen, type Screen } from '../dom/capture.ts';
+import { Annotations, reportJSON, type FeedbackReport, type Point } from '../core/index.ts';
+import { captureScreen, captureTree, type Screen } from '../dom/capture.ts';
 import type { ProcrastimateConfig } from '../dom/procrastimate.ts';
 import { hostAttribute } from '../dom/tags.ts';
 import type { Webhook } from '../dom/webhook.ts';
@@ -137,6 +137,13 @@ export class Engine {
 			this.holding = false;
 			this.onchange();
 		}
+	}
+
+	/** The JSON export of the page as it is now, with no items, without drawing it or opening the editor. */
+	report(): FeedbackReport {
+		const capture = captureTree({ app: this.options.app, version: this.options.version, context: this.providers });
+		// Through the export's own serializer, so the object has the file's keys, without the ones that have no value.
+		return JSON.parse(reportJSON(capture, new Annotations(), false));
 	}
 
 	close() {

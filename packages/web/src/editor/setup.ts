@@ -1,6 +1,7 @@
 import { mount, unmount } from 'svelte';
 import { watchHold } from '../dom/hold.ts';
 import { hostAttribute } from '../dom/tags.ts';
+import type { FeedbackReport } from '../core/index.ts';
 import { defaultShortcut, Engine, matchesShortcut, type FeedbackOptions } from './engine.ts';
 import Host from './Host.svelte';
 
@@ -17,6 +18,11 @@ export type FeedbackEngine = {
 	 * the screen they mean. Pressing the pill captures at once.
 	 */
 	countdown(seconds?: number): void;
+	/**
+	 * Reads the page as it is now and returns its JSON export, with no items, without drawing it or opening the editor.
+	 * For agents and scripts that check a screen: `await page.evaluate(() => __feedbackEngine.capture())`.
+	 */
+	capture(): Promise<FeedbackReport>;
 	/** The files of the last export, for automation that cannot use the clipboard or a download. */
 	readonly lastExport: { name: string; blob: Blob }[];
 	/** Removes the shortcut and Feedback's UI from the page. */
@@ -24,7 +30,7 @@ export type FeedbackEngine = {
 };
 
 declare global {
-	/** The engine of this page, for automation: `__feedbackEngine.present()` and `__feedbackEngine.lastExport`. */
+	/** The engine of this page, for automation: `__feedbackEngine.present()`, `__feedbackEngine.capture()`, and `__feedbackEngine.lastExport`. */
 	var __feedbackEngine: FeedbackEngine | undefined;
 }
 
@@ -37,7 +43,15 @@ let current: { engine: FeedbackEngine; destroy: () => void } | undefined;
  */
 export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngine {
 	if (typeof document === 'undefined') {
-		return { context() {}, present: async () => {}, showPill() {}, countdown() {}, lastExport: [], destroy() {} };
+		return {
+			context() {},
+			present: async () => {},
+			showPill() {},
+			countdown() {},
+			capture: () => Promise.reject(new Error('Feedback captures only in a browser.')),
+			lastExport: [],
+			destroy() {},
+		};
 	}
 	current?.destroy();
 
@@ -99,6 +113,7 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 		present: () => engine.present(),
 		showPill: () => engine.showPill(),
 		countdown: (seconds = 5) => engine.countdown(seconds),
+		capture: async () => engine.report(),
 		get lastExport() {
 			return engine.lastExport;
 		},

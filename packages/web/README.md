@@ -208,11 +208,13 @@ Untagged content still appears. Buttons, links, fields, headings, images, and te
 
 ## Set up your app's coding agents
 
-[`skills/feedback-accessibility/SKILL.md`](https://github.com/smirea/feedback-engine/blob/master/skills/feedback-accessibility/SKILL.md) is the playbook for making screens accessible and precise to point at, with a section for Svelte and one for React: the accessibility rules, what to tag, and how to check a screen. To have your app's agents follow it, add this to the app's `AGENTS.md` (or `CLAUDE.md`), with `React` in place of `Svelte` for a React app:
+The package ships the [`feedback-accessibility`](https://github.com/smirea/feedback-engine/blob/master/packages/web/skills/feedback-accessibility/SKILL.md) skill, the playbook for making screens accessible and precise to point at, with a section for Svelte and one for React: the accessibility rules, what to tag, and how to check a screen. Run this once from the app's root, after installing the package:
 
-```md
-- When you build or change a Svelte screen, row, card, or chart, follow Feedback's accessibility skill. Read the latest with `gh api repos/smirea/feedback-engine/contents/skills/feedback-accessibility/SKILL.md -H 'Accept: application/vnd.github.raw'`.
+```sh
+bunx feedback-engine init
 ```
+
+It links the skill into `.agents/skills/feedback-accessibility`, where agents that read the `.agents` folder find it by name, and adds a Feedback section to `AGENTS.md`, between `feedback-engine` markers. The section tells every agent what the editor is, how to read an export someone hands it, which skill to follow when it changes a screen, and how to check a screen with [`capture()`](#drive-it-from-a-script). When the app also has a `CLAUDE.md` that does not mention `AGENTS.md`, the section goes there too. Commit both: the link points into `node_modules`, so the skill always matches the installed version. Run `init` again after an upgrade to refresh the section.
 
 ## Give feedback
 
@@ -263,7 +265,7 @@ The token is the switch. With `PROCRASTIMATE_TOKEN` set, **ProcrastiMate** shows
 
 ## Drive it from a script
 
-`setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.present()` opens the editor without the click, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `scripts/readme-images.ts` in the repository does both with Playwright.
+`setupFeedbackEngine()` also puts the engine on `globalThis.__feedbackEngine`. `__feedbackEngine.capture()` reads the page and returns its JSON export, the `FeedbackReport` type, with no items, without drawing the screenshot or opening the editor, so an agent can check what a tap on each part of a screen selects: `await page.evaluate(() => __feedbackEngine.capture())` in Playwright. `__feedbackEngine.present()` opens the editor without the click, and `__feedbackEngine.lastExport` holds the files of the last export as `{ name, blob }`, written when a Share menu entry is chosen. `scripts/readme-images.ts` in the repository does both with Playwright.
 
 ## Webhooks
 

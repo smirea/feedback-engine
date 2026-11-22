@@ -20,7 +20,11 @@
 		"url": "git+https://github.com/smirea/feedback-engine.git",
 		"directory": "packages/web"
 	},
+	"bin": {
+		"feedback-engine": "./src/cli/index.js"
+	},
 	"files": [
+		"skills",
 		"src",
 		"!src/**/*.test.ts"
 	],

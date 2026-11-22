@@ -87,10 +87,41 @@ export type FeedbackEngine = {
 	 * the screen they mean. Pressing the pill captures at once.
 	 */
 	countdown(seconds?: number): void;
+	/**
+	 * Reads the page as it is now and returns its JSON export, with no items, without drawing it or opening the editor.
+	 * For agents and scripts that check a screen: `await page.evaluate(() => __feedbackEngine.capture())`.
+	 */
+	capture(): Promise<FeedbackReport>;
 	/** The files of the last export, for automation that cannot use the clipboard or a download. */
 	readonly lastExport: { name: string; blob: Blob }[];
 	/** Removes the shortcut and Feedback's UI from the page. */
 	destroy(): void;
+};
+
+type Rect = { x: number; y: number; width: number; height: number };
+type Pointer = { target: number; title: string; path: number[]; code?: string };
+
+/** The JSON export, as `spec/report.md` defines it. */
+export type FeedbackReport = {
+	app: string;
+	captured: string;
+	size: { width: number; height: number };
+	visible: Rect;
+	environment: { name: string; value: string }[];
+	items: (Pointer & { number: number; text: string })[];
+	references: (Pointer & { number: number; token: string })[];
+	context: { name: string; value: string }[];
+	nodes: {
+		id: number;
+		parent?: number;
+		layer: number;
+		kind: 'screen' | 'layer' | 'component' | 'element';
+		name: string;
+		label?: string;
+		frame: Rect;
+		source?: string;
+		data?: string;
+	}[];
 };
 
 /** A value that Feedback describes as `toFeedback()` in its place, at any depth. */
@@ -117,6 +148,6 @@ export const feedback: Named & {
 };
 
 declare global {
-	/** The engine of this page, for automation: `__feedbackEngine.present()` and `__feedbackEngine.lastExport`. */
+	/** The engine of this page, for automation: `__feedbackEngine.present()`, `__feedbackEngine.capture()`, and `__feedbackEngine.lastExport`. */
 	var __feedbackEngine: FeedbackEngine | undefined;
 }

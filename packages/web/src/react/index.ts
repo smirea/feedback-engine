@@ -3,7 +3,7 @@ import type { FeedbackOptions } from '../editor/engine.ts';
 import { setupFeedbackEngine as setup, type FeedbackEngine } from '../editor/setup.ts';
 import { readComponents } from './components.ts';
 
-export type { FeedbackRepresentable } from '../core/index.ts';
+export type { FeedbackReport, FeedbackRepresentable } from '../core/index.ts';
 export { githubIcon, type Webhook, type WebhookValues } from '../dom/webhook.ts';
 export type { FeedbackOptions } from '../editor/engine.ts';
 export type { FeedbackEngine } from '../editor/setup.ts';

@@ -88,13 +88,13 @@ Untagged views still appear: buttons, text, images, and headers come from the ac
 
 ### Set up your app's coding agents
 
-[`skills/feedback-accessibility/SKILL.md`](skills/feedback-accessibility/SKILL.md) is the playbook for making screens accessible and precise to point at: built-in accessibility first, Feedback tags only where a tap would otherwise be ambiguous, and a way to check each screen. To have your app's agents follow it, add this to the app's `AGENTS.md` (or `CLAUDE.md`):
+[`packages/web/skills/feedback-accessibility/SKILL.md`](packages/web/skills/feedback-accessibility/SKILL.md) is the playbook for making screens accessible and precise to point at: built-in accessibility first, Feedback tags only where a tap would otherwise be ambiguous, and a way to check each screen. It lives in the web package, which ships it to npm, and has a section for each platform. A web app links it with `bunx feedback-engine init` ([web README](packages/web/README.md#set-up-your-apps-coding-agents)). A Swift package has no such step, so add this to the app's `AGENTS.md` (or `CLAUDE.md`):
 
 ```md
-- When you build or change a SwiftUI screen, row, card, or chart, follow Feedback's accessibility skill. Read the latest with `gh api repos/smirea/feedback-engine/contents/skills/feedback-accessibility/SKILL.md -H 'Accept: application/vnd.github.raw'`.
+- When you build or change a SwiftUI screen, row, card, or chart, follow Feedback's accessibility skill. Read the latest with `gh api repos/smirea/feedback-engine/contents/packages/web/skills/feedback-accessibility/SKILL.md -H 'Accept: application/vnd.github.raw'`.
 ```
 
-The command reads the skill from `master`, so the app picks up changes without a copy to update. To make it a project skill that Claude Code loads by name, copy the folder to `.claude/skills/feedback-accessibility/` instead, and refresh the copy when the skill changes.
+The command reads the skill from `master`, which is what an iOS app builds against, so the app picks up changes without a copy to update.
 
 ### Give feedback
 

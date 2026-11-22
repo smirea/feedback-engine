@@ -27,10 +27,10 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
 
 - `Package.swift` sits at the repository root so apps can add the repo as a Swift package. Its sources are in `packages/ios`.
 - `packages/ios/Sources/Feedback`: the pure core (`Model`, `TreeBuilder`, `Report`, `Describer`, `Session`) compiles on macOS and is unit tested. Files that need UIKit are wrapped in `#if canImport(UIKit)`.
-- `skills/feedback-accessibility`: the playbook apps' agents follow to make screens accessible and precise to point at. Update it in the same change when tagging, hit-testing, or element collection changes.
+- `packages/web/skills/feedback-accessibility`: the playbook apps' agents follow to make screens accessible and precise to point at, for every platform. It sits in the web package so npm ships it at the installed version, and `scripts/taps.js` is plain JavaScript so it runs from there with `node` or `bun`. Update it in the same change when tagging, hit-testing, or element collection changes, and keep `taps.js` in step with `hitTest`.
 - `examples/todo-ios`: the demo app. It links the package through a local package reference to `../..`.
 - `package.json` at the root is private: the Bun workspace for `packages/web` and `examples/*`, with the repository's scripts and tools.
-- `packages/web`: the web package `@stefan.inc/feedback-engine`, published to npm from here. It ships source, with no build step. Its `files` list publishes `src` without the tests, beside the README and `LICENSE`, a copy of the root one. `scripts/check-package.ts`, part of `bun run lint:ci`, fails when the tarball holds anything else.
+- `packages/web`: the web package `@stefan.inc/feedback-engine`, published to npm from here. It ships source, with no build step. Its `files` list publishes `src`, without the tests, and `skills`, beside the README and `LICENSE`, a copy of the root one. `scripts/check-package.ts`, part of `bun run lint:ci`, fails when the tarball holds anything else.
 - `packages/web/src`: the package's source.
   - `core`: pure TypeScript, unit tested. The model, hit-testing, annotations, the session rules, the report, the card layout, the tree builder, and the value describer.
   - `dom`: browser code without a framework. The scene reader, the screenshot, the image export, sharing, and the ProcrastiMate client.
@@ -39,6 +39,7 @@ In-app feedback packages, one per platform. Read `README.md` for the integration
   - `svelte`: the Svelte entry point, with the `feedback` attachment.
   - `react`: the React entry point, with the `feedback` ref and `components.ts`, which reads React's fiber tree for the components the Vite plugin or the Next.js loader registered. It imports nothing from `react`. `public.d.ts` is what an app's compiler reads instead of the source, and `packages/web/public-types.check.ts` fails the type check when the two drift.
   - `vite`: the build plugins, in plain JavaScript so Node loads them from `node_modules`. `index.js` has the Svelte preprocessor and the ProcrastiMate proxy, which also tells the page whether it has a token. `react.js` has the React plugin, which also compiles the editor's Svelte files for a React app, and `addReact`, the transform both bundlers share. It parses with `oxc-parser`, not Vite, so the Next.js loader can import it.
+  - `cli`: the `feedback-engine` bin, in plain JavaScript. `init` links the skill into an app's `.agents/skills` and writes a marked section into its `AGENTS.md`.
   - `next`: `withFeedbackEngine()`, which wraps a Next.js config, and `loader.js`, the one webpack loader it gives Turbopack and webpack. It runs `addReact` and compiles the editor, like the React plugin.
 - `spec/fixtures/capture.json`: one tree with the answers both platforms must give. `swift test` and `bun test` both read it. Change the fixture when shared logic changes, and both suites must pass on it.
 - `docs/web-plan.md`: what is left for the web package.
