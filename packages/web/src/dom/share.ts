@@ -4,12 +4,12 @@ import type { Screen } from './capture.ts';
 import { annotatedImage } from './image.ts';
 import { zip } from './zip.ts';
 
-export type ExportFormat = 'image' | 'json' | 'zip';
+export type ExportFormat = 'image' | 'data' | 'all';
 
 export const exportTitles: Record<ExportFormat, string> = {
 	image: 'Image',
-	json: 'JSON',
-	zip: 'Image and JSON (ZIP)',
+	data: 'Data',
+	all: 'Image + Data',
 };
 
 /** One export: the file to save or share, and the parts the clipboard takes. */
@@ -30,16 +30,26 @@ export function encodeImage(screen: Screen, annotations: Annotations, encoding: 
 	);
 }
 
+/** Every export but the image is the data: `feedback.json` and the app's own files, in this order. */
+export function dataFiles(screen: Screen, json: string): File[] {
+	return [new File([json], 'feedback.json', { type: 'application/json' }), ...screen.files];
+}
+
+async function archive(files: File[]) {
+	const entries = await Promise.all(
+		files.map(async file => ({ name: `feedback/${file.name}`, bytes: new Uint8Array(await file.arrayBuffer()) })),
+	);
+	return new File([await zip(entries)], 'feedback.zip', { type: 'application/zip' });
+}
+
+/** Data is `feedback.json` alone, or a ZIP when the app adds files. Image + Data is always a ZIP. */
 export async function buildExport(screen: Screen, annotations: Annotations, format: ExportFormat): Promise<Export> {
-	const image = format === 'json' ? undefined : await encodeImage(screen, annotations, { format: 'png' });
-	const json = format === 'image' ? undefined : reportJSON(screen.capture, annotations);
-	if (format === 'image') return { file: new File([image!], 'feedback.png', { type: 'image/png' }), image };
-	if (format === 'json') return { file: new File([json!], 'feedback.json', { type: 'application/json' }), json };
-	const archive = zip([
-		{ name: 'feedback/feedback.png', bytes: new Uint8Array(await image!.arrayBuffer()) },
-		{ name: 'feedback/feedback.json', bytes: new TextEncoder().encode(json) },
-	]);
-	return { file: new File([archive], 'feedback.zip', { type: 'application/zip' }), image, json };
+	const image = format === 'data' ? undefined : await encodeImage(screen, annotations, { format: 'png' });
+	if (format === 'image') return { file: image!, image };
+	const json = reportJSON(screen.capture, annotations);
+	const data = dataFiles(screen, json);
+	if (format === 'data') return { file: data.length === 1 ? data[0]! : await archive(data), json };
+	return { file: await archive([image!, ...data]), image, json };
 }
 
 /**

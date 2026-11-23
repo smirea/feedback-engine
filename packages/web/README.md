@@ -200,6 +200,23 @@ export function Feedback() {
 - To keep Feedback off a production deploy, render `<Feedback />` only where you want it, for example behind `process.env.NEXT_PUBLIC_VERCEL_ENV !== 'production'`.
 - [Post to ProcrastiMate](#post-to-procrastimate) works the same in Next.js as in Vite: pass `procrastimate: { projects: ['Your Project'] }` to `setupFeedbackEngine()`.
 
+## Attach state to reproduce a report
+
+```ts
+setupFeedbackEngine({
+	metadata: () => ({ 'Signed in as': store.user?.email ?? 'nobody' }),
+	files: [
+		{ name: 'store.json', data: () => store.snapshot() },
+		{ name: 'history.json', data: () => fetchHistory() },
+	],
+});
+```
+
+- `metadata` adds `label: value` lines under the image export's title. They are also the first entries of `environment` in `feedback.json`, after `App`.
+- `files` adds the app's own files to every export but the image: **Data**, **Image + Data**, ProcrastiMate, and webhooks. Each `data` runs when the capture is taken, so the files match the screenshot. It returns a `Blob`, a string, or any other value, which is written as JSON, or a promise of one. `null` leaves the file out, for a screen that has nothing to put in it. Pass `type` to set the media type. A file whose `data` throws, or takes longer than 10 seconds, is left out, and the editor names it in a red toast.
+- A name may not repeat or be one of Feedback's own, `feedback.json` and `feedback.png`. `setupFeedbackEngine()` throws on one.
+- A ZIP deflates each file that shrinks, so a large JSON state stays small. ProcrastiMate attaches each file to the task, in parts when it is over 16 MB, and a webhook gets each as a `file` part.
+
 ## Component data and untagged content
 
 Data reads like code, with the limits of the iOS package: `{kg: 72.575, note: null}` for a plain object, `Entry(kg: 72.575, note: null)` for a class instance, 3 decimals, 3 levels, 10 elements, and 1,500 characters. Functions and DOM nodes are skipped at any depth. Give a class a `toFeedback()` method to choose how it reads.
@@ -223,7 +240,7 @@ The editor works as on iOS, with these differences:
 - Hover the screenshot to see what a click would select.
 - Hold Ctrl and scroll, or pinch on a trackpad, to zoom up to 4×.
 - Enter adds the feedback. Shift with Enter adds a line.
-- **Share** lists **Image**, **JSON**, and **Image and JSON (ZIP)**. Each one then offers **Copy Feedback**, **Save File**, and, where the browser can share files, **Share…**. A browser takes one clipboard item per copy, so copying the ZIP export puts one item on the clipboard with the image and the JSON, and the place you paste into picks the one it reads.
+- **Share** lists the destinations that have no button beside it, then **Image**, **Data**, and **Image + Data**, then **New Webhook**. **Data** is `feedback.json`, or a `feedback.zip` of it and the app's [files](#attach-state-to-reproduce-a-report) when there are any. **Image + Data** is always one `feedback.zip`. Each export then offers **Copy Feedback**, **Save File**, and, where the browser can share files, **Share…**. A browser takes one clipboard item per copy, so copying **Image + Data** puts one item on the clipboard with the image and the JSON, and the place you paste into picks the one it reads.
 
 ## Post to ProcrastiMate
 

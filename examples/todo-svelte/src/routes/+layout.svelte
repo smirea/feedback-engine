@@ -29,6 +29,8 @@
 				]
 			: [],
 		pinned: ['ProcrastiMate'],
+		metadata: () => ({ Lists: String(store.lists.length) }),
+		files: [{ name: 'store.json', data: () => ({ lists: store.lists }) }],
 	});
 	feedback.context('TodoStore', () => store);
 </script>

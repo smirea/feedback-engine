@@ -3,7 +3,7 @@ import type { ProcrastimateConfig } from '../dom/procrastimate.ts';
 import { procrastimateIcon } from '../dom/procrastimate-icon.ts';
 import { githubIcon, type Delivery, type Webhook } from '../dom/webhook.ts';
 
-/** A server the feedback can be posted to, as the Share menu lists it after the exports. */
+/** A server the feedback can be posted to, as the Share menu lists it before the exports. */
 export type Destination = { name: string; image?: string } & (
 	| { kind: 'procrastimate' }
 	| { kind: 'webhook'; delivery: Delivery }
@@ -37,8 +37,9 @@ export function destinations(options: {
 }
 
 /**
- * The destinations that also get a button beside Share: the ones `pinned` names, in its order, or the first two
- * without it. A name with no destination is skipped, since a webhook can join the list after setup.
+ * The destinations that get a button beside Share instead of an entry in its menu: the ones `pinned` names, in its
+ * order, or the first two without it. A name with no destination is skipped, since a webhook can join the list after
+ * setup.
  */
 export function pinnedDestinations(all: Destination[], pinned: string[] | undefined): Destination[] {
 	if (!pinned) return all.slice(0, 2);

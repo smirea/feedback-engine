@@ -196,6 +196,29 @@ Do this after changing a screen, against the dev server, with realistic data:
 4. Spot-check with real clicks on the regions you changed and read the selection title in the panel. Open the editor with `await page.evaluate(() => __feedbackEngine.present())`, or the way a person does, with Alt+Meta+click: `await page.getByRole('heading').first().click({ modifiers: ['Alt', 'Meta'] })`. The screenshot is scaled, so convert page points with the bounding box of the element with the role `img` and the name `Screenshot`.
 5. Check a production build once: components keep their names and locations there, and untagged elements lose their `file:line`.
 
+## State to reproduce a report (web)
+
+A screenshot shows what went wrong, not how to get back there. Give the export what reproduces the screen. Every function runs when the capture is taken, so what it returns matches the screenshot.
+
+```ts
+setupFeedbackEngine({
+	// `label: value` lines under the image's title, and the first `environment` entries of feedback.json.
+	metadata: () => ({ 'Signed in as': store.user?.email ?? 'nobody', 'Plan': store.plan }),
+	// Files in every export but the image: Data, Image + Data, ProcrastiMate, and webhooks.
+	files: [
+		{ name: 'store.json', data: () => store.snapshot() }, // any value is written as JSON
+		{ name: 'log.txt', data: () => log.join('\n') }, // a string is text
+		{ name: 'history.json', data: () => fetchHistory() }, // a promise works too
+		{ name: 'draft.json', data: () => editor?.draft ?? null }, // null leaves the file out
+	],
+});
+```
+
+- `metadata` is one short line per fact a reader needs at a glance, such as who is signed in or which mode is on. Keep it to a few lines: the image prints every one.
+- `context(name, () => value)` stays for state worth reading in `feedback.json` without opening a file. It is described like component data and cut at 8,000 characters, so a whole store belongs in `files`.
+- Give `files` the formats the app already loads, such as its save file, so the person who reads the report can open the same state. Don't invent a format for feedback.
+- A file whose `data` throws or takes longer than 10 seconds is left out and named in a red toast in the editor. The rest of the export still goes.
+
 ## Replay every tap
 
 `scripts/taps.js`, in this skill's folder, reads a `feedback.json` from any package. It is plain JavaScript, so `node` or `bun` runs it. In a web app it ships with the package:

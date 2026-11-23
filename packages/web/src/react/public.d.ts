@@ -8,6 +8,16 @@ export type FeedbackOptions = {
 	app?: string;
 	version?: string;
 	/**
+	 * Lines the image export prints under its title, as `label: value`, such as `{ 'Signed in': 'ana@example.com' }`.
+	 * They are the first entries of the JSON export's `environment` after `App`. Runs when a capture is taken.
+	 */
+	metadata?: () => Record<string, string>;
+	/**
+	 * The app's own files, such as its saved state, in every export but the image: the Data export, the ZIP, ProcrastiMate,
+	 * and webhooks. Each `data` runs when a capture is taken, so the files match the screenshot.
+	 */
+	files?: FeedbackFile[];
+	/**
 	 * What opens Feedback. A chord that ends in `Click`, such as the default `Alt+Meta+Click`, opens the editor with the
 	 * element under the pointer selected. A chord that ends in a key, such as `Alt+Shift+F`, shows the Add Feedback
 	 * pill. `false` turns it off.
@@ -44,17 +54,30 @@ export type FeedbackOptions = {
 		space?: string;
 	};
 	/**
-	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export and the JSON export to the
-	 * webhook's `url`, with nothing more to fill in. The menu lists ProcrastiMate, then the webhooks with `githubIcon`,
-	 * then the others.
+	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export, the JSON export, and the app's
+	 * `files` to the webhook's `url`, with nothing more to fill in. The menu lists ProcrastiMate, then the webhooks with
+	 * `githubIcon`, then the others.
 	 */
 	webhooks?: Webhook[];
 	/**
-	 * The Share menu entries that also get a button beside Share, by name, in this order: `'ProcrastiMate'` or a
-	 * webhook's `name`. A name the menu does not list is skipped. Without it, the first two of ProcrastiMate and the
-	 * webhooks get one. `[]` gives none.
+	 * The destinations that get a button beside Share instead of an entry in its menu, by name, in this order:
+	 * `'ProcrastiMate'` or a webhook's `name`. A name with no destination is skipped. Without it, the first two of
+	 * ProcrastiMate and the webhooks get one. `[]` gives none.
 	 */
 	pinned?: string[];
+};
+
+/** A file the app adds to every export, made when a capture is taken. */
+export type FeedbackFile = {
+	/** The file's name in every export, such as `save.json`. */
+	name: string;
+	/**
+	 * Makes the file when a capture is taken, so it matches the screenshot. A `Blob` is used as it is, a string as text,
+	 * and anything else as JSON. `null` or `undefined` leaves the file out, for a screen that has nothing to put in it.
+	 */
+	data: () => unknown;
+	/** The media type. Without it, a `Blob` keeps its own, `.json` is `application/json`, and other text is `text/plain`. */
+	type?: string;
 };
 
 /** One entry of the Share menu that posts the feedback to a server of the app's own. `docs/webhooks.md` has the request. */

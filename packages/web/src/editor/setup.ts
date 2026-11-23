@@ -1,4 +1,5 @@
 import { mount, unmount } from 'svelte';
+import { checkFiles } from '../dom/files.ts';
 import { watchHold } from '../dom/hold.ts';
 import { hostAttribute } from '../dom/tags.ts';
 import type { FeedbackReport } from '../core/index.ts';
@@ -57,6 +58,7 @@ export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngi
 
 	if (options.procrastimate && !options.procrastimate.projects?.length)
 		throw new Error('setupFeedbackEngine({ procrastimate }) needs the projects Feedback may post to, by name or id.');
+	checkFiles(options.files ?? []);
 	const engine = new Engine(options);
 	const host = document.createElement('div');
 	host.setAttribute(hostAttribute, '');

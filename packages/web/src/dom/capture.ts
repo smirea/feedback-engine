@@ -8,20 +8,30 @@ import {
 	type ContextEntry,
 	type Frame,
 } from '../core/index.ts';
+import { makeFiles, type FeedbackFile, type FileFailure } from './files.ts';
 import { readScene, type Scene } from './scene.ts';
 import { takePicture, type Picture } from './screenshot.ts';
 
 /**
  * A capture and its picture. `image` is the whole picture on one canvas, at the screen's pixel ratio or lower when the
  * capture is too large for one, which the editor shows until it draws the part in view sharp. `pixelRatio` is the
- * screen's, the resolution an export aims for.
+ * screen's, the resolution an export aims for. `files` are the app's own, made at the moment of the capture.
  */
-export type Screen = { capture: Capture; picture: Picture; image: HTMLCanvasElement; pixelRatio: number };
+export type Screen = {
+	capture: Capture;
+	picture: Picture;
+	image: HTMLCanvasElement;
+	pixelRatio: number;
+	files: File[];
+	failures: FileFailure[];
+};
 
 export type CaptureOptions = {
 	app?: string;
 	version?: string;
+	metadata?: () => Record<string, string>;
 	context: { name: string; value: () => unknown }[];
+	files?: FeedbackFile[];
 };
 
 function browser() {
@@ -37,9 +47,19 @@ function browser() {
 	return match ? `${match[1] === 'Edg' ? 'Edge' : match[1]} ${match[2]} · ${platform}` : agent;
 }
 
+function metadata(options: CaptureOptions): ContextEntry[] {
+	try {
+		return Object.entries(options.metadata?.() ?? {}).map(([name, value]) => ({ name, value: String(value) }));
+	} catch (error) {
+		console.warn('Feedback could not read the metadata', error);
+		return [];
+	}
+}
+
 function environment(options: CaptureOptions, date: Date): ContextEntry[] {
 	const entries: (ContextEntry | false | undefined)[] = [
 		{ name: 'App', value: options.app ?? (document.title || location.hostname) },
+		...metadata(options),
 		{ name: 'Location', value: `${location.pathname}${location.search}${location.hash}` },
 		options.version !== undefined && { name: 'Version', value: options.version },
 		{ name: 'Device', value: browser() },
@@ -48,7 +68,6 @@ function environment(options: CaptureOptions, date: Date): ContextEntry[] {
 			value: `${innerWidth} × ${innerHeight} px @${Math.round(devicePixelRatio * 100) / 100}x · ${matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'} mode`,
 		},
 		{ name: 'Captured', value: date.toISOString().replace(/\.\d+Z$/, 'Z') },
-		{ name: 'Locale', value: navigator.language },
 	];
 	return entries.filter(entry => !!entry);
 }
@@ -115,8 +134,10 @@ export const captureTree = (options: CaptureOptions) => readPage(options).captur
 
 /** Reads the page and copies it. */
 export async function captureScreen(options: CaptureOptions): Promise<Screen> {
+	const made = makeFiles(options.files ?? []);
 	const { capture, scene, top } = readPage(options);
 	const picture = await takePicture(scene.size, top, capture.visible, scene.fixed);
 	const pixelRatio = devicePixelRatio;
-	return { capture, picture, image: picture.canvas(pixelRatio), pixelRatio };
+	const { files, failures } = await made;
+	return { capture, picture, image: picture.canvas(pixelRatio), pixelRatio, files, failures };
 }

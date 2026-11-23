@@ -1,6 +1,7 @@
 import { tick } from 'svelte';
 import { Annotations, reportJSON, type FeedbackReport, type Point } from '../core/index.ts';
 import { captureScreen, captureTree, type Screen } from '../dom/capture.ts';
+import type { FeedbackFile } from '../dom/files.ts';
 import type { ProcrastimateConfig } from '../dom/procrastimate.ts';
 import { hostAttribute } from '../dom/tags.ts';
 import type { Webhook } from '../dom/webhook.ts';
@@ -9,6 +10,16 @@ export type FeedbackOptions = {
 	/** The app's name in exports. Defaults to the document's title. */
 	app?: string;
 	version?: string;
+	/**
+	 * Lines the image export prints under its title, as `label: value`, such as `{ 'Signed in': 'ana@example.com' }`.
+	 * They are the first entries of the JSON export's `environment` after `App`. Runs when a capture is taken.
+	 */
+	metadata?: () => Record<string, string>;
+	/**
+	 * The app's own files, such as its saved state, in every export but the image: the Data export, the ZIP, ProcrastiMate,
+	 * and webhooks. Each `data` runs when a capture is taken, so the files match the screenshot.
+	 */
+	files?: FeedbackFile[];
 	/**
 	 * What opens Feedback. A chord that ends in `Click`, such as the default `Alt+Meta+Click`, opens the editor with the
 	 * element under the pointer selected. A chord that ends in a key, such as `Alt+Shift+F`, shows the Add Feedback
@@ -31,15 +42,15 @@ export type FeedbackOptions = {
 	 */
 	procrastimate?: ProcrastimateConfig;
 	/**
-	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export and the JSON export to the
-	 * webhook's `url`, with nothing more to fill in. The menu lists ProcrastiMate, then the webhooks with `githubIcon`,
-	 * then the others.
+	 * Adds one entry to the Share menu per webhook. Choosing it posts the image export, the JSON export, and the app's
+	 * `files` to the webhook's `url`, with nothing more to fill in. The menu lists ProcrastiMate, then the webhooks with
+	 * `githubIcon`, then the others.
 	 */
 	webhooks?: Webhook[];
 	/**
-	 * The Share menu entries that also get a button beside Share, by name, in this order: `'ProcrastiMate'` or a
-	 * webhook's `name`. A name the menu does not list is skipped. Without it, the first two of ProcrastiMate and the
-	 * webhooks get one. `[]` gives none.
+	 * The destinations that get a button beside Share instead of an entry in its menu, by name, in this order:
+	 * `'ProcrastiMate'` or a webhook's `name`. A name with no destination is skipped. Without it, the first two of
+	 * ProcrastiMate and the webhooks get one. `[]` gives none.
 	 */
 	pinned?: string[];
 };
@@ -126,11 +137,7 @@ export class Engine {
 		this.hidePill();
 		this.capturing = true;
 		try {
-			const screen = await captureScreen({
-				app: this.options.app,
-				version: this.options.version,
-				context: this.providers,
-			});
+			const screen = await captureScreen({ ...this.options, context: this.providers });
 			const { visible } = screen.capture;
 			this.pointed = at && { x: at.x + visible.x, y: at.y + visible.y };
 			this.screen = screen;
@@ -143,7 +150,7 @@ export class Engine {
 
 	/** The JSON export of the page as it is now, with no items, without drawing it or opening the editor. */
 	report(): FeedbackReport {
-		const capture = captureTree({ app: this.options.app, version: this.options.version, context: this.providers });
+		const capture = captureTree({ ...this.options, context: this.providers });
 		// Through the export's own serializer, so the object has the file's keys, without the ones that have no value.
 		return JSON.parse(reportJSON(capture, new Annotations(), false));
 	}

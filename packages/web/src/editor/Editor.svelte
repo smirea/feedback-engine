@@ -38,10 +38,16 @@
 
 	// The host makes a new editor for each capture, so the first value is the only one.
 	// svelte-ignore state_referenced_locally
-	const { capture } = screen;
+	const { capture, failures } = screen;
 	const session = new Session(capture);
 	// svelte-ignore state_referenced_locally
 	if (engine.pointed) session.pick(engine.pointed);
+	if (failures[0]) {
+		session.toast = {
+			text: `Couldn’t attach ${failures.map(failure => failure.name).join(', ')}`,
+			problem: Problem.from(failures[0].error).with([{ label: 'File', value: failures[0].name }]),
+		};
+	}
 	const maxZoom = 4;
 
 	/** `Session` is plain TypeScript, so every change to it goes through `act`, and everything drawn reads `view`. */
@@ -107,6 +113,7 @@
 	let editing = $state<{ webhook?: SavedWebhook }>();
 	const targets = $derived(destinations({ ...engine.options, saved }));
 	const pinned = $derived(pinnedDestinations(targets, engine.options.pinned));
+	const listed = $derived(targets.filter(target => !pinned.includes(target)));
 	let confirmsClose = $state(false);
 	let pending = $state<{ format: ExportFormat; ready: Export }>();
 	let failure = $state<{ title: string; problem: Problem }>();
@@ -412,14 +419,14 @@
 			</button>
 			{#if showsShare}
 				<div class="popup" role="menu">
-					{#each Object.entries(exportTitles) as [format, name] (format)}
-						<button type="button" role="menuitem" onclick={() => void choose(format as ExportFormat)}>{name}</button>
-					{/each}
-					{#each targets as destination, index (index)}
+					{#each listed as destination, index (index)}
 						<button type="button" role="menuitem" class="destination" onclick={event => send(destination, event)}>
 							{#if destination.image}<img src={destination.image} alt="" />{/if}
 							{destination.name}
 						</button>
+					{/each}
+					{#each Object.entries(exportTitles) as [format, name] (format)}
+						<button type="button" role="menuitem" onclick={() => void choose(format as ExportFormat)}>{name}</button>
 					{/each}
 					<button type="button" role="menuitem" class="destination" onclick={() => edit()}>
 						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>

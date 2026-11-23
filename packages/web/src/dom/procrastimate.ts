@@ -15,8 +15,6 @@ export type ProcrastimateConfig = {
 	space?: string;
 };
 
-/** ProcrastiMate's `FILE_PART_BYTES` (`shared/images.ts` there): the most it takes as a file in one request. */
-export const fileMaxBytes = 16 * 1024 * 1024;
 export const defaultProcrastimateApp = 'https://procrastimate.stf.lol';
 
 export const procrastimateAppURL = (config: ProcrastimateConfig) =>
