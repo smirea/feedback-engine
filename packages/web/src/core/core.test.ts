@@ -361,7 +361,6 @@ test('the shared fixture gives the same answers as on iOS', () => {
 	expect({
 		placeholder: name.placeholder,
 		prompt: name.prompt,
-		summarized: name.summarized(fixture.summary),
 	}).toEqual(expected.taskTitle);
 });
 

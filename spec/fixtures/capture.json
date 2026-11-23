@@ -450,7 +450,6 @@
 			]
 		}
 	],
-	"summary": "\"Bigger info button, aligned title.\"\nThat covers all.",
 	"expected": {
 		"hitTests": [6, 4, 1, 15, 17, 2, 5],
 		"similar": [[10], [8, 12], [7, 11], [], []],
@@ -955,8 +954,7 @@
 		],
 		"taskTitle": {
 			"placeholder": "Groceries Feedback: 4 changes",
-			"prompt": "- On Button \"Info\": Make it bigger\n- On Text field \"Title, Milk\": Align with @2_Row and @3_Nope\n- On ListScreen: Move @4_Button left of the title, like @1_Button\n- On Header \"My Lists\": Match @8_Button",
-			"summarized": "4 Groceries Feedback: Bigger info button, aligned title"
+			"prompt": "- On Button \"Info\": Make it bigger\n- On Text field \"Title, Milk\": Align with @2_Row and @3_Nope\n- On ListScreen: Move @4_Button left of the title, like @1_Button\n- On Header \"My Lists\": Match @8_Button"
 		}
 	}
 }

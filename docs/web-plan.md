@@ -5,7 +5,6 @@ The web package, `@stefan.inc/feedback-engine`, is in `packages/web/src` and on 
 ## Planned
 
 - **A shake on phones (T8).** It needs the `devicemotion` permission, which iOS Safari grants only from a tap, and a physical phone to check it on. Until then a phone holds three fingers still on the screen (T12).
-- **A task name from an on-device model (P5).** Chrome has a built-in model behind `LanguageModel`. On the machine this was developed on, Chrome 156 reported it as `unavailable`, so the code could not be checked and was not written. `taskTitle` in the core already has the prompt and the cleanup of the reply.
 - **A container that reports its caller's location (G4).** The Vite plugin would have to pass the `file:line` of each `<Legend />` to the component.
 - **Hook state in a React component's data.** React keeps hook state without names. The plugin could write the names of a component's `useState` variables into its registration, and the reader could match them to the fiber's hooks in order. A custom hook that calls `useState` shifts that order, so it is not built. A tag under the component's name reports state until then.
 

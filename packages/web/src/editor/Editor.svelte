@@ -291,6 +291,7 @@
 					popup = openProcrastimatePopup({
 						config,
 						title: names.placeholder,
+						titleSuggestion: names.suggestion,
 						app: engine.options.app ?? (document.title.trim() || undefined),
 						screen,
 						annotations: session.annotations,

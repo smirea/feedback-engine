@@ -245,6 +245,7 @@ Choosing **ProcrastiMate** opens a popup on `https://procrastimate.stf.lol/feedb
 - `space` names another user's ProcrastiMate user id when two spaces share the same project name; leave it out to match across the signed-in user's own and edit-shared projects.
 - `app` points at another ProcrastiMate origin if you self-host or run locally.
 - Each project in the picker has a ↗ link to its page in ProcrastiMate (`/projects/<id>`), which opens in a new tab.
+- The task's name starts as the screen's name, `Feedback`, and the item count, such as `Groceries Feedback: 3 changes`. Left as it is, ProcrastiMate's server summarizes the items about a second after the post and renames the task, such as `3 Groceries Feedback: bigger titles, remove the share button`. A name typed in the popup is kept.
 
 ## How capture works
 
@@ -262,7 +263,7 @@ Choosing **ProcrastiMate** opens a popup on `https://procrastimate.stf.lol/feedb
 - A minified production build shows a class's minified name in component data, such as `a(count: 2)`.
 - Element locations for untagged content exist only in development builds, unless a React app turns on `elementSources`. Components keep theirs in every build.
 - React: a capture reads fields that are internal to React, the ones React's own developer tools read. If React renames them, components found without a tag are missing, and tagged regions and elements still appear. Bundlers other than Vite and Next.js are not supported.
-- A shake does not trigger Feedback on phones, where a three-finger hold, `button: true`, or `countdown()` from a menu stands in for it, and the task name is not summarized by an on-device model. [spec/features.md](https://github.com/smirea/feedback-engine/blob/master/spec/features.md) lists both as planned.
+- A shake does not trigger Feedback on phones, where a three-finger hold, `button: true`, or `countdown()` from a menu stands in for it. [spec/features.md](https://github.com/smirea/feedback-engine/blob/master/spec/features.md) lists it as planned.
 
 ## Drive it from a script
 

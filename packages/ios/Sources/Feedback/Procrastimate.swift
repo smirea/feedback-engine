@@ -184,21 +184,15 @@ enum Procrastimate {
         }
 
         /// Creates the task with its attachments in one write. The id is the client's, so a retry
-        /// whose first answer was lost returns that task instead of adding a second one. Returns the
-        /// task's title, which is the first attempt's for such a retry, not this one's.
-        func create(id: String, title: String, place: Place, attachments: [Attachment]) async throws -> String {
-            struct NewTask: Encodable { let id: String; let title: String; let projectId: String?; let sectionId: String?; let attachments: [Attachment] }
-            struct Task: Decodable { let id: String; let title: String }
-            let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(id: id, title: title, projectId: place.projectId, sectionId: place.sectionId, attachments: attachments)))
+        /// whose first answer was lost returns that task instead of adding a second one. With a
+        /// `suggestion`, the server renames the task from it after answering, if the name is unchanged.
+        func create(id: String, title: String, suggestion: TaskTitle?, place: Place, attachments: [Attachment]) async throws {
+            struct NewTask: Encodable { let id: String; let title: String; let titleSuggestion: TaskTitle?; let projectId: String?; let sectionId: String?; let attachments: [Attachment] }
+            struct Task: Decodable { let id: String }
+            let task: Task = try decode(await send("POST", "api/tasks", json: NewTask(id: id, title: title, titleSuggestion: suggestion, projectId: place.projectId, sectionId: place.sectionId, attachments: attachments)))
             guard task.id == id else {
                 throw Problem(message: "ProcrastiMate made a task under another id, so a retry would add a second one.", facts: [.init(label: "Task", value: "\(task.id), sent \(id)")])
             }
-            return task.title
-        }
-
-        func rename(id: String, title: String) async throws {
-            struct Edit: Encodable { let title: String }
-            _ = try await send("PATCH", "api/tasks", query: ["id": id], json: Edit(title: title))
         }
 
         private func send(_ method: String, _ path: String, query: [String: String] = [:], json: some Encodable) async throws -> Data {
@@ -299,10 +293,6 @@ struct ProcrastimateSheet: View {
     @State private var loadProblem: Problem?
     @State private var saveProblem: Problem?
     @State private var saving = false
-    @State private var summarizing = false
-    /// The model's work, which outlives the sheet once **Add** hands it to the outbox.
-    @State private var summary: Task<String?, Never>?
-    @State private var handedOff = false
     private let outbox = Outbox.shared
     private let taskTitle: TaskTitle
 
@@ -334,16 +324,13 @@ struct ProcrastimateSheet: View {
                     Group {
                         if let saveProblem { ProblemSection(problem: saveProblem) }
                         if let loadProblem { ProblemSection(problem: loadProblem) }
-                        ForEach(outbox.unsent) { post in
+                        ForEach(outbox.posts) { post in
                             PendingSection(post: post, step: outbox.sending?.id == post.id ? outbox.sending?.step : nil)
                         }
                     }
                     .id("status")
                     Section("Name") {
-                        HStack {
-                            TextField("Task name", text: $name).submitLabel(.done)
-                            if summarizing { ProgressView().accessibilityLabel("Naming the task") }
-                        }
+                        TextField("Task name", text: $name).submitLabel(.done)
                     }
                     Section {
                         row("Inbox", systemImage: "tray", picked: place.projectId == nil) { place = .init() }
@@ -395,8 +382,6 @@ struct ProcrastimateSheet: View {
         .dynamicTypeSize(...EditorView.largestTextSize)
         .interactiveDismissDisabled(saving)
         .task { await load() }
-        .task { await summarize() }
-        .onDisappear { if !handedOff { summary?.cancel() } }
     }
 
     private func row(_ name: String, systemImage: String, picked: Bool, indented: Bool = false, pick: @escaping () -> Void) -> some View {
@@ -434,16 +419,6 @@ struct ProcrastimateSheet: View {
         }
     }
 
-    /// Runs beside the project load and never holds up posting. A name the user has typed stays.
-    private func summarize() async {
-        guard let task = taskTitle.summary() else { return }
-        summary = task
-        summarizing = true
-        let summarized = await task.value
-        summarizing = false
-        if let summarized, name == taskTitle.placeholder { name = summarized }
-    }
-
     private var environment: [Problem.Fact] {
         session.capture.environment.map { Problem.Fact(label: $0.name, value: $0.value) }
     }
@@ -459,8 +434,7 @@ struct ProcrastimateSheet: View {
         let section = project?.sections.first { $0.id == place.sectionId }
         let destination = [project?.name ?? "Inbox", section?.name].compactMap { $0 }.joined(separator: " / ")
         let title = title
-        // Added before the model answered and under its placeholder: the outbox waits for the answer.
-        let naming = summarizing && title == taskTitle.placeholder ? summary : nil
+        let naming = title == taskTitle.placeholder ? taskTitle : nil
         let report = Data(session.compactJSON.utf8)
         let environment = environment
         let image = AnnotatedImage.render(session.capture, session.annotations).cgImage
@@ -476,7 +450,7 @@ struct ProcrastimateSheet: View {
                 let post = PendingPost(
                     id: UUID().uuidString.lowercased(),
                     title: title,
-                    naming: naming == nil ? nil : taskTitle,
+                    naming: naming,
                     place: place,
                     destination: destination,
                     image: .init(id: encoded.id, width: encoded.width, height: encoded.height),
@@ -489,10 +463,6 @@ struct ProcrastimateSheet: View {
                     ] + environment
                 )
                 try outbox.add(post, full: encoded.full, thumb: encoded.thumb, report: report)
-                if let naming {
-                    outbox.name(post.id, with: naming)
-                    handedOff = true
-                }
                 Procrastimate.lastProject = project?.id
                 session.shared.formUnion(items)
                 session.toast = Toast(text: "Sending to \(destination) in ProcrastiMate…")

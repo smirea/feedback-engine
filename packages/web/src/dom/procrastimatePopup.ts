@@ -127,6 +127,7 @@ export function runOnLightClick(event: MouseEvent | undefined, action: () => voi
 export function openProcrastimatePopup({
 	config,
 	title,
+	titleSuggestion,
 	app,
 	screen,
 	annotations,
@@ -137,6 +138,8 @@ export function openProcrastimatePopup({
 }: {
 	config: ProcrastimateConfig;
 	title: string;
+	/** What ProcrastiMate names the task from, if the popup keeps `title`. */
+	titleSuggestion: { subject: string; count: number; prompt: string };
 	app?: string;
 	screen: Screen;
 	annotations: Annotations;
@@ -213,6 +216,7 @@ export function openProcrastimatePopup({
 							type: FEEDBACK_DRAFT,
 							nonce,
 							title,
+							titleSuggestion,
 							app,
 							project: config.project,
 							projects: config.projects,

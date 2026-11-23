@@ -814,7 +814,7 @@ private struct Fixture: Decodable {
     }
 
     struct Title: Decodable {
-        let placeholder, prompt, summarized: String
+        let placeholder, prompt: String
     }
 
     struct Expected: Decodable {
@@ -836,7 +836,6 @@ private struct Fixture: Decodable {
     let similar: [Int]
     let segments: String
     let cards: [Cards]
-    let summary: String
     let expected: Expected
 }
 
@@ -908,7 +907,6 @@ private struct Fixture: Decodable {
     let title = TaskTitle(capture, items: annotations.items)
     #expect(title.placeholder == fixture.expected.taskTitle.placeholder)
     #expect(title.prompt == fixture.expected.taskTitle.prompt)
-    #expect(title.summarized(fixture.summary) == fixture.expected.taskTitle.summarized)
 }
 
 @Test func aRequestIsRetriedOnlyWhenTheServerMightAnswerDifferentlyLater() {
