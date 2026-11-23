@@ -58,7 +58,7 @@
     },
     "packages/web": {
       "name": "@stefan.inc/feedback-engine",
-      "version": "1.10.0",
+      "version": "1.10.1",
       "bin": {
         "feedback-engine": "./src/cli/index.js",
       },
