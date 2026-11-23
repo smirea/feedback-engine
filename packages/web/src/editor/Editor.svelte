@@ -15,7 +15,7 @@
 		type SavedWebhook,
 	} from '../core/index.ts';
 	import type { Screen } from '../dom/capture.ts';
-	import { openProcrastimatePopup } from '../dom/procrastimatePopup.ts';
+	import { openProcrastimatePopup, runOnLightClick } from '../dom/procrastimatePopup.ts';
 	import {
 		buildExport,
 		canShare,
@@ -278,32 +278,40 @@
 		}
 	}
 
-	function send(destination: Destination) {
+	function send(destination: Destination, event?: MouseEvent) {
 		showsShare = false;
 		if (destination.kind === 'procrastimate') {
 			const config = engine.options.procrastimate;
 			if (!config) return;
-			popup.cancel();
-			const items = [...session.items];
-			const names = taskTitle(session.capture, items);
-			popup = openProcrastimatePopup({
-				config,
-				title: names.placeholder,
-				app: engine.options.app ?? (document.title.trim() || undefined),
-				screen,
-				annotations: session.annotations,
-				report: session.compactJSON,
-				onposted: ({ destination: where, url }) => {
-					act(() => {
-						session.markShared(items);
-						session.toast = { text: `Added to ${where} in ProcrastiMate`, link: url };
+			runOnLightClick(event, () => {
+				popup.cancel();
+				const items = [...session.items];
+				const names = taskTitle(session.capture, items);
+				try {
+					popup = openProcrastimatePopup({
+						config,
+						title: names.placeholder,
+						app: engine.options.app ?? (document.title.trim() || undefined),
+						screen,
+						annotations: session.annotations,
+						report: session.compactJSON,
+						onposted: ({ destination: where, url }) => {
+							act(() => {
+								session.markShared(items);
+								session.toast = { text: `Added to ${where} in ProcrastiMate`, link: url };
+							});
+						},
+						onerror: problem => {
+							act(() => {
+								session.toast = { text: 'Couldn’t open ProcrastiMate', problem };
+							});
+						},
 					});
-				},
-				onerror: problem => {
+				} catch (error) {
 					act(() => {
-						session.toast = { text: 'Couldn’t open ProcrastiMate', problem };
+						session.toast = { text: 'Couldn’t open ProcrastiMate', problem: Problem.from(error) };
 					});
-				},
+				}
 			});
 		} else if (destination.kind === 'saved') edit(destination.saved);
 		else posting = destination.delivery;
@@ -407,7 +415,7 @@
 						<button type="button" role="menuitem" onclick={() => void choose(format as ExportFormat)}>{name}</button>
 					{/each}
 					{#each targets as destination, index (index)}
-						<button type="button" role="menuitem" class="destination" onclick={() => send(destination)}>
+						<button type="button" role="menuitem" class="destination" onclick={event => send(destination, event)}>
 							{#if destination.image}<img src={destination.image} alt="" />{/if}
 							{destination.name}
 						</button>
@@ -426,7 +434,7 @@
 				aria-label={destination.name}
 				title={destination.name}
 				disabled={!view.items.length || busy}
-				onclick={() => send(destination)}
+				onclick={event => send(destination, event)}
 			>
 				{#if destination.image}
 					<img src={destination.image} alt="" />
@@ -653,8 +661,8 @@
 			<button
 				type="button"
 				class:failed={problem}
-				onclick={() => {
-					if (link) open(link, '_blank', 'noopener');
+				onclick={event => {
+					if (link) runOnLightClick(event, () => open(link, '_blank', 'noopener'));
 					if (problem) failure = { title: text, problem };
 					act(() => (session.toast = undefined));
 				}}

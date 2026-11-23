@@ -1,6 +1,12 @@
 import { expect, test } from 'bun:test';
 import { defaultProcrastimateApp, procrastimateAppURL } from './procrastimate.ts';
-import { FEEDBACK_CANCELLED, FEEDBACK_POSTED, FEEDBACK_READY, parsePopupReply } from './procrastimatePopup.ts';
+import {
+	FEEDBACK_CANCELLED,
+	FEEDBACK_POSTED,
+	FEEDBACK_READY,
+	isRealPopup,
+	parsePopupReply,
+} from './procrastimatePopup.ts';
 
 test('procrastimateAppURL defaults to the hosted app and trims trailing slashes', () => {
 	expect(procrastimateAppURL({ projects: ['Feedback Engine'] })).toBe(defaultProcrastimateApp);
@@ -66,4 +72,42 @@ test('the popup handoff accepts only replies from the configured ProcrastiMate o
 			expected,
 		),
 	).toBeNull();
+});
+
+test('isRealPopup rejects null, closed windows, and popup-blocker stubs while accepting real fresh, same-origin, and cross-origin windows', () => {
+	const pm = 'https://procrastimate.stf.lol';
+	const app = 'https://pandemic-legacy-s2.stf.lol';
+
+	expect(isRealPopup(null, pm, app)).toBe(false);
+	expect(
+		isRealPopup({ closed: true, [Symbol.toStringTag]: 'Window', location: { href: 'about:blank' } }, pm, app),
+	).toBe(false);
+	expect(isRealPopup({ closed: false, location: { href: `${pm}/feedback?nonce=1` } }, pm, app)).toBe(false);
+	expect(
+		isRealPopup(
+			{ closed: false, [Symbol.toStringTag]: 'Window', location: { href: `${pm}/feedback?nonce=1` } },
+			pm,
+			app,
+		),
+	).toBe(false);
+
+	expect(
+		isRealPopup({ closed: false, [Symbol.toStringTag]: 'Window', location: { href: 'about:blank' } }, pm, app),
+	).toBe(true);
+	expect(
+		isRealPopup(
+			{ closed: false, [Symbol.toStringTag]: 'Window', location: { href: `${pm}/feedback?nonce=1` } },
+			pm,
+			pm,
+		),
+	).toBe(true);
+	const crossOriginProxy = {
+		closed: false,
+		location: {
+			get href(): string {
+				throw new DOMException('Blocked a frame with origin', 'SecurityError');
+			},
+		},
+	};
+	expect(isRealPopup(crossOriginProxy, pm, app)).toBe(true);
 });
