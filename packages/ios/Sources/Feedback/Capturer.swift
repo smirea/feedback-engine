@@ -561,7 +561,6 @@ enum Capturer {
             ContextEntry(name: "Device", value: "\(deviceModel()) · \(device.systemName) \(device.systemVersion)"),
             ContextEntry(name: "Display", value: "\(Report.format(window.bounds.width)) × \(Report.format(window.bounds.height)) pt @\(Report.format(window.screen.scale))x · \(traits.userInterfaceStyle == .dark ? "dark" : "light") mode · text size \(traits.preferredContentSizeCategory.rawValue.replacingOccurrences(of: "UICTContentSizeCategory", with: ""))"),
             ContextEntry(name: "Captured", value: Date.now.formatted(.iso8601.year().month().day().time(includingFractionalSeconds: false).timeZone(separator: .omitted))),
-            ContextEntry(name: "Locale", value: Locale.current.identifier),
         ]
         if !navigation.isEmpty { entries.insert(ContextEntry(name: "Location", value: navigation.joined(separator: " › ")), at: 1) }
         return entries

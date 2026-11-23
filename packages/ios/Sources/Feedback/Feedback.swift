@@ -120,7 +120,7 @@ public enum Feedback {
         }
         var files: [(name: String, data: Data)] = []
         var pasteboard: [[String: Any]] = []
-        if target != .json {
+        if target != .data {
             let png = AnnotatedImage.render(session.capture, session.annotations).pngData() ?? Data()
             files.append(("feedback.png", png))
             pasteboard.append([UTType.png.identifier: png])
@@ -273,7 +273,8 @@ public enum Feedback {
 @MainActor
 enum ShareTarget: Hashable {
     case image
-    case json
+    /// `feedback.json`.
+    case data
     /// `feedback.png` and `feedback.json` in one `feedback.zip`.
     case zip
     case procrastimate
@@ -282,13 +283,14 @@ enum ShareTarget: Hashable {
     /// A webhook saved in the editor, by its `id`.
     case saved(String)
 
-    /// What the Share menu lists: the exports, then the destinations.
+    /// What the Share menu lists: the destinations without a button of their own, then the exports.
     static var available: [ShareTarget] {
-        [.image, .json, .zip] + destinations
+        let pinned = pinned
+        return destinations.filter { !pinned.contains($0) } + [.image, .data, .zip]
     }
 
-    /// The destinations that also get a button beside Share: the ones `Feedback.pinned` names, in its
-    /// order, or the first two without it.
+    /// The destinations that get a button beside Share instead of a menu entry: the ones `Feedback.pinned`
+    /// names, in its order, or the first two without it.
     static var pinned: [ShareTarget] {
         guard let names = Feedback.pinned else { return Array(destinations.prefix(2)) }
         return names.flatMap { name in destinations.filter { $0.title == name } }
@@ -306,8 +308,8 @@ enum ShareTarget: Hashable {
     var title: String {
         switch self {
         case .image: "Image"
-        case .json: "JSON"
-        case .zip: "Image and JSON (ZIP)"
+        case .data: "Data"
+        case .zip: "Image + Data"
         case .procrastimate: "ProcrastiMate"
         case .webhook(let index): Feedback.webhooks[index].name
         case .saved(let id): SavedWebhooks.shared.all.first { $0.id == id }?.name ?? ""
@@ -319,7 +321,7 @@ enum ShareTarget: Hashable {
         switch self {
         case .procrastimate: Image(uiImage: ProcrastimateIcon.image)
         case .webhook(let index): Feedback.webhooks[index].image
-        case .image, .json, .zip, .saved: nil
+        case .image, .data, .zip, .saved: nil
         }
     }
 
@@ -327,7 +329,7 @@ enum ShareTarget: Hashable {
     var systemImage: String {
         switch self {
         case .image: "photo"
-        case .json: "curlybraces"
+        case .data: "curlybraces"
         case .zip: "doc.zipper"
         case .procrastimate, .webhook, .saved: "paperplane"
         }

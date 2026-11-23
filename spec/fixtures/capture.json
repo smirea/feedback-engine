@@ -17,8 +17,8 @@
 			"value": "Demo"
 		},
 		{
-			"name": "Locale",
-			"value": "en_US"
+			"name": "Device",
+			"value": "iPhone 18 Pro · iOS 27.0"
 		}
 	],
 	"context": [
@@ -480,8 +480,8 @@
 					"value": "Demo"
 				},
 				{
-					"name": "Locale",
-					"value": "en_US"
+					"name": "Device",
+					"value": "iPhone 18 Pro · iOS 27.0"
 				}
 			],
 			"items": [

@@ -35,7 +35,8 @@ export type WebhookPost = {
 /**
  * What a post carries beside its `id` and `title`. An app's webhook sends the image export as PNG and the JSON export,
  * as `image` and `report`. A saved webhook sends the image and the JSON export if it was saved with them, as `image`
- * and `feedback`, and the environment as `device`.
+ * and `feedback`, and the environment as `device`. Both send each of the app's own files as a `file` part, a saved
+ * webhook only with the JSON export.
  */
 export type WebhookContents = { kind: 'report' } | { kind: 'saved'; image?: ImageEncoding; feedback: boolean };
 
@@ -62,16 +63,14 @@ export async function postFiles(
 	annotations: Annotations,
 ): Promise<WebhookPost['files']> {
 	const report = () => reportJSON(screen.capture, annotations, false);
+	const files = screen.files.map(file => ({ name: 'file', file }));
 	if (contents.kind === 'report') {
 		const image = await encodeImage(screen, annotations, { format: 'png' });
-		return [
-			{ name: 'image', file: image },
-			{ name: 'report', file: json('feedback.json', report()) },
-		];
+		return [{ name: 'image', file: image }, { name: 'report', file: json('feedback.json', report()) }, ...files];
 	}
 	return [
 		...(contents.image ? [{ name: 'image', file: await encodeImage(screen, annotations, contents.image) }] : []),
-		...(contents.feedback ? [{ name: 'feedback', file: json('feedback.json', report()) }] : []),
+		...(contents.feedback ? [{ name: 'feedback', file: json('feedback.json', report()) }, ...files] : []),
 		{ name: 'device', file: json('device.json', deviceJSON(screen.capture.environment)) },
 	];
 }
@@ -111,7 +110,7 @@ export async function postWebhook(webhook: Webhook, post: WebhookPost): Promise<
 	const form = new FormData();
 	form.set('id', post.id);
 	form.set('title', post.title);
-	for (const { name, file } of post.files) form.set(name, file);
+	for (const { name, file } of post.files) form.append(name, file);
 	let response: Response;
 	try {
 		response = await fetch(url, { method: 'POST', headers, body: form });

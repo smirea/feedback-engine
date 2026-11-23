@@ -114,6 +114,7 @@ A saved webhook's post is [the request](#the-request) with other files after `id
 | --- | --- | --- |
 | `image` | file `feedback.png`, `image/png`, or `feedback.jpg`, `image/jpeg` | The image export, when it is attached. |
 | `feedback` | file `feedback.json`, `application/json` | The JSON export, minified, when it is attached. |
+| `file` | one part per file | The app's own files, when the JSON export is attached. |
 | `device` | file `device.json`, `application/json` | The environment as one object, such as `{"App":"Todo","Device":"iPhone 18 Pro · iOS 27.0"}`, with sorted keys. |
 
 From a browser, the server has to allow the header's name in `Access-Control-Allow-Headers`, as [From a browser](#from-a-browser) describes.
@@ -167,7 +168,7 @@ On the web, a `url` on the page's own origin, such as `/api/feedback`, gets the 
 
 ## The request
 
-Every platform sends the same request: one `POST` to `url`, with `query` in its query string, `headers` among its headers, and a `multipart/form-data` body with four parts.
+Every platform sends the same request: one `POST` to `url`, with `query` in its query string, `headers` among its headers, and a `multipart/form-data` body with four parts, and one more per file the app adds.
 
 | Part | Kind | Contents |
 | --- | --- | --- |
@@ -175,6 +176,7 @@ Every platform sends the same request: one `POST` to `url`, with `query` in its 
 | `title` | text | The screen's name, `Feedback`, and the item count, such as `Lists Feedback: 2 changes`. |
 | `image` | file `feedback.png`, `image/png` | The [image export](../spec/report.md#image-export). |
 | `report` | file `feedback.json`, `application/json` | The [JSON export](../spec/report.md#json-export), minified. |
+| `file` | one part per file, under its own name and type | The app's own [`files`](../packages/web/README.md#attach-state-to-reproduce-a-report), in their order, when it adds any. Read them with `formData.getAll('file')`. |
 
 The same request from a shell, to try a server without an app:
 

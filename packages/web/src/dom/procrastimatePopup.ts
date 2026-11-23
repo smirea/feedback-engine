@@ -2,7 +2,7 @@ import type { Annotations } from '../core/annotations.ts';
 import { Problem, type Fact } from '../core/problem.ts';
 import type { Screen } from './capture.ts';
 import { annotatedImage } from './image.ts';
-import { encodeTaskImages, fileMaxBytes, procrastimateAppURL, type ProcrastimateConfig } from './procrastimate.ts';
+import { encodeTaskImages, procrastimateAppURL, type ProcrastimateConfig } from './procrastimate.ts';
 import { postId } from './webhook.ts';
 
 export const FEEDBACK_READY = 'feedback:ready';
@@ -121,7 +121,8 @@ export function runOnLightClick(event: MouseEvent | undefined, action: () => voi
 
 /**
  * Opens ProcrastiMate's `/feedback` popup synchronously (so the browser's click gesture allows `window.open`) while
- * encoding the screenshot in parallel, then hands over the draft over `postMessage` once the popup signals ready.
+ * encoding the screenshot in parallel, then hands over the draft over `postMessage` once the popup signals ready. The
+ * draft carries the app's own files, which ProcrastiMate attaches to the task beside `feedback.json`.
  * No credential ever leaves ProcrastiMate's own origin.
  */
 export function openProcrastimatePopup({
@@ -153,16 +154,6 @@ export function openProcrastimatePopup({
 	const nonce = postId();
 	const url = `${base}/feedback?nonce=${encodeURIComponent(nonce)}`;
 	const environment: Fact[] = screen.capture.environment.map(entry => ({ label: entry.name, value: entry.value }));
-	const reportBytes = new TextEncoder().encode(report).byteLength;
-	if (reportBytes > fileMaxBytes) {
-		onerror(
-			Problem.from(new Error('The JSON report is over the 16 MB ProcrastiMate takes in one upload.')).with(
-				[{ label: 'Report', value: `${reportBytes} bytes` }],
-				environment,
-			),
-		);
-		return { cancel() {} };
-	}
 
 	const popup = window.open(url, 'feedback-procrastimate', popupFeatures());
 	if (!isRealPopup(popup, expectedOrigin, location.origin)) {
@@ -223,6 +214,7 @@ export function openProcrastimatePopup({
 							space: config.space,
 							image,
 							report,
+							files: screen.files,
 						},
 						expectedOrigin,
 					);
