@@ -1,1414 +1,1479 @@
 <svelte:options css="injected" />
 
 <script lang="ts">
-	import {
-		hitTest,
-		nearestComponent,
-		nearestSource,
-		paletteColor,
-		Problem,
-		Session,
-		tag,
-		taskTitle,
-		title,
-		type Frame,
-		type SavedWebhook,
-	} from '../core/index.ts';
-	import type { Screen } from '../dom/capture.ts';
-	import { openProcrastimatePopup, runOnLightClick } from '../dom/procrastimatePopup.ts';
-	import {
-		buildExport,
-		canShare,
-		copyExport,
-		exportTitles,
-		saveExport,
-		shareExport,
-		type Export,
-		type ExportFormat,
-	} from '../dom/share.ts';
-	import { loadSavedWebhooks, storeSavedWebhooks } from '../dom/savedWebhooks.ts';
-	import { savedDelivery, type Delivery } from '../dom/webhook.ts';
-	import { destinations, pinnedDestinations, type Destination } from './destinations.ts';
-	import type { Engine } from './engine.ts';
-	import ProblemCard from './ProblemCard.svelte';
-	import WebhookDialog from './WebhookDialog.svelte';
-	import WebhookSheet from './WebhookSheet.svelte';
+  import {
+    hitTest,
+    nearestComponent,
+    nearestSource,
+    paletteColor,
+    Problem,
+    Session,
+    tag,
+    taskTitle,
+    title,
+    type Frame,
+    type SavedWebhook,
+  } from "../core/index.ts";
+  import type { Screen } from "../dom/capture.ts";
+  import { openProcrastimatePopup, runOnLightClick } from "../dom/procrastimatePopup.ts";
+  import {
+    buildExport,
+    canShare,
+    copyExport,
+    exportTitles,
+    saveExport,
+    shareExport,
+    type Export,
+    type ExportFormat,
+  } from "../dom/share.ts";
+  import { loadSavedWebhooks, storeSavedWebhooks } from "../dom/savedWebhooks.ts";
+  import { savedDelivery, type Delivery } from "../dom/webhook.ts";
+  import { destinations, pinnedDestinations, type Destination } from "./destinations.ts";
+  import type { Engine } from "./engine.ts";
+  import ProblemCard from "./ProblemCard.svelte";
+  import WebhookDialog from "./WebhookDialog.svelte";
+  import WebhookSheet from "./WebhookSheet.svelte";
 
-	let { engine, screen }: { engine: Engine; screen: Screen } = $props();
+  let { engine, screen }: { engine: Engine; screen: Screen } = $props();
 
-	// The host makes a new editor for each capture, so the first value is the only one.
-	// svelte-ignore state_referenced_locally
-	const { capture, failures } = screen;
-	const session = new Session(capture);
-	// svelte-ignore state_referenced_locally
-	if (engine.pointed) session.pick(engine.pointed);
-	if (failures[0]) {
-		session.toast = {
-			text: `Couldn’t attach ${failures.map(failure => failure.name).join(', ')}`,
-			problem: Problem.from(failures[0].error).with([{ label: 'File', value: failures[0].name }]),
-		};
-	}
-	const maxZoom = 4;
+  // The host makes a new editor for each capture, so the first value is the only one.
+  // svelte-ignore state_referenced_locally
+  const { capture, failures } = screen;
+  const session = new Session(capture);
+  // svelte-ignore state_referenced_locally
+  if (engine.pointed) session.pick(engine.pointed);
+  if (failures[0]) {
+    session.toast = {
+      text: `Couldn’t attach ${failures.map((failure) => failure.name).join(", ")}`,
+      problem: Problem.from(failures[0].error).with([{ label: "File", value: failures[0].name }]),
+    };
+  }
+  const maxZoom = 4;
 
-	/** `Session` is plain TypeScript, so every change to it goes through `act`, and everything drawn reads `view`. */
-	let version = $state(0);
-	const act = (change: () => void) => {
-		change();
-		version += 1;
-	};
-	const view = $derived.by(() => {
-		void version;
-		const path = session.path;
-		const level = Math.min(session.level, path.length - 1);
-		const target = session.target;
-		const referencePath = session.referencePath;
-		const referenceLevel = Math.min(session.referenceLevel, referencePath.length - 1);
-		return {
-			path,
-			level,
-			target,
-			parent: path[level + 1],
-			child: level > 0 ? path[level - 1] : undefined,
-			source: nearestSource(capture, target.id),
-			data: target.data ?? nearestComponent(capture, target.id)?.data,
-			similar: session.similar,
-			items: session.items.map(item => ({
-				...item,
-				number: session.annotations.number(item.target),
-				color: paletteColor(session.colorIndex(item.target)),
-				title: title(capture.nodes[item.target]!),
-			})),
-			references: session.visibleReferences.map(reference => ({
-				...reference,
-				color: paletteColor(session.colorIndex(reference.target)),
-			})),
-			editing: session.editing,
-			text: session.text,
-			canSubmit: session.canSubmit,
-			isReferencing: session.isReferencing,
-			referenceTarget: session.referenceTarget,
-			referenceParent: referencePath[referenceLevel + 1],
-			referenceLevel,
-			toast: session.toast,
-		};
-	});
+  /** `Session` is plain TypeScript, so every change to it goes through `act`, and everything drawn reads `view`. */
+  let version = $state(0);
+  const act = (change: () => void) => {
+    change();
+    version += 1;
+  };
+  const view = $derived.by(() => {
+    void version;
+    const path = session.path;
+    const level = Math.min(session.level, path.length - 1);
+    const target = session.target;
+    const referencePath = session.referencePath;
+    const referenceLevel = Math.min(session.referenceLevel, referencePath.length - 1);
+    return {
+      path,
+      level,
+      target,
+      parent: path[level + 1],
+      child: level > 0 ? path[level - 1] : undefined,
+      source: nearestSource(capture, target.id),
+      data: target.data ?? nearestComponent(capture, target.id)?.data,
+      similar: session.similar,
+      items: session.items.map((item) => ({
+        ...item,
+        number: session.annotations.number(item.target),
+        color: paletteColor(session.colorIndex(item.target)),
+        title: title(capture.nodes[item.target]!),
+      })),
+      references: session.visibleReferences.map((reference) => ({
+        ...reference,
+        color: paletteColor(session.colorIndex(reference.target)),
+      })),
+      editing: session.editing,
+      text: session.text,
+      canSubmit: session.canSubmit,
+      isReferencing: session.isReferencing,
+      referenceTarget: session.referenceTarget,
+      referenceParent: referencePath[referenceLevel + 1],
+      referenceLevel,
+      toast: session.toast,
+    };
+  });
 
-	let dialog = $state<HTMLDialogElement>();
-	let pane = $state<HTMLElement>();
-	let sharp = $state<HTMLCanvasElement>();
-	let field = $state<HTMLTextAreaElement>();
-	let paneSize = $state({ width: 0, height: 0 });
-	let zoom = $state(1);
-	let hover = $state<number>();
-	let showsInfo = $state(false);
-	/** The list of items starts open beside the screenshot, and closed under it on a phone, where it would cover the picture. */
-	let showsItems = $state(matchMedia('(min-width: 900px)').matches);
-	let showsShare = $state(false);
-	let popup = { cancel() {} };
-	let posting = $state<Delivery>();
+  let dialog = $state<HTMLDialogElement>();
+  let pane = $state<HTMLElement>();
+  let sharp = $state<HTMLCanvasElement>();
+  let field = $state<HTMLTextAreaElement>();
+  let paneSize = $state({ width: 0, height: 0 });
+  let zoom = $state(1);
+  let hover = $state<number>();
+  let showsInfo = $state(false);
+  /** The list of items starts open beside the screenshot, and closed under it on a phone, where it would cover the picture. */
+  let showsItems = $state(matchMedia("(min-width: 900px)").matches);
+  let showsShare = $state(false);
+  let popup = { cancel() {} };
+  let posting = $state<Delivery>();
 
-	$effect(() => () => popup.cancel());
-	let saved = $state(loadSavedWebhooks());
-	/** The dialog for a saved webhook, `webhook` unset for a new one. */
-	let editing = $state<{ webhook?: SavedWebhook }>();
-	const targets = $derived(destinations({ ...engine.options, saved }));
-	const pinned = $derived(pinnedDestinations(targets, engine.options.pinned));
-	const listed = $derived(targets.filter(target => !pinned.includes(target)));
-	let confirmsClose = $state(false);
-	let pending = $state<{ format: ExportFormat; ready: Export }>();
-	let failure = $state<{ title: string; problem: Problem }>();
-	let busy = $state(false);
+  $effect(() => () => popup.cancel());
+  let saved = $state(loadSavedWebhooks());
+  /** The dialog for a saved webhook, `webhook` unset for a new one. */
+  let editing = $state<{ webhook?: SavedWebhook }>();
+  const targets = $derived(destinations({ ...engine.options, saved }));
+  const pinned = $derived(pinnedDestinations(targets, engine.options.pinned));
+  const listed = $derived(targets.filter((target) => !pinned.includes(target)));
+  let confirmsClose = $state(false);
+  let pending = $state<{ format: ExportFormat; ready: Export }>();
+  let failure = $state<{ title: string; problem: Problem }>();
+  let busy = $state(false);
 
-	/** Fits the part that was on screen, and never goes below half the width, where targets get too small to tap. */
-	const fit = $derived.by(() => {
-		if (!paneSize.width) return 1;
-		const widthFit = (paneSize.width - 24) / capture.size.width;
-		return Math.min(
-			1,
-			Math.max(Math.min(widthFit, (paneSize.height - 16) / capture.visible.height), widthFit / 2, 0.05),
-		);
-	});
-	const scale = $derived(fit * zoom);
+  /** Fits the part that was on screen, and never goes below half the width, where targets get too small to tap. */
+  const fit = $derived.by(() => {
+    if (!paneSize.width) return 1;
+    const widthFit = (paneSize.width - 24) / capture.size.width;
+    return Math.min(
+      1,
+      Math.max(
+        Math.min(widthFit, (paneSize.height - 16) / capture.visible.height),
+        widthFit / 2,
+        0.05,
+      ),
+    );
+  });
+  const scale = $derived(fit * zoom);
 
-	const box = (frame: Frame) =>
-		`left:${frame.x * scale}px;top:${frame.y * scale}px;width:${Math.max(frame.width * scale, 4)}px;height:${Math.max(frame.height * scale, 4)}px`;
+  const box = (frame: Frame) =>
+    `left:${frame.x * scale}px;top:${frame.y * scale}px;width:${Math.max(frame.width * scale, 4)}px;height:${Math.max(frame.height * scale, 4)}px`;
 
-	$effect(() => {
-		dialog?.showModal();
-		// On a touch screen, focus would raise the keyboard over the screenshot before anything is picked.
-		if (matchMedia('(pointer: fine)').matches) field?.focus();
-		else dialog?.focus();
-	});
+  $effect(() => {
+    dialog?.showModal();
+    // On a touch screen, focus would raise the keyboard over the screenshot before anything is picked.
+    if (matchMedia("(pointer: fine)").matches) field?.focus();
+    else dialog?.focus();
+  });
 
-	/**
-	 * The screenshot's scale comes from the pane's first size and changes only with the window, so the picture does not
-	 * jump as the panel grows with a selection or a longer draft.
-	 */
-	$effect(() => {
-		if (!pane) return;
-		const node = pane;
-		const measure = () => {
-			const style = getComputedStyle(node);
-			paneSize = {
-				width: node.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight),
-				height: node.clientHeight - Number.parseFloat(style.paddingTop) - Number.parseFloat(style.paddingBottom),
-			};
-		};
-		measure();
-		queueMicrotask(() => node.scrollTo({ top: capture.visible.y * fit }));
-		addEventListener('resize', measure);
-		return () => removeEventListener('resize', measure);
-	});
+  /**
+   * The screenshot's scale comes from the pane's first size and changes only with the window, so the picture does not
+   * jump as the panel grows with a selection or a longer draft.
+   */
+  $effect(() => {
+    if (!pane) return;
+    const node = pane;
+    const measure = () => {
+      const style = getComputedStyle(node);
+      paneSize = {
+        width:
+          node.clientWidth -
+          Number.parseFloat(style.paddingLeft) -
+          Number.parseFloat(style.paddingRight),
+        height:
+          node.clientHeight -
+          Number.parseFloat(style.paddingTop) -
+          Number.parseFloat(style.paddingBottom),
+      };
+    };
+    measure();
+    queueMicrotask(() => node.scrollTo({ top: capture.visible.y * fit }));
+    addEventListener("resize", measure);
+    return () => removeEventListener("resize", measure);
+  });
 
-	/**
-	 * The base image has as many pixels as one canvas can hold, which a zoom or a tall capture can outgrow. Then the part
-	 * in view is drawn again from the picture at the screen's resolution, over the base image, once scrolling settles
-	 * into a frame. A zoom hides it at once, since its place and scale no longer match.
-	 */
-	let sharpening = 0;
-	function sharpen() {
-		cancelAnimationFrame(sharpening);
-		sharpening = requestAnimationFrame(() => {
-			const canvas = sharp;
-			if (!pane || !canvas) return;
-			const ratio = devicePixelRatio;
-			if (scale * ratio <= screen.image.width / capture.size.width + 0.01) {
-				canvas.hidden = true;
-				return;
-			}
-			const shown = pane.getBoundingClientRect();
-			const whole = canvas.parentElement!.getBoundingClientRect();
-			const left = Math.floor(Math.max(0, shown.left - whole.left));
-			const top = Math.floor(Math.max(0, shown.top - whole.top));
-			const width = Math.ceil(Math.min(whole.width, shown.right - whole.left)) - left;
-			const height = Math.ceil(Math.min(whole.height, shown.bottom - whole.top)) - top;
-			if (width <= 0 || height <= 0) {
-				canvas.hidden = true;
-				return;
-			}
-			canvas.width = Math.round(width * ratio);
-			canvas.height = Math.round(height * ratio);
-			canvas.style.cssText = `left:${left}px;top:${top}px;width:${width}px;height:${height}px`;
-			screen.picture.draw(
-				canvas.getContext('2d')!,
-				{ x: left / scale, y: top / scale, width: width / scale, height: height / scale },
-				{ x: 0, y: 0 },
-				scale * ratio,
-			);
-			canvas.hidden = false;
-		});
-	}
+  /**
+   * The base image has as many pixels as one canvas can hold, which a zoom or a tall capture can outgrow. Then the part
+   * in view is drawn again from the picture at the screen's resolution, over the base image, once scrolling settles
+   * into a frame. A zoom hides it at once, since its place and scale no longer match.
+   */
+  let sharpening = 0;
+  function sharpen() {
+    cancelAnimationFrame(sharpening);
+    sharpening = requestAnimationFrame(() => {
+      const canvas = sharp;
+      if (!pane || !canvas) return;
+      const ratio = devicePixelRatio;
+      if (scale * ratio <= screen.image.width / capture.size.width + 0.01) {
+        canvas.hidden = true;
+        return;
+      }
+      const shown = pane.getBoundingClientRect();
+      const whole = canvas.parentElement!.getBoundingClientRect();
+      const left = Math.floor(Math.max(0, shown.left - whole.left));
+      const top = Math.floor(Math.max(0, shown.top - whole.top));
+      const width = Math.ceil(Math.min(whole.width, shown.right - whole.left)) - left;
+      const height = Math.ceil(Math.min(whole.height, shown.bottom - whole.top)) - top;
+      if (width <= 0 || height <= 0) {
+        canvas.hidden = true;
+        return;
+      }
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      canvas.style.cssText = `left:${left}px;top:${top}px;width:${width}px;height:${height}px`;
+      screen.picture.draw(
+        canvas.getContext("2d")!,
+        { x: left / scale, y: top / scale, width: width / scale, height: height / scale },
+        { x: 0, y: 0 },
+        scale * ratio,
+      );
+      canvas.hidden = false;
+    });
+  }
 
-	$effect(() => {
-		void scale;
-		void paneSize;
-		if (sharp) sharp.hidden = true;
-		sharpen();
-		return () => cancelAnimationFrame(sharpening);
-	});
+  $effect(() => {
+    void scale;
+    void paneSize;
+    if (sharp) sharp.hidden = true;
+    sharpen();
+    return () => cancelAnimationFrame(sharpening);
+  });
 
-	$effect(() => {
-		const toast = view.toast;
-		if (!toast || toast.problem) return;
-		const timer = setTimeout(() => act(() => (session.toast = undefined)), toast.link ? 5000 : 3000);
-		return () => clearTimeout(timer);
-	});
+  $effect(() => {
+    const toast = view.toast;
+    if (!toast || toast.problem) return;
+    const timer = setTimeout(
+      () => act(() => (session.toast = undefined)),
+      toast.link ? 5000 : 3000,
+    );
+    return () => clearTimeout(timer);
+  });
 
-	const pointAt = (event: MouseEvent) => {
-		const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-		return { x: (event.clientX - rect.left) / scale, y: (event.clientY - rect.top) / scale };
-	};
+  const pointAt = (event: MouseEvent) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    return { x: (event.clientX - rect.left) / scale, y: (event.clientY - rect.top) / scale };
+  };
 
-	function zoomTo(next: number, center: { x: number; y: number }) {
-		if (!pane) return;
-		const clamped = Math.min(maxZoom, Math.max(1, next));
-		const rect = pane.getBoundingClientRect();
-		const x = (pane.scrollLeft + center.x - rect.left) / zoom;
-		const y = (pane.scrollTop + center.y - rect.top) / zoom;
-		zoom = clamped;
-		queueMicrotask(() =>
-			pane?.scrollTo({ left: x * clamped - (center.x - rect.left), top: y * clamped - (center.y - rect.top) }),
-		);
-	}
+  function zoomTo(next: number, center: { x: number; y: number }) {
+    if (!pane) return;
+    const clamped = Math.min(maxZoom, Math.max(1, next));
+    const rect = pane.getBoundingClientRect();
+    const x = (pane.scrollLeft + center.x - rect.left) / zoom;
+    const y = (pane.scrollTop + center.y - rect.top) / zoom;
+    zoom = clamped;
+    queueMicrotask(() =>
+      pane?.scrollTo({
+        left: x * clamped - (center.x - rect.left),
+        top: y * clamped - (center.y - rect.top),
+      }),
+    );
+  }
 
-	function wheel(event: WheelEvent) {
-		if (!event.ctrlKey && !event.metaKey) return;
-		event.preventDefault();
-		zoomTo(zoom * Math.exp(-event.deltaY / 100), { x: event.clientX, y: event.clientY });
-	}
+  function wheel(event: WheelEvent) {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    zoomTo(zoom * Math.exp(-event.deltaY / 100), { x: event.clientX, y: event.clientY });
+  }
 
-	const touches = new Map<number, { x: number; y: number }>();
-	let pinch: { distance: number; zoom: number } | undefined;
-	const spread = () => {
-		const [a, b] = [...touches.values()];
-		return { distance: Math.hypot(a!.x - b!.x, a!.y - b!.y), center: { x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 } };
-	};
-	function pointer(event: PointerEvent) {
-		if (event.pointerType !== 'touch') return;
-		if (event.type === 'pointerup' || event.type === 'pointercancel') {
-			touches.delete(event.pointerId);
-			pinch = undefined;
-			return;
-		}
-		touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
-		if (touches.size !== 2) return;
-		const { distance, center } = spread();
-		pinch ??= { distance, zoom };
-		zoomTo(pinch.zoom * (distance / pinch.distance), center);
-	}
+  const touches = new Map<number, { x: number; y: number }>();
+  let pinch: { distance: number; zoom: number } | undefined;
+  const spread = () => {
+    const [a, b] = [...touches.values()];
+    return {
+      distance: Math.hypot(a!.x - b!.x, a!.y - b!.y),
+      center: { x: (a!.x + b!.x) / 2, y: (a!.y + b!.y) / 2 },
+    };
+  };
+  function pointer(event: PointerEvent) {
+    if (event.pointerType !== "touch") return;
+    if (event.type === "pointerup" || event.type === "pointercancel") {
+      touches.delete(event.pointerId);
+      pinch = undefined;
+      return;
+    }
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size !== 2) return;
+    const { distance, center } = spread();
+    pinch ??= { distance, zoom };
+    zoomTo(pinch.zoom * (distance / pinch.distance), center);
+  }
 
-	function submit() {
-		act(() => session.submit());
-	}
+  function submit() {
+    act(() => session.submit());
+  }
 
-	function keydown(event: KeyboardEvent) {
-		if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
-			event.preventDefault();
-			if (view.isReferencing && view.referenceTarget) act(() => session.insertReference());
-			else if (view.canSubmit) submit();
-		}
-	}
+  function keydown(event: KeyboardEvent) {
+    if (event.key === "Enter" && !event.shiftKey && !event.isComposing) {
+      event.preventDefault();
+      if (view.isReferencing && view.referenceTarget) act(() => session.insertReference());
+      else if (view.canSubmit) submit();
+    }
+  }
 
-	function requestClose() {
-		// The error is drawn over the other sheets, so it is the one to leave first.
-		if (failure) {
-			failure = undefined;
-		} else if (confirmsClose) {
-			confirmsClose = false;
-		} else if (showsInfo || showsShare || posting || pending || editing) {
-			showsInfo = showsShare = false;
-			posting = pending = editing = undefined;
-		} else if (session.isTyping || session.unshared.length) {
-			confirmsClose = true;
-		} else {
-			engine.close();
-		}
-	}
+  function requestClose() {
+    // The error is drawn over the other sheets, so it is the one to leave first.
+    if (failure) {
+      failure = undefined;
+    } else if (confirmsClose) {
+      confirmsClose = false;
+    } else if (showsInfo || showsShare || posting || pending || editing) {
+      showsInfo = showsShare = false;
+      posting = pending = editing = undefined;
+    } else if (session.isTyping || session.unshared.length) {
+      confirmsClose = true;
+    } else {
+      engine.close();
+    }
+  }
 
-	function send(destination: Destination, event?: MouseEvent) {
-		showsShare = false;
-		if (destination.kind === 'procrastimate') {
-			const config = engine.options.procrastimate;
-			if (!config) return;
-			runOnLightClick(event, () => {
-				popup.cancel();
-				const items = [...session.items];
-				const names = taskTitle(session.capture, items);
-				try {
-					popup = openProcrastimatePopup({
-						config,
-						title: names.placeholder,
-						titleSuggestion: names.suggestion,
-						app: engine.options.app ?? (document.title.trim() || undefined),
-						screen,
-						annotations: session.annotations,
-						report: session.compactJSON,
-						onposted: ({ destination: where, url }) => {
-							act(() => {
-								session.markShared(items);
-								session.toast = { text: `Added to ${where} in ProcrastiMate`, link: url };
-							});
-						},
-						onerror: problem => {
-							act(() => {
-								session.toast = { text: 'Couldn’t open ProcrastiMate', problem };
-							});
-						},
-					});
-				} catch (error) {
-					act(() => {
-						session.toast = { text: 'Couldn’t open ProcrastiMate', problem: Problem.from(error) };
-					});
-				}
-			});
-		} else if (destination.kind === 'saved') edit(destination.saved);
-		else posting = destination.delivery;
-	}
+  function send(destination: Destination, event?: MouseEvent) {
+    showsShare = false;
+    if (destination.kind === "procrastimate") {
+      const config = engine.options.procrastimate;
+      if (!config) return;
+      runOnLightClick(event, () => {
+        popup.cancel();
+        const items = [...session.items];
+        const names = taskTitle(session.capture, items);
+        try {
+          popup = openProcrastimatePopup({
+            config,
+            title: names.placeholder,
+            titleSuggestion: names.suggestion,
+            app: engine.options.app ?? (document.title.trim() || undefined),
+            screen,
+            annotations: session.annotations,
+            report: session.compactJSON,
+            onposted: ({ destination: where, url }) => {
+              act(() => {
+                session.markShared(items);
+                session.toast = { text: `Added to ${where} in ProcrastiMate`, link: url };
+              });
+            },
+            onerror: (problem) => {
+              act(() => {
+                session.toast = { text: "Couldn’t open ProcrastiMate", problem };
+              });
+            },
+          });
+        } catch (error) {
+          act(() => {
+            session.toast = { text: "Couldn’t open ProcrastiMate", problem: Problem.from(error) };
+          });
+        }
+      });
+    } else if (destination.kind === "saved") edit(destination.saved);
+    else posting = destination.delivery;
+  }
 
-	function edit(webhook?: SavedWebhook) {
-		showsShare = false;
-		editing = { webhook };
-	}
+  function edit(webhook?: SavedWebhook) {
+    showsShare = false;
+    editing = { webhook };
+  }
 
-	/** Stores the list and returns why it could not, for the dialog to show. */
-	function keep(list: SavedWebhook[]) {
-		try {
-			storeSavedWebhooks(list);
-		} catch (error) {
-			return `This browser did not keep the webhook: ${(error as Error).message}`;
-		}
-		saved = list;
-		editing = undefined;
-	}
+  /** Stores the list and returns why it could not, for the dialog to show. */
+  function keep(list: SavedWebhook[]) {
+    try {
+      storeSavedWebhooks(list);
+    } catch (error) {
+      return `This browser did not keep the webhook: ${(error as Error).message}`;
+    }
+    saved = list;
+    editing = undefined;
+  }
 
-	/** A new webhook is only saved. An edited one is saved and the feedback goes to it, since choosing it opened the form. */
-	function submitWebhook(webhook: SavedWebhook) {
-		const isNew = !saved.some(other => other.id === webhook.id);
-		const failure = keep(isNew ? [...saved, webhook] : saved.map(other => (other.id === webhook.id ? webhook : other)));
-		if (!failure && !isNew) posting = savedDelivery(webhook);
-		return failure;
-	}
+  /** A new webhook is only saved. An edited one is saved and the feedback goes to it, since choosing it opened the form. */
+  function submitWebhook(webhook: SavedWebhook) {
+    const isNew = !saved.some((other) => other.id === webhook.id);
+    const failure = keep(
+      isNew
+        ? [...saved, webhook]
+        : saved.map((other) => (other.id === webhook.id ? webhook : other)),
+    );
+    if (!failure && !isNew) posting = savedDelivery(webhook);
+    return failure;
+  }
 
-	async function choose(format: ExportFormat) {
-		showsShare = false;
-		busy = true;
-		try {
-			const ready = await buildExport(screen, session.annotations, format);
-			engine.lastExport = [{ name: ready.file.name, blob: ready.file }];
-			pending = { format, ready };
-		} finally {
-			busy = false;
-		}
-	}
+  async function choose(format: ExportFormat) {
+    showsShare = false;
+    busy = true;
+    try {
+      const ready = await buildExport(screen, session.annotations, format);
+      engine.lastExport = [{ name: ready.file.name, blob: ready.file }];
+      pending = { format, ready };
+    } finally {
+      busy = false;
+    }
+  }
 
-	async function finish(action: 'copy' | 'save' | 'share') {
-		if (!pending) return;
-		const { ready } = pending;
-		const items = [...session.items];
-		try {
-			if (action === 'copy') await copyExport(ready);
-			else if (action === 'save') saveExport(ready);
-			else if (!(await shareExport(ready))) return;
-		} catch (error) {
-			act(() => (session.toast = { text: `Could not ${action}`, problem: Problem.from(error) }));
-			return;
-		}
-		pending = undefined;
-		act(() => {
-			session.markShared(items);
-			session.toast = {
-				text: action === 'copy' ? 'Copied' : action === 'save' ? `Saved ${ready.file.name}` : 'Shared',
-			};
-		});
-	}
+  async function finish(action: "copy" | "save" | "share") {
+    if (!pending) return;
+    const { ready } = pending;
+    const items = [...session.items];
+    try {
+      if (action === "copy") await copyExport(ready);
+      else if (action === "save") saveExport(ready);
+      else if (!(await shareExport(ready))) return;
+    } catch (error) {
+      act(() => (session.toast = { text: `Could not ${action}`, problem: Problem.from(error) }));
+      return;
+    }
+    pending = undefined;
+    act(() => {
+      session.markShared(items);
+      session.toast = {
+        text:
+          action === "copy" ? "Copied" : action === "save" ? `Saved ${ready.file.name}` : "Shared",
+      };
+    });
+  }
 
-	const count = (items: number) => (items === 1 ? '1 item' : `${items} items`);
+  const count = (items: number) => (items === 1 ? "1 item" : `${items} items`);
 </script>
 
 <dialog
-	bind:this={dialog}
-	class="editor"
-	aria-label="Feedback"
-	onpointerdown={event => {
-		const target = event.target as Element;
-		if (showsInfo && !target.closest('.title')) showsInfo = false;
-		// The close button leaves the menu itself, as Escape does, instead of the editor behind it.
-		if (showsShare && !target.closest('.menu, .close')) showsShare = false;
-	}}
-	oncancel={event => {
-		event.preventDefault();
-		requestClose();
-	}}
+  bind:this={dialog}
+  class="editor"
+  aria-label="Feedback"
+  onpointerdown={(event) => {
+    const target = event.target as Element;
+    if (showsInfo && !target.closest(".title")) showsInfo = false;
+    // The close button leaves the menu itself, as Escape does, instead of the editor behind it.
+    if (showsShare && !target.closest(".menu, .close")) showsShare = false;
+  }}
+  oncancel={(event) => {
+    event.preventDefault();
+    requestClose();
+  }}
 >
-	<header>
-		<button type="button" class="nav close" aria-label="Close" title="Close" onclick={requestClose}>
-			<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
-		</button>
-		<h1>Feedback</h1>
-		<div class="menu">
-			<button
-				type="button"
-				class="nav"
-				aria-label="Share"
-				aria-haspopup="menu"
-				aria-expanded={showsShare}
-				disabled={!view.items.length || busy}
-				onclick={() => (showsShare = !showsShare)}
-			>
-				<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M8 8l4-4 4 4M5 12v7h14v-7" /></svg>
-			</button>
-			{#if showsShare}
-				<div class="popup" role="menu">
-					{#each listed as destination, index (index)}
-						<button type="button" role="menuitem" class="destination" onclick={event => send(destination, event)}>
-							{#if destination.image}<img src={destination.image} alt="" />{/if}
-							{destination.name}
-						</button>
-					{/each}
-					{#each Object.entries(exportTitles) as [format, name] (format)}
-						<button type="button" role="menuitem" onclick={() => void choose(format as ExportFormat)}>{name}</button>
-					{/each}
-					<button type="button" role="menuitem" class="destination" onclick={() => edit()}>
-						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-						New Webhook
-					</button>
-				</div>
-			{/if}
-		</div>
-		{#each pinned as destination, index (index)}
-			<button
-				type="button"
-				class="nav"
-				aria-label={destination.name}
-				title={destination.name}
-				disabled={!view.items.length || busy}
-				onclick={event => send(destination, event)}
-			>
-				{#if destination.image}
-					<img src={destination.image} alt="" />
-				{:else}
-					<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg>
-				{/if}
-			</button>
-		{/each}
-	</header>
+  <header>
+    <button type="button" class="nav close" aria-label="Close" title="Close" onclick={requestClose}>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
+    </button>
+    <h1>Feedback</h1>
+    <div class="menu">
+      <button
+        type="button"
+        class="nav"
+        aria-label="Share"
+        aria-haspopup="menu"
+        aria-expanded={showsShare}
+        disabled={!view.items.length || busy}
+        onclick={() => (showsShare = !showsShare)}
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"
+          ><path d="M12 15V4M8 8l4-4 4 4M5 12v7h14v-7" /></svg
+        >
+      </button>
+      {#if showsShare}
+        <div class="popup" role="menu">
+          {#each listed as destination, index (index)}
+            <button
+              type="button"
+              role="menuitem"
+              class="destination"
+              onclick={(event) => send(destination, event)}
+            >
+              {#if destination.image}<img src={destination.image} alt="" />{/if}
+              {destination.name}
+            </button>
+          {/each}
+          {#each Object.entries(exportTitles) as [format, name] (format)}
+            <button
+              type="button"
+              role="menuitem"
+              onclick={() => void choose(format as ExportFormat)}>{name}</button
+            >
+          {/each}
+          <button type="button" role="menuitem" class="destination" onclick={() => edit()}>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            New Webhook
+          </button>
+        </div>
+      {/if}
+    </div>
+    {#each pinned as destination, index (index)}
+      <button
+        type="button"
+        class="nav"
+        aria-label={destination.name}
+        title={destination.name}
+        disabled={!view.items.length || busy}
+        onclick={(event) => send(destination, event)}
+      >
+        {#if destination.image}
+          <img src={destination.image} alt="" />
+        {:else}
+          <svg viewBox="0 0 24 24" aria-hidden="true"
+            ><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" /></svg
+          >
+        {/if}
+      </button>
+    {/each}
+  </header>
 
-	<div class="body">
-		<div
-			class="pane"
-			role="group"
-			aria-label="Screenshot"
-			bind:this={pane}
-			onwheel={wheel}
-			onscroll={sharpen}
-			onpointerdown={pointer}
-			onpointermove={pointer}
-			onpointerup={pointer}
-			onpointercancel={pointer}
-		>
-			<!-- A screenshot has no keyboard equivalent for pointing at a pixel. The chain buttons reach every node from the keyboard. -->
-			<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
-			<div
-				class="canvas"
-				role="img"
-				aria-label="Screenshot. Click a component to give it feedback."
-				style="width:{capture.size.width * scale}px;height:{capture.size.height * scale}px"
-				onclick={event => act(() => session.pick(pointAt(event)))}
-				onmousemove={event => (hover = hitTest(capture, pointAt(event)))}
-				onmouseleave={() => (hover = undefined)}
-			>
-				<div
-					class="picture"
-					{@attach node => {
-						node.prepend(screen.image);
-					}}
-				>
-					<canvas class="sharp" hidden bind:this={sharp}></canvas>
-				</div>
-				{#each view.similar as id (id)}
-					<span class="box similar" style={box(capture.nodes[id]!.frame)}></span>
-				{/each}
-				{#each view.items as item (item.id)}
-					<span class="box item" style="{box(capture.nodes[item.target]!.frame)};--color:{item.color}">
-						<span class="number">{item.number}</span>
-					</span>
-				{/each}
-				{#each view.references as reference (reference.number)}
-					<span class="box item" style="{box(capture.nodes[reference.target]!.frame)};--color:{reference.color}">
-						<span class="tag">{tag(reference)}</span>
-					</span>
-				{/each}
-				{#if hover !== undefined && hover !== view.target.id && capture.nodes[hover]!.kind !== 'screen'}
-					<span class="box hover" style={box(capture.nodes[hover]!.frame)}></span>
-				{/if}
-				{#if view.target.kind !== 'screen'}
-					<span class="box target" style={box(view.target.frame)}></span>
-				{/if}
-				{#if view.referenceTarget}
-					<span class="box reference" style={box(view.referenceTarget.frame)}></span>
-				{/if}
-			</div>
-		</div>
+  <div class="body">
+    <div
+      class="pane"
+      role="group"
+      aria-label="Screenshot"
+      bind:this={pane}
+      onwheel={wheel}
+      onscroll={sharpen}
+      onpointerdown={pointer}
+      onpointermove={pointer}
+      onpointerup={pointer}
+      onpointercancel={pointer}
+    >
+      <!-- A screenshot has no keyboard equivalent for pointing at a pixel. The chain buttons reach every node from the keyboard. -->
+      <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+      <div
+        class="canvas"
+        role="img"
+        aria-label="Screenshot. Click a component to give it feedback."
+        style="width:{capture.size.width * scale}px;height:{capture.size.height * scale}px"
+        onclick={(event) => act(() => session.pick(pointAt(event)))}
+        onmousemove={(event) => (hover = hitTest(capture, pointAt(event)))}
+        onmouseleave={() => (hover = undefined)}
+      >
+        <div
+          class="picture"
+          {@attach (node) => {
+            node.prepend(screen.image);
+          }}
+        >
+          <canvas class="sharp" hidden bind:this={sharp}></canvas>
+        </div>
+        {#each view.similar as id (id)}
+          <span class="box similar" style={box(capture.nodes[id]!.frame)}></span>
+        {/each}
+        {#each view.items as item (item.id)}
+          <span
+            class="box item"
+            style="{box(capture.nodes[item.target]!.frame)};--color:{item.color}"
+          >
+            <span class="number">{item.number}</span>
+          </span>
+        {/each}
+        {#each view.references as reference (reference.number)}
+          <span
+            class="box item"
+            style="{box(capture.nodes[reference.target]!.frame)};--color:{reference.color}"
+          >
+            <span class="tag">{tag(reference)}</span>
+          </span>
+        {/each}
+        {#if hover !== undefined && hover !== view.target.id && capture.nodes[hover]!.kind !== "screen"}
+          <span class="box hover" style={box(capture.nodes[hover]!.frame)}></span>
+        {/if}
+        {#if view.target.kind !== "screen"}
+          <span class="box target" style={box(view.target.frame)}></span>
+        {/if}
+        {#if view.referenceTarget}
+          <span class="box reference" style={box(view.referenceTarget.frame)}></span>
+        {/if}
+      </div>
+    </div>
 
-		<section class="panel" aria-label="Selection">
-			{#if view.path.length > 1}
-				<div class="chain">
-					<span class="side">
-						{#if view.parent}
-							<button
-								type="button"
-								class="neighbor"
-								aria-label="Select parent, {title(view.parent)}"
-								onclick={() => act(() => session.step(view.level + 1))}
-							>
-								‹ {view.parent.name}
-							</button>
-						{/if}
-					</span>
-					<span class="title">
-						<button
-							type="button"
-							class="selected"
-							aria-expanded={showsInfo}
-							aria-controls="target-info"
-							onclick={() => (showsInfo = !showsInfo)}>{title(view.target)}</button
-						>
-						{#if showsInfo}
-							<div class="info" id="target-info" role="tooltip">
-								{#if view.source || view.similar.length}
-									<div class="meta">
-										<span class="source">{view.source ?? ''}</span>
-										{#if view.similar.length}<span class="similar-count">{view.similar.length} similar</span>{/if}
-									</div>
-								{/if}
-								{#if view.data}<pre class="data">{view.data}</pre>{/if}
-								{#if !view.source && !view.similar.length && !view.data}<span class="empty">No source or data</span
-									>{/if}
-							</div>
-						{/if}
-					</span>
-					<span class="side end">
-						{#if view.child}
-							<button
-								type="button"
-								class="neighbor"
-								aria-label="Select child, {title(view.child)}"
-								onclick={() => act(() => session.step(view.level - 1))}
-							>
-								{view.child.name} ›
-							</button>
-						{/if}
-					</span>
-				</div>
-			{:else}
-				<p class="hint">Click the screenshot to pick a component.</p>
-			{/if}
-			{#if view.isReferencing}
-				<div class="picker">
-					{#if view.referenceTarget}
-						<button
-							type="button"
-							class="round small"
-							aria-label="Select parent"
-							disabled={!view.referenceParent}
-							onclick={() => act(() => session.stepReference(view.referenceLevel + 1))}
-						>
-							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
-						</button>
-						<button
-							type="button"
-							class="round small"
-							aria-label="Select child"
-							disabled={view.referenceLevel === 0}
-							onclick={() => act(() => session.stepReference(view.referenceLevel - 1))}
-						>
-							<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-						</button>
-						<strong class="picked">{title(view.referenceTarget)}</strong>
-						<button type="button" class="insert" onclick={() => act(() => session.insertReference())}>Insert</button>
-					{:else}
-						<span class="picked">@ Click an element{view.items.length ? ' or an item' : ''} to reference it</span>
-					{/if}
-				</div>
-			{/if}
-			<div class="compose">
-				{#if view.editing}
-					{@const item = view.items.find(candidate => candidate.id === view.editing!.id)!}
-					<span class="number static" style="--color:{item.color}" aria-label="Editing item {item.number}"
-						>{item.number}</span
-					>
-				{/if}
-				<textarea
-					bind:this={field}
-					rows="1"
-					aria-label="Feedback text"
-					placeholder="Feedback on {view.target.name}…"
-					value={view.text}
-					oninput={event => act(() => (session.text = event.currentTarget.value))}
-					onkeydown={keydown}></textarea>
-				<button
-					type="button"
-					class="send"
-					aria-label={view.editing ? 'Save feedback' : 'Add feedback'}
-					disabled={!view.canSubmit}
-					onclick={submit}
-				>
-					<svg viewBox="0 0 24 24" aria-hidden="true">
-						{#if view.editing}<path d="M6 12l4 4 8-8" />{:else}<path d="M12 18V7M7 11l5-5 5 5" />{/if}
-					</svg>
-				</button>
-			</div>
-			{#if view.items.length}
-				<div class="items">
-					<button
-						type="button"
-						class="toggle"
-						aria-expanded={showsItems}
-						aria-controls="feedback-items"
-						onclick={() => (showsItems = !showsItems)}
-					>
-						{count(view.items.length)}
-						<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-					</button>
-					{#if showsItems}
-						<!-- A press keeps the field's focus, so Enter still inserts a reference or saves after picking an item. -->
-						<ol id="feedback-items" aria-label="Feedback items">
-							{#each view.items as item (item.id)}
-								<li>
-									<button
-										type="button"
-										class:current={item.id === view.editing?.id}
-										class:referenced={item.target === view.referenceTarget?.id}
-										aria-label={view.isReferencing
-											? `Reference item ${item.number}, ${item.title}`
-											: `Edit item ${item.number}, ${item.title}`}
-										onmousedown={event => event.preventDefault()}
-										onclick={() =>
-											act(() =>
-												view.isReferencing ? session.pickReference(item.target) : session.select(item.target),
-											)}
-									>
-										<span class="number static" style="--color:{item.color}">{item.number}</span>
-										<span class="summary">
-											<strong>{item.title}</strong>
-											<span>{item.text}</span>
-										</span>
-									</button>
-								</li>
-							{/each}
-						</ol>
-					{/if}
-				</div>
-			{/if}
-		</section>
-	</div>
+    <section class="panel" aria-label="Selection">
+      {#if view.path.length > 1}
+        <div class="chain">
+          <span class="side">
+            {#if view.parent}
+              <button
+                type="button"
+                class="neighbor"
+                aria-label="Select parent, {title(view.parent)}"
+                onclick={() => act(() => session.step(view.level + 1))}
+              >
+                ‹ {view.parent.name}
+              </button>
+            {/if}
+          </span>
+          <span class="title">
+            <button
+              type="button"
+              class="selected"
+              aria-expanded={showsInfo}
+              aria-controls="target-info"
+              onclick={() => (showsInfo = !showsInfo)}>{title(view.target)}</button
+            >
+            {#if showsInfo}
+              <div class="info" id="target-info" role="tooltip">
+                {#if view.source || view.similar.length}
+                  <div class="meta">
+                    <span class="source">{view.source ?? ""}</span>
+                    {#if view.similar.length}<span class="similar-count"
+                        >{view.similar.length} similar</span
+                      >{/if}
+                  </div>
+                {/if}
+                {#if view.data}<pre class="data">{view.data}</pre>{/if}
+                {#if !view.source && !view.similar.length && !view.data}<span class="empty"
+                    >No source or data</span
+                  >{/if}
+              </div>
+            {/if}
+          </span>
+          <span class="side end">
+            {#if view.child}
+              <button
+                type="button"
+                class="neighbor"
+                aria-label="Select child, {title(view.child)}"
+                onclick={() => act(() => session.step(view.level - 1))}
+              >
+                {view.child.name} ›
+              </button>
+            {/if}
+          </span>
+        </div>
+      {:else}
+        <p class="hint">Click the screenshot to pick a component.</p>
+      {/if}
+      {#if view.isReferencing}
+        <div class="picker">
+          {#if view.referenceTarget}
+            <button
+              type="button"
+              class="round small"
+              aria-label="Select parent"
+              disabled={!view.referenceParent}
+              onclick={() => act(() => session.stepReference(view.referenceLevel + 1))}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
+            </button>
+            <button
+              type="button"
+              class="round small"
+              aria-label="Select child"
+              disabled={view.referenceLevel === 0}
+              onclick={() => act(() => session.stepReference(view.referenceLevel - 1))}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+            </button>
+            <strong class="picked">{title(view.referenceTarget)}</strong>
+            <button
+              type="button"
+              class="insert"
+              onclick={() => act(() => session.insertReference())}>Insert</button
+            >
+          {:else}
+            <span class="picked"
+              >@ Click an element{view.items.length ? " or an item" : ""} to reference it</span
+            >
+          {/if}
+        </div>
+      {/if}
+      <div class="compose">
+        {#if view.editing}
+          {@const item = view.items.find((candidate) => candidate.id === view.editing!.id)!}
+          <span
+            class="number static"
+            style="--color:{item.color}"
+            aria-label="Editing item {item.number}">{item.number}</span
+          >
+        {/if}
+        <textarea
+          bind:this={field}
+          rows="1"
+          aria-label="Feedback text"
+          placeholder="Feedback on {view.target.name}…"
+          value={view.text}
+          oninput={(event) => act(() => (session.text = event.currentTarget.value))}
+          onkeydown={keydown}></textarea>
+        <button
+          type="button"
+          class="send"
+          aria-label={view.editing ? "Save feedback" : "Add feedback"}
+          disabled={!view.canSubmit}
+          onclick={submit}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            {#if view.editing}<path d="M6 12l4 4 8-8" />{:else}<path
+                d="M12 18V7M7 11l5-5 5 5"
+              />{/if}
+          </svg>
+        </button>
+      </div>
+      {#if view.items.length}
+        <div class="items">
+          <button
+            type="button"
+            class="toggle"
+            aria-expanded={showsItems}
+            aria-controls="feedback-items"
+            onclick={() => (showsItems = !showsItems)}
+          >
+            {count(view.items.length)}
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+          {#if showsItems}
+            <!-- A press keeps the field's focus, so Enter still inserts a reference or saves after picking an item. -->
+            <ol id="feedback-items" aria-label="Feedback items">
+              {#each view.items as item (item.id)}
+                <li>
+                  <button
+                    type="button"
+                    class:current={item.id === view.editing?.id}
+                    class:referenced={item.target === view.referenceTarget?.id}
+                    aria-label={view.isReferencing
+                      ? `Reference item ${item.number}, ${item.title}`
+                      : `Edit item ${item.number}, ${item.title}`}
+                    onmousedown={(event) => event.preventDefault()}
+                    onclick={() =>
+                      act(() =>
+                        view.isReferencing
+                          ? session.pickReference(item.target)
+                          : session.select(item.target),
+                      )}
+                  >
+                    <span class="number static" style="--color:{item.color}">{item.number}</span>
+                    <span class="summary">
+                      <strong>{item.title}</strong>
+                      <span>{item.text}</span>
+                    </span>
+                  </button>
+                </li>
+              {/each}
+            </ol>
+          {/if}
+        </div>
+      {/if}
+    </section>
+  </div>
 
-	{#if view.toast}
-		{@const { text, link, problem } = view.toast}
-		<div class="toast" role={problem ? 'alert' : 'status'}>
-			<button
-				type="button"
-				class:failed={problem}
-				onclick={event => {
-					if (link) runOnLightClick(event, () => open(link, '_blank', 'noopener'));
-					if (problem) failure = { title: text, problem };
-					act(() => (session.toast = undefined));
-				}}
-			>
-				{#if problem}⚠ {text}: {problem.message} ›{:else}✓ {text}{link ? ' ↗' : ''}{/if}
-			</button>
-		</div>
-	{/if}
+  {#if view.toast}
+    {@const { text, link, problem } = view.toast}
+    <div class="toast" role={problem ? "alert" : "status"}>
+      <button
+        type="button"
+        class:failed={problem}
+        onclick={(event) => {
+          if (link) runOnLightClick(event, () => open(link, "_blank", "noopener"));
+          if (problem) failure = { title: text, problem };
+          act(() => (session.toast = undefined));
+        }}
+      >
+        {#if problem}⚠ {text}: {problem.message} ›{:else}✓ {text}{link ? " ↗" : ""}{/if}
+      </button>
+    </div>
+  {/if}
 
-	{#if editing}
-		{@const webhook = editing.webhook}
-		<WebhookDialog
-			{webhook}
-			taken={targets
-				.filter(target => target.kind !== 'saved' || target.saved.id !== webhook?.id)
-				.map(target => target.name)}
-			onsubmit={submitWebhook}
-			ondelete={() => keep(saved.filter(other => other.id !== webhook?.id))}
-			onclose={() => (editing = undefined)}
-		/>
-	{/if}
+  {#if editing}
+    {@const webhook = editing.webhook}
+    <WebhookDialog
+      {webhook}
+      taken={targets
+        .filter((target) => target.kind !== "saved" || target.saved.id !== webhook?.id)
+        .map((target) => target.name)}
+      onsubmit={submitWebhook}
+      ondelete={() => keep(saved.filter((other) => other.id !== webhook?.id))}
+      onclose={() => (editing = undefined)}
+    />
+  {/if}
 
-	{#if posting}
-		<WebhookSheet
-			{screen}
-			{session}
-			delivery={posting}
-			onclose={() => (posting = undefined)}
-			onposted={(items, toast) => {
-				posting = undefined;
-				act(() => {
-					session.markShared(items);
-					session.toast = toast;
-				});
-			}}
-		/>
-	{/if}
+  {#if posting}
+    <WebhookSheet
+      {screen}
+      {session}
+      delivery={posting}
+      onclose={() => (posting = undefined)}
+      onposted={(items, toast) => {
+        posting = undefined;
+        act(() => {
+          session.markShared(items);
+          session.toast = toast;
+        });
+      }}
+    />
+  {/if}
 
-	{#if pending}
-		<div
-			class="scrim"
-			role="presentation"
-			onclick={event => event.target === event.currentTarget && (pending = undefined)}
-		>
-			<div class="sheet actions" role="dialog" tabindex="-1" aria-label="Share {exportTitles[pending.format]}">
-				<h2>{pending.ready.file.name}</h2>
-				<button type="button" onclick={() => void finish('copy')}>Copy Feedback</button>
-				<button type="button" onclick={() => void finish('save')}>Save File</button>
-				{#if canShare(pending.ready)}
-					<button type="button" onclick={() => void finish('share')}>Share…</button>
-				{/if}
-				<button type="button" class="quiet" onclick={() => (pending = undefined)}>Cancel</button>
-			</div>
-		</div>
-	{/if}
+  {#if pending}
+    <div
+      class="scrim"
+      role="presentation"
+      onclick={(event) => event.target === event.currentTarget && (pending = undefined)}
+    >
+      <div
+        class="sheet actions"
+        role="dialog"
+        tabindex="-1"
+        aria-label="Share {exportTitles[pending.format]}"
+      >
+        <h2>{pending.ready.file.name}</h2>
+        <button type="button" onclick={() => void finish("copy")}>Copy Feedback</button>
+        <button type="button" onclick={() => void finish("save")}>Save File</button>
+        {#if canShare(pending.ready)}
+          <button type="button" onclick={() => void finish("share")}>Share…</button>
+        {/if}
+        <button type="button" class="quiet" onclick={() => (pending = undefined)}>Cancel</button>
+      </div>
+    </div>
+  {/if}
 
-	{#if confirmsClose}
-		<div
-			class="scrim"
-			role="presentation"
-			onclick={event => event.target === event.currentTarget && (confirmsClose = false)}
-		>
-			<div class="sheet actions" role="alertdialog" tabindex="-1" aria-label="Discard feedback?">
-				<h2>Discard feedback?</h2>
-				<p>
-					{session.unshared.length
-						? `Closing discards ${count(session.unshared.length)} you haven't shared.`
-						: "Closing discards the feedback you're typing."}
-				</p>
-				<button type="button" class="danger" onclick={() => engine.close()}>Discard</button>
-				<button type="button" class="quiet" onclick={() => (confirmsClose = false)}>Keep Editing</button>
-			</div>
-		</div>
-	{/if}
+  {#if confirmsClose}
+    <div
+      class="scrim"
+      role="presentation"
+      onclick={(event) => event.target === event.currentTarget && (confirmsClose = false)}
+    >
+      <div class="sheet actions" role="alertdialog" tabindex="-1" aria-label="Discard feedback?">
+        <h2>Discard feedback?</h2>
+        <p>
+          {session.unshared.length
+            ? `Closing discards ${count(session.unshared.length)} you haven't shared.`
+            : "Closing discards the feedback you're typing."}
+        </p>
+        <button type="button" class="danger" onclick={() => engine.close()}>Discard</button>
+        <button type="button" class="quiet" onclick={() => (confirmsClose = false)}
+          >Keep Editing</button
+        >
+      </div>
+    </div>
+  {/if}
 
-	{#if failure}
-		<div
-			class="scrim"
-			role="presentation"
-			onclick={event => event.target === event.currentTarget && (failure = undefined)}
-		>
-			<div class="sheet actions" role="dialog" tabindex="-1" aria-label={failure.title}>
-				<h2>{failure.title}</h2>
-				<ProblemCard problem={failure.problem} open />
-				<button type="button" class="quiet" onclick={() => (failure = undefined)}>Close</button>
-			</div>
-		</div>
-	{/if}
+  {#if failure}
+    <div
+      class="scrim"
+      role="presentation"
+      onclick={(event) => event.target === event.currentTarget && (failure = undefined)}
+    >
+      <div class="sheet actions" role="dialog" tabindex="-1" aria-label={failure.title}>
+        <h2>{failure.title}</h2>
+        <ProblemCard problem={failure.problem} open />
+        <button type="button" class="quiet" onclick={() => (failure = undefined)}>Close</button>
+      </div>
+    </div>
+  {/if}
 </dialog>
 
 <style>
-	.editor {
-		position: fixed;
-		inset: 0;
-		display: flex;
-		flex-direction: column;
-		width: 100vw;
-		height: 100dvh;
-		max-width: none;
-		max-height: none;
-		margin: 0;
-		border: 0;
-		padding: 0;
-		background: #141414;
-		color: white;
-		color-scheme: dark;
-		font:
-			15px/1.35 system-ui,
-			-apple-system,
-			'Segoe UI',
-			sans-serif;
-		overflow: hidden;
-		overflow-wrap: anywhere;
-	}
-
-	.editor::backdrop {
-		background: #141414;
-	}
-
-	button,
-	textarea {
-		font: inherit;
-		color: inherit;
-	}
-
-	button {
-		cursor: pointer;
-	}
-
-	button:disabled {
-		cursor: default;
-		opacity: 0.4;
-	}
-
-	header {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		padding: 4px 8px;
-	}
-
-	h1 {
-		flex: 1;
-		min-width: 0;
-		margin: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-size: 17px;
-		font-weight: 600;
-		text-align: center;
-	}
-
-	.round {
-		display: grid;
-		place-items: center;
-		width: 36px;
-		height: 36px;
-		border: 0;
-		border-radius: 50%;
-		background: #2c2c2e;
-	}
-
-	.nav {
-		display: grid;
-		place-items: center;
-		width: 44px;
-		height: 44px;
-		border: 0;
-		padding: 0;
-		background: none;
-	}
-
-	.nav img {
-		width: 30px;
-		height: 30px;
-		object-fit: contain;
-	}
-
-	.nav svg {
-		width: 26px;
-		height: 26px;
-	}
-
-	.round.small {
-		width: 30px;
-		height: 30px;
-	}
-
-	svg {
-		width: 18px;
-		height: 18px;
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 2.2;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-	}
-
-	.menu {
-		position: relative;
-	}
-
-	.popup {
-		position: absolute;
-		top: 42px;
-		right: 0;
-		z-index: 3;
-		display: grid;
-		width: max-content;
-		min-width: 220px;
-		max-width: calc(100vw - 32px);
-		border-radius: 12px;
-		background: #2c2c2e;
-		box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
-		overflow: hidden;
-	}
-
-	.popup button {
-		border: 0;
-		border-bottom: 1px solid rgb(255 255 255 / 0.08);
-		padding: 12px 16px;
-		background: none;
-		text-align: left;
-	}
-
-	.popup button:hover {
-		background: rgb(255 255 255 / 0.08);
-	}
-
-	.popup img {
-		flex: none;
-	}
-
-	.popup .destination {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-	}
-
-	.popup img {
-		width: 18px;
-		height: 18px;
-		object-fit: contain;
-	}
-
-	.popup svg {
-		flex: none;
-		width: 18px;
-		height: 18px;
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 2;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-	}
-
-	.body {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
-		min-height: 0;
-	}
-
-	.pane {
-		flex: 1;
-		min-height: 0;
-		padding: 8px 12px;
-		overflow: auto;
-		overscroll-behavior: contain;
-		touch-action: pan-x pan-y;
-	}
-
-	.canvas {
-		position: relative;
-		margin: 0 auto;
-		cursor: crosshair;
-	}
-
-	/* The picture is clipped, not the boxes over it, so a number badge on a box at the edge stays whole. */
-	.picture {
-		position: absolute;
-		inset: 0;
-		overflow: hidden;
-		border-radius: 10px;
-	}
-
-	.picture :global(canvas) {
-		display: block;
-		width: 100%;
-		height: 100%;
-	}
-
-	.picture .sharp {
-		position: absolute;
-	}
-
-	.sharp[hidden] {
-		display: none;
-	}
-
-	.box {
-		position: absolute;
-		box-sizing: border-box;
-		border-radius: 3px;
-		pointer-events: none;
-	}
-
-	.box.similar {
-		border: 1px dashed rgb(255 214 10 / 0.5);
-		background: rgb(255 214 10 / 0.08);
-	}
-
-	.box.item {
-		border: 1.5px dashed var(--color);
-	}
-
-	.box.target {
-		border: 2px dashed #ffd60a;
-	}
-
-	.box.hover {
-		border: 1px solid rgb(255 255 255 / 0.7);
-		background: rgb(255 255 255 / 0.06);
-	}
-
-	.box.reference {
-		border: 2px dashed #32ade6;
-		background: rgb(50 173 230 / 0.12);
-	}
-
-	.number,
-	.tag {
-		position: absolute;
-		top: -7px;
-		display: grid;
-		place-items: center;
-		min-width: 16px;
-		height: 16px;
-		padding: 0 3px;
-		box-sizing: border-box;
-		background: var(--color);
-		color: white;
-		font-size: 11px;
-		font-weight: 700;
-		line-height: 1;
-	}
-
-	.number {
-		left: -7px;
-		border-radius: 8px;
-	}
-
-	.tag {
-		right: -7px;
-		border-radius: 3px;
-	}
-
-	.number.static {
-		position: static;
-		width: 22px;
-		height: 22px;
-		border-radius: 11px;
-		margin-bottom: 8px;
-		font-size: 12px;
-	}
-
-	.panel {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr);
-		gap: 10px;
-		padding: 16px;
-		padding-bottom: max(16px, env(safe-area-inset-bottom));
-		background: #1f1f1f;
-	}
-
-	/* A long title takes the space it needs, but never all of it: each neighbor keeps its longest word, up to 35%. */
-	.chain {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		container-type: inline-size;
-	}
-
-	.side {
-		display: flex;
-		flex: 1 1 0;
-	}
-
-	.side.end {
-		justify-content: flex-end;
-	}
-
-	.neighbor {
-		max-width: 35cqi;
-		border: 0;
-		border-radius: 16px;
-		padding: 6px 10px;
-		background: #333336;
-		color: #aeaeb2;
-		font-size: 14px;
-		overflow-wrap: break-word;
-	}
-
-	.title {
-		position: relative;
-		display: flex;
-		min-width: 0;
-	}
-
-	.selected {
-		min-width: 0;
-		border: 0;
-		padding: 0;
-		background: none;
-		color: #ffd60a;
-		font-size: 16px;
-		font-weight: 700;
-	}
-
-	/* Above the title, so on a phone it covers the screenshot and not the field being typed in. */
-	.info {
-		position: absolute;
-		bottom: calc(100% + 10px);
-		left: 50%;
-		z-index: 3;
-		display: grid;
-		gap: 8px;
-		width: max-content;
-		max-width: min(420px, calc(100vw - 32px));
-		border-radius: 12px;
-		padding: 10px 12px;
-		box-sizing: border-box;
-		background: #2c2c2e;
-		box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
-		translate: -50% 0;
-	}
-
-	.empty {
-		color: #aeaeb2;
-		font-size: 13px;
-	}
-
-	.hint {
-		margin: 0;
-		color: #aeaeb2;
-	}
-
-	.meta {
-		display: flex;
-		justify-content: space-between;
-		gap: 16px;
-		color: #aeaeb2;
-		font:
-			12px ui-monospace,
-			'SF Mono',
-			Menlo,
-			monospace;
-	}
-
-	.similar-count {
-		flex: none;
-		color: rgb(255 214 10 / 0.7);
-	}
-
-	.data {
-		max-height: 40vh;
-		margin: 0;
-		color: #aeaeb2;
-		font:
-			11px/1.3 ui-monospace,
-			'SF Mono',
-			Menlo,
-			monospace;
-		overflow: auto;
-		white-space: pre-wrap;
-	}
-
-	.picker {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		min-height: 34px;
-	}
-
-	.picked {
-		flex: 1;
-		min-width: 0;
-		color: #32ade6;
-	}
-
-	.insert {
-		border: 0;
-		border-radius: 999px;
-		padding: 6px 14px;
-		background: #32ade6;
-		font-weight: 600;
-	}
-
-	.compose {
-		display: flex;
-		align-items: flex-end;
-		gap: 8px;
-	}
-
-	textarea {
-		flex: 1;
-		min-height: 38px;
-		max-height: 60dvh;
-		border: 0;
-		border-radius: 18px;
-		padding: 8px 12px;
-		box-sizing: border-box;
-		background: #2e2e30;
-		field-sizing: content;
-		resize: none;
-	}
-
-	textarea:focus-visible,
-	button:focus-visible {
-		outline: 2px solid #0a84ff;
-		outline-offset: 1px;
-	}
-
-	.send {
-		display: grid;
-		place-items: center;
-		width: 36px;
-		height: 36px;
-		border: 0;
-		border-radius: 50%;
-		background: #0a84ff;
-	}
-
-	.items {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		min-height: 0;
-	}
-
-	.toggle {
-		display: flex;
-		align-items: center;
-		gap: 4px;
-		align-self: flex-start;
-		border: 0;
-		padding: 2px 0;
-		background: none;
-		color: #aeaeb2;
-		font-size: 13px;
-		font-weight: 600;
-	}
-
-	.toggle svg {
-		width: 14px;
-		height: 14px;
-		transition: rotate 0.15s;
-	}
-
-	.toggle[aria-expanded='false'] svg {
-		rotate: -90deg;
-	}
-
-	ol {
-		display: grid;
-		gap: 4px;
-		min-height: 0;
-		max-height: 30dvh;
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		overflow-y: auto;
-		overscroll-behavior: contain;
-	}
-
-	ol button {
-		display: flex;
-		align-items: flex-start;
-		gap: 10px;
-		width: 100%;
-		border: 1.5px solid transparent;
-		border-radius: 12px;
-		padding: 8px 10px;
-		box-sizing: border-box;
-		background: #2a2a2c;
-		text-align: left;
-	}
-
-	ol button:hover {
-		background: #323234;
-	}
-
-	ol button.current {
-		border-color: #ffd60a;
-	}
-
-	ol button.referenced {
-		border-color: #32ade6;
-		background: rgb(50 173 230 / 0.12);
-	}
-
-	ol .number.static {
-		flex: none;
-		margin: 0;
-	}
-
-	.summary {
-		display: grid;
-		gap: 2px;
-		min-width: 0;
-	}
-
-	.summary strong {
-		font-size: 13px;
-		color: #aeaeb2;
-	}
-
-	.summary span {
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		overflow: hidden;
-		white-space: pre-line;
-	}
-
-	.toast {
-		position: absolute;
-		top: 60px;
-		left: 50%;
-		/* Above a sheet's scrim: a failed copy leaves the export's sheet open, and its toast must still take a click. */
-		z-index: 6;
-		width: max-content;
-		max-width: calc(100% - 32px);
-		translate: -50% 0;
-	}
-
-	.toast button {
-		border: 0;
-		border-radius: 999px;
-		padding: 10px 16px;
-		background: rgb(52 199 89 / 0.92);
-		font-weight: 600;
-	}
-
-	.toast .failed {
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 2;
-		line-clamp: 2;
-		overflow: hidden;
-		border-radius: 18px;
-		background: rgb(255 69 58 / 0.94);
-		text-align: start;
-	}
-
-	.scrim {
-		position: absolute;
-		inset: 0;
-		z-index: 5;
-		display: grid;
-		place-items: end center;
-		background: rgb(0 0 0 / 0.5);
-	}
-
-	.sheet {
-		width: min(100%, 420px);
-		border-radius: 16px 16px 0 0;
-		padding: 16px;
-		padding-bottom: max(16px, env(safe-area-inset-bottom));
-		box-sizing: border-box;
-		background: #1f1f1f;
-	}
-
-	.actions {
-		display: grid;
-		gap: 8px;
-	}
-
-	.actions h2 {
-		margin: 0 0 4px;
-		font-size: 16px;
-		text-align: center;
-	}
-
-	.actions p {
-		margin: 0 0 4px;
-		color: #aeaeb2;
-		text-align: center;
-	}
-
-	.actions button {
-		border: 0;
-		border-radius: 12px;
-		padding: 12px;
-		background: #2c2c2e;
-		font-weight: 600;
-	}
-
-	.actions .danger {
-		color: #ff453a;
-	}
-
-	.actions .quiet {
-		background: none;
-		color: #aeaeb2;
-	}
-
-	@media (min-width: 900px) {
-		.body {
-			flex-direction: row;
-		}
-
-		/* A column, so the list takes the height left under the field and scrolls inside it. */
-		.panel {
-			display: flex;
-			flex-direction: column;
-			width: 380px;
-			box-sizing: border-box;
-			border-left: 1px solid rgb(255 255 255 / 0.08);
-		}
-
-		ol {
-			max-height: none;
-		}
-
-		.info {
-			top: calc(100% + 10px);
-			bottom: auto;
-		}
-
-		.scrim {
-			place-items: center;
-		}
-
-		.sheet {
-			border-radius: 16px;
-		}
-	}
+  .editor {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100vw;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    padding: 0;
+    background: #141414;
+    color: white;
+    color-scheme: dark;
+    font:
+      15px/1.35 system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+  }
+
+  .editor::backdrop {
+    background: #141414;
+  }
+
+  button,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: default;
+    opacity: 0.4;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+  }
+
+  h1 {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 17px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .round {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: #2c2c2e;
+  }
+
+  .nav {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    padding: 0;
+    background: none;
+  }
+
+  .nav img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+  }
+
+  .nav svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .round.small {
+    width: 30px;
+    height: 30px;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .menu {
+    position: relative;
+  }
+
+  .popup {
+    position: absolute;
+    top: 42px;
+    right: 0;
+    z-index: 3;
+    display: grid;
+    width: max-content;
+    min-width: 220px;
+    max-width: calc(100vw - 32px);
+    border-radius: 12px;
+    background: #2c2c2e;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+    overflow: hidden;
+  }
+
+  .popup button {
+    border: 0;
+    border-bottom: 1px solid rgb(255 255 255 / 0.08);
+    padding: 12px 16px;
+    background: none;
+    text-align: left;
+  }
+
+  .popup button:hover {
+    background: rgb(255 255 255 / 0.08);
+  }
+
+  .popup img {
+    flex: none;
+  }
+
+  .popup .destination {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .popup img {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+  }
+
+  .popup svg {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .pane {
+    flex: 1;
+    min-height: 0;
+    padding: 8px 12px;
+    overflow: auto;
+    overscroll-behavior: contain;
+    touch-action: pan-x pan-y;
+  }
+
+  .canvas {
+    position: relative;
+    margin: 0 auto;
+    cursor: crosshair;
+  }
+
+  /* The picture is clipped, not the boxes over it, so a number badge on a box at the edge stays whole. */
+  .picture {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border-radius: 10px;
+  }
+
+  .picture :global(canvas) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .picture .sharp {
+    position: absolute;
+  }
+
+  .sharp[hidden] {
+    display: none;
+  }
+
+  .box {
+    position: absolute;
+    box-sizing: border-box;
+    border-radius: 3px;
+    pointer-events: none;
+  }
+
+  .box.similar {
+    border: 1px dashed rgb(255 214 10 / 0.5);
+    background: rgb(255 214 10 / 0.08);
+  }
+
+  .box.item {
+    border: 1.5px dashed var(--color);
+  }
+
+  .box.target {
+    border: 2px dashed #ffd60a;
+  }
+
+  .box.hover {
+    border: 1px solid rgb(255 255 255 / 0.7);
+    background: rgb(255 255 255 / 0.06);
+  }
+
+  .box.reference {
+    border: 2px dashed #32ade6;
+    background: rgb(50 173 230 / 0.12);
+  }
+
+  .number,
+  .tag {
+    position: absolute;
+    top: -7px;
+    display: grid;
+    place-items: center;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 3px;
+    box-sizing: border-box;
+    background: var(--color);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .number {
+    left: -7px;
+    border-radius: 8px;
+  }
+
+  .tag {
+    right: -7px;
+    border-radius: 3px;
+  }
+
+  .number.static {
+    position: static;
+    width: 22px;
+    height: 22px;
+    border-radius: 11px;
+    margin-bottom: 8px;
+    font-size: 12px;
+  }
+
+  .panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: #1f1f1f;
+  }
+
+  /* A long title takes the space it needs, but never all of it: each neighbor keeps its longest word, up to 35%. */
+  .chain {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    container-type: inline-size;
+  }
+
+  .side {
+    display: flex;
+    flex: 1 1 0;
+  }
+
+  .side.end {
+    justify-content: flex-end;
+  }
+
+  .neighbor {
+    max-width: 35cqi;
+    border: 0;
+    border-radius: 16px;
+    padding: 6px 10px;
+    background: #333336;
+    color: #aeaeb2;
+    font-size: 14px;
+    overflow-wrap: break-word;
+  }
+
+  .title {
+    position: relative;
+    display: flex;
+    min-width: 0;
+  }
+
+  .selected {
+    min-width: 0;
+    border: 0;
+    padding: 0;
+    background: none;
+    color: #ffd60a;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  /* Above the title, so on a phone it covers the screenshot and not the field being typed in. */
+  .info {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    z-index: 3;
+    display: grid;
+    gap: 8px;
+    width: max-content;
+    max-width: min(420px, calc(100vw - 32px));
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    background: #2c2c2e;
+    box-shadow: 0 12px 40px rgb(0 0 0 / 0.5);
+    translate: -50% 0;
+  }
+
+  .empty {
+    color: #aeaeb2;
+    font-size: 13px;
+  }
+
+  .hint {
+    margin: 0;
+    color: #aeaeb2;
+  }
+
+  .meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    color: #aeaeb2;
+    font:
+      12px ui-monospace,
+      "SF Mono",
+      Menlo,
+      monospace;
+  }
+
+  .similar-count {
+    flex: none;
+    color: rgb(255 214 10 / 0.7);
+  }
+
+  .data {
+    max-height: 40vh;
+    margin: 0;
+    color: #aeaeb2;
+    font:
+      11px/1.3 ui-monospace,
+      "SF Mono",
+      Menlo,
+      monospace;
+    overflow: auto;
+    white-space: pre-wrap;
+  }
+
+  .picker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+  }
+
+  .picked {
+    flex: 1;
+    min-width: 0;
+    color: #32ade6;
+  }
+
+  .insert {
+    border: 0;
+    border-radius: 999px;
+    padding: 6px 14px;
+    background: #32ade6;
+    font-weight: 600;
+  }
+
+  .compose {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+  }
+
+  textarea {
+    flex: 1;
+    min-height: 38px;
+    max-height: 60dvh;
+    border: 0;
+    border-radius: 18px;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    background: #2e2e30;
+    field-sizing: content;
+    resize: none;
+  }
+
+  textarea:focus-visible,
+  button:focus-visible {
+    outline: 2px solid #0a84ff;
+    outline-offset: 1px;
+  }
+
+  .send {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 50%;
+    background: #0a84ff;
+  }
+
+  .items {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+  }
+
+  .toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    align-self: flex-start;
+    border: 0;
+    padding: 2px 0;
+    background: none;
+    color: #aeaeb2;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .toggle svg {
+    width: 14px;
+    height: 14px;
+    transition: rotate 0.15s;
+  }
+
+  .toggle[aria-expanded="false"] svg {
+    rotate: -90deg;
+  }
+
+  ol {
+    display: grid;
+    gap: 4px;
+    min-height: 0;
+    max-height: 30dvh;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  ol button {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    border: 1.5px solid transparent;
+    border-radius: 12px;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    background: #2a2a2c;
+    text-align: left;
+  }
+
+  ol button:hover {
+    background: #323234;
+  }
+
+  ol button.current {
+    border-color: #ffd60a;
+  }
+
+  ol button.referenced {
+    border-color: #32ade6;
+    background: rgb(50 173 230 / 0.12);
+  }
+
+  ol .number.static {
+    flex: none;
+    margin: 0;
+  }
+
+  .summary {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .summary strong {
+    font-size: 13px;
+    color: #aeaeb2;
+  }
+
+  .summary span {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    white-space: pre-line;
+  }
+
+  .toast {
+    position: absolute;
+    top: 60px;
+    left: 50%;
+    /* Above a sheet's scrim: a failed copy leaves the export's sheet open, and its toast must still take a click. */
+    z-index: 6;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    translate: -50% 0;
+  }
+
+  .toast button {
+    border: 0;
+    border-radius: 999px;
+    padding: 10px 16px;
+    background: rgb(52 199 89 / 0.92);
+    font-weight: 600;
+  }
+
+  .toast .failed {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
+    border-radius: 18px;
+    background: rgb(255 69 58 / 0.94);
+    text-align: start;
+  }
+
+  .scrim {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: end center;
+    background: rgb(0 0 0 / 0.5);
+  }
+
+  .sheet {
+    width: min(100%, 420px);
+    border-radius: 16px 16px 0 0;
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    background: #1f1f1f;
+  }
+
+  .actions {
+    display: grid;
+    gap: 8px;
+  }
+
+  .actions h2 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    text-align: center;
+  }
+
+  .actions p {
+    margin: 0 0 4px;
+    color: #aeaeb2;
+    text-align: center;
+  }
+
+  .actions button {
+    border: 0;
+    border-radius: 12px;
+    padding: 12px;
+    background: #2c2c2e;
+    font-weight: 600;
+  }
+
+  .actions .danger {
+    color: #ff453a;
+  }
+
+  .actions .quiet {
+    background: none;
+    color: #aeaeb2;
+  }
+
+  @media (min-width: 900px) {
+    .body {
+      flex-direction: row;
+    }
+
+    /* A column, so the list takes the height left under the field and scrolls inside it. */
+    .panel {
+      display: flex;
+      flex-direction: column;
+      width: 380px;
+      box-sizing: border-box;
+      border-left: 1px solid rgb(255 255 255 / 0.08);
+    }
+
+    ol {
+      max-height: none;
+    }
+
+    .info {
+      top: calc(100% + 10px);
+      bottom: auto;
+    }
+
+    .scrim {
+      place-items: center;
+    }
+
+    .sheet {
+      border-radius: 16px;
+    }
+  }
 </style>

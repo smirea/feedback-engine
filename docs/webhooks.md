@@ -8,13 +8,13 @@ An app can list any number of webhooks. They appear after the built-in Share ent
 
 A webhook has the same five parts on every platform:
 
-| Part | Required | Meaning |
-| --- | --- | --- |
-| `name` | yes | The entry's name in the Share menu, such as `GitHub Issue`. |
-| `url` | yes | Where the post goes. |
-| `image` | no | An icon beside the name. |
-| `headers` | no | Sent with the post, such as `Authorization`. Fixed values, or a function that runs when the post is made. |
-| `query` | no | Added to the URL's query. A name already in the URL is replaced. Fixed values or a function, like `headers`. |
+| Part      | Required | Meaning                                                                                                      |
+| --------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `name`    | yes      | The entry's name in the Share menu, such as `GitHub Issue`.                                                  |
+| `url`     | yes      | Where the post goes.                                                                                         |
+| `image`   | no       | An icon beside the name.                                                                                     |
+| `headers` | no       | Sent with the post, such as `Authorization`. Fixed values, or a function that runs when the post is made.    |
+| `query`   | no       | Added to the URL's query. A name already in the URL is replaced. Fixed values or a function, like `headers`. |
 
 [Authentication](#authentication) covers what to put in `headers` and `query`.
 
@@ -42,19 +42,19 @@ Feedback.webhooks = [
 ```svelte
 <!-- src/routes/+layout.svelte -->
 <script lang="ts">
-	import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte';
+  import { setupFeedbackEngine } from "@stefan.inc/feedback-engine/svelte";
 
-	setupFeedbackEngine({
-		webhooks: [
-			{
-				name: 'Triage',
-				url: 'https://hooks.example.com/feedback',
-				image: '/triage.svg',
-				headers: { Authorization: `Bearer ${key}` },
-				query: { app: 'todo-web' },
-			},
-		],
-	});
+  setupFeedbackEngine({
+    webhooks: [
+      {
+        name: "Triage",
+        url: "https://hooks.example.com/feedback",
+        image: "/triage.svg",
+        headers: { Authorization: `Bearer ${key}` },
+        query: { app: "todo-web" },
+      },
+    ],
+  });
 </script>
 ```
 
@@ -64,18 +64,18 @@ Feedback.webhooks = [
 
 ```tsx
 // src/main.tsx
-import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
+import { setupFeedbackEngine } from "@stefan.inc/feedback-engine/react";
 
 setupFeedbackEngine({
-	webhooks: [
-		{
-			name: 'Triage',
-			url: 'https://hooks.example.com/feedback',
-			image: '/triage.svg',
-			headers: { Authorization: `Bearer ${key}` },
-			query: { app: 'todo-web' },
-		},
-	],
+  webhooks: [
+    {
+      name: "Triage",
+      url: "https://hooks.example.com/feedback",
+      image: "/triage.svg",
+      headers: { Authorization: `Bearer ${key}` },
+      query: { app: "todo-web" },
+    },
+  ],
 });
 ```
 
@@ -85,16 +85,16 @@ Pass the same `webhooks` to `setupFeedbackEngine()` in the client component from
 
 ```tsx
 // app/Feedback.tsx
-'use client';
+"use client";
 
-import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
-import { useEffect } from 'react';
+import { setupFeedbackEngine } from "@stefan.inc/feedback-engine/react";
+import { useEffect } from "react";
 
-const webhooks = [{ name: 'Triage', url: 'https://hooks.example.com/feedback' }];
+const webhooks = [{ name: "Triage", url: "https://hooks.example.com/feedback" }];
 
 export function Feedback() {
-	useEffect(() => setupFeedbackEngine({ app: 'My App', button: true, webhooks }).destroy, []);
-	return null;
+  useEffect(() => setupFeedbackEngine({ app: "My App", button: true, webhooks }).destroy, []);
+  return null;
 }
 ```
 
@@ -110,12 +110,12 @@ Anyone using the app can add a webhook of their own, with no change to its code.
 
 A saved webhook's post is [the request](#the-request) with other files after `id` and `title`:
 
-| Part | Kind | Contents |
-| --- | --- | --- |
-| `image` | file `feedback.png`, `image/png`, or `feedback.jpg`, `image/jpeg` | The image export, when it is attached. |
-| `feedback` | file `feedback.json`, `application/json` | The JSON export, minified, when it is attached. |
-| `file` | one part per file | The app's own files, when the JSON export is attached. |
-| `device` | file `device.json`, `application/json` | The environment as one object, such as `{"App":"Todo","Device":"iPhone 18 Pro · iOS 27.0"}`, with sorted keys. |
+| Part       | Kind                                                              | Contents                                                                                                       |
+| ---------- | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `image`    | file `feedback.png`, `image/png`, or `feedback.jpg`, `image/jpeg` | The image export, when it is attached.                                                                         |
+| `feedback` | file `feedback.json`, `application/json`                          | The JSON export, minified, when it is attached.                                                                |
+| `file`     | one part per file                                                 | The app's own files, when the JSON export is attached.                                                         |
+| `device`   | file `device.json`, `application/json`                            | The environment as one object, such as `{"App":"Todo","Device":"iPhone 18 Pro · iOS 27.0"}`, with sorted keys. |
 
 From a browser, the server has to allow the header's name in `Access-Control-Allow-Headers`, as [From a browser](#from-a-browser) describes.
 
@@ -133,18 +133,18 @@ A user is often signed out when the app starts, so a token cannot be fixed at se
 
 ```ts
 setupFeedbackEngine({
-	webhooks: [
-		{
-			name: 'GitHub Issue',
-			url: 'https://hooks.example.com/feedback',
-			headers: async () => {
-				const token = await auth.token();
-				if (!token) throw new Error('Sign in to send feedback.');
-				return { Authorization: `Bearer ${token}` };
-			},
-			query: () => ({ team: auth.team }),
-		},
-	],
+  webhooks: [
+    {
+      name: "GitHub Issue",
+      url: "https://hooks.example.com/feedback",
+      headers: async () => {
+        const token = await auth.token();
+        if (!token) throw new Error("Sign in to send feedback.");
+        return { Authorization: `Bearer ${token}` };
+      },
+      query: () => ({ team: auth.team }),
+    },
+  ],
 });
 ```
 
@@ -170,13 +170,13 @@ On the web, a `url` on the page's own origin, such as `/api/feedback`, gets the 
 
 Every platform sends the same request: one `POST` to `url`, with `query` in its query string, `headers` among its headers, and a `multipart/form-data` body with four parts, and one more per file the app adds.
 
-| Part | Kind | Contents |
-| --- | --- | --- |
-| `id` | text | A UUID made for this post. **Retry** sends the same one, so a server can tell a retry from a second post. |
-| `title` | text | The screen's name, `Feedback`, and the item count, such as `Lists Feedback: 2 changes`. |
-| `image` | file `feedback.png`, `image/png` | The [image export](../spec/report.md#image-export). |
-| `report` | file `feedback.json`, `application/json` | The [JSON export](../spec/report.md#json-export), minified. |
-| `file` | one part per file, under its own name and type | The app's own [`files`](../packages/web/README.md#attach-state-to-reproduce-a-report), in their order, when it adds any. Read them with `formData.getAll('file')`. |
+| Part     | Kind                                           | Contents                                                                                                                                                           |
+| -------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`     | text                                           | A UUID made for this post. **Retry** sends the same one, so a server can tell a retry from a second post.                                                          |
+| `title`  | text                                           | The screen's name, `Feedback`, and the item count, such as `Lists Feedback: 2 changes`.                                                                            |
+| `image`  | file `feedback.png`, `image/png`               | The [image export](../spec/report.md#image-export).                                                                                                                |
+| `report` | file `feedback.json`, `application/json`       | The [JSON export](../spec/report.md#json-export), minified.                                                                                                        |
+| `file`   | one part per file, under its own name and type | The app's own [`files`](../packages/web/README.md#attach-state-to-reproduce-a-report), in their order, when it adds any. Read them with `formData.getAll('file')`. |
 
 The same request from a shell, to try a server without an app:
 
@@ -271,18 +271,18 @@ Feedback.webhooks = [
 Svelte, React, and Next.js, with `githubIcon` from the entry point the app already imports:
 
 ```ts
-import { githubIcon, setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte'; // or '/react'
+import { githubIcon, setupFeedbackEngine } from "@stefan.inc/feedback-engine/svelte"; // or '/react'
 
 setupFeedbackEngine({
-	webhooks: [
-		{
-			name: 'GitHub Issue',
-			url: 'https://feedback-github-webhook.example.workers.dev',
-			image: githubIcon,
-			headers: { Authorization: 'Bearer some-key' },
-			query: { labels: 'feedback,web' },
-		},
-	],
+  webhooks: [
+    {
+      name: "GitHub Issue",
+      url: "https://feedback-github-webhook.example.workers.dev",
+      image: githubIcon,
+      headers: { Authorization: "Bearer some-key" },
+      query: { labels: "feedback,web" },
+    },
+  ],
 });
 ```
 
@@ -310,18 +310,21 @@ A server reads the form and answers with JSON. This one accepts a post from any 
 
 ```ts
 export default {
-	async fetch(request: Request): Promise<Response> {
-		const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Authorization' };
-		if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+  async fetch(request: Request): Promise<Response> {
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Headers": "Authorization",
+    };
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
 
-		const form = await request.formData();
-		const title = form.get('title') as string;
-		const image = form.get('image') as File;
-		const report = JSON.parse(await (form.get('report') as File).text());
-		const id = await save(form.get('id') as string, title, image, report);
+    const form = await request.formData();
+    const title = form.get("title") as string;
+    const image = form.get("image") as File;
+    const report = JSON.parse(await (form.get("report") as File).text());
+    const id = await save(form.get("id") as string, title, image, report);
 
-		return Response.json({ url: `https://triage.example.com/feedback/${id}` }, { headers: cors });
-	},
+    return Response.json({ url: `https://triage.example.com/feedback/${id}` }, { headers: cors });
+  },
 };
 ```
 

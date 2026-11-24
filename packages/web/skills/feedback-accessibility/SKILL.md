@@ -12,11 +12,11 @@ A Feedback capture is built from two sources:
 
 Each package finds them its own way:
 
-| Package | Elements come from | Components come from |
-| --- | --- | --- |
-| [SwiftUI](#swiftui) | The accessibility tree | `.feedback(...)` tags. SwiftUI exposes no view hierarchy at runtime. |
-| [Svelte](#svelte) | The DOM, with ARIA roles and names | `{@attach feedback(...)}` tags. A compiled component leaves no record in the page. |
-| [React](#react) | The DOM, with ARIA roles and names | React's own component tree, with no tag. `ref={feedback(...)}` tags add regions drawn inline. |
+| Package             | Elements come from                 | Components come from                                                                          |
+| ------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------- |
+| [SwiftUI](#swiftui) | The accessibility tree             | `.feedback(...)` tags. SwiftUI exposes no view hierarchy at runtime.                          |
+| [Svelte](#svelte)   | The DOM, with ARIA roles and names | `{@attach feedback(...)}` tags. A compiled component leaves no record in the page.            |
+| [React](#react)     | The DOM, with ARIA roles and names | React's own component tree, with no tag. `ref={feedback(...)}` tags add regions drawn inline. |
 
 A tap selects the smallest node under the finger. Where no element or component sits under the point, the tap falls through to the nearest enclosing component, usually the whole screen. The one exception: inside the box of a node that already has feedback, a tap selects that item so its feedback can be edited, and a second tap on the same spot drills down to the smallest node.
 
@@ -202,15 +202,15 @@ A screenshot shows what went wrong, not how to get back there. Give the export w
 
 ```ts
 setupFeedbackEngine({
-	// `label: value` lines under the image's title, and the first `environment` entries of feedback.json.
-	metadata: () => ({ 'Signed in as': store.user?.email ?? 'nobody', 'Plan': store.plan }),
-	// Files in every export but the image: Data, Image + Data, ProcrastiMate, and webhooks.
-	files: [
-		{ name: 'store.json', data: () => store.snapshot() }, // any value is written as JSON
-		{ name: 'log.txt', data: () => log.join('\n') }, // a string is text
-		{ name: 'history.json', data: () => fetchHistory() }, // a promise works too
-		{ name: 'draft.json', data: () => editor?.draft ?? null }, // null leaves the file out
-	],
+  // `label: value` lines under the image's title, and the first `environment` entries of feedback.json.
+  metadata: () => ({ "Signed in as": store.user?.email ?? "nobody", Plan: store.plan }),
+  // Files in every export but the image: Data, Image + Data, ProcrastiMate, and webhooks.
+  files: [
+    { name: "store.json", data: () => store.snapshot() }, // any value is written as JSON
+    { name: "log.txt", data: () => log.join("\n") }, // a string is text
+    { name: "history.json", data: () => fetchHistory() }, // a promise works too
+    { name: "draft.json", data: () => editor?.draft ?? null }, // null leaves the file out
+  ],
 });
 ```
 

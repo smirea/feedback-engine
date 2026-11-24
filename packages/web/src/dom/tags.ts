@@ -15,7 +15,7 @@ export type Component = { tag: Tag; roots: Element[] };
 export const discovery: { read?: () => Map<Element, Component[]> } = {};
 
 /** Marks the element that holds the pill and the editor, so a capture leaves Feedback's own UI out. */
-export const hostAttribute = 'data-feedback-engine';
+export const hostAttribute = "data-feedback-engine";
 
 /** An element's `file:line`, written by a build plugin for a framework that does not record one itself. */
-export const sourceAttribute = 'data-feedback-source';
+export const sourceAttribute = "data-feedback-source";

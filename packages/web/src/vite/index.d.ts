@@ -1,4 +1,4 @@
-import type { Plugin } from 'vite';
+import type { Plugin } from "vite";
 
 /** The name a tag gets without one, from the component's file. */
 export function componentName(file: string): string;
@@ -8,23 +8,30 @@ export function addLocations(content: string, file: string): string | undefined;
 
 /** A Svelte preprocessor that gives every `feedback()` tag its `file:line` and a default name. */
 export function feedbackEngine(options?: {
-	/** The folder paths are written from. Defaults to the working directory. */
-	root?: string;
-}): { name: string; markup(input: { content: string; filename?: string }): { code: string } | undefined };
+  /** The folder paths are written from. Defaults to the working directory. */
+  root?: string;
+}): {
+  name: string;
+  markup(input: { content: string; filename?: string }): { code: string } | undefined;
+};
 
 /**
  * Registers a React module's components, rewrites its `feedback(` calls to carry their `file:line`, and, with
  * `elementSources`, writes each HTML element's `file:line` into an attribute. `undefined` when nothing changed.
  */
-export function addReact(code: string, file: string, options?: { elementSources?: boolean }): string | undefined;
+export function addReact(
+  code: string,
+  file: string,
+  options?: { elementSources?: boolean },
+): string | undefined;
 
 /**
  * The Vite plugin for a React app: it finds the app's components for captures, and compiles the editor. Put it before
  * the React plugin. It needs Vite 8 or later.
  */
 export function feedbackEngineReact(options?: {
-	/** Writes each HTML element's `file:line` into a `data-feedback-source` attribute. Defaults to the dev server only. */
-	elementSources?: boolean;
+  /** Writes each HTML element's `file:line` into a `data-feedback-source` attribute. Defaults to the dev server only. */
+  elementSources?: boolean;
 }): Plugin;
 
 /** The attribute `elementSources` writes. */

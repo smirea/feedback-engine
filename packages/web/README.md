@@ -6,8 +6,8 @@ In-app feedback for Svelte and React apps. For SwiftUI, use the [iOS package](ht
 
 Alt+Meta+click anything in the browser, click any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
 
-| The editor in the browser | The `feedback.png` it exports |
-| :---: | :---: |
+|                                                                                                                                                                                                                             The editor in the browser                                                                                                                                                                                                                             |                                                                                                                                                                                                                                                                                                                               The `feedback.png` it exports                                                                                                                                                                                                                                                                                                                               |
+| :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | <img src="https://raw.githubusercontent.com/smirea/feedback-engine/master/docs/web-editor.png" alt="The Feedback editor in Google Chrome over the React example: the page's screenshot on the left with four notes numbered 1 to 4 and an @5 tag on the New List button, and the panel on the right with the Groceries row, a ListRow, selected and its note, Show a progress bar here, and under the field all four notes, each with its number, target, and text." width="320"> | <img src="https://raw.githubusercontent.com/smirea/feedback-engine/master/docs/web-export.png" alt="The feedback.png exported from the browser: the page with four numbered boxes and the New List button tagged @5. One column on the left holds the app's details as Name: value lines, a References line naming @5 with its file:line, and a card per note, each joined to its box by a curve with a dot at each end that crosses no other box. Each card has its note, the component or element, and its file:line. The note on Settings reads Move this next to @5_Button. A faint GitHub mark and the repository's URL sit in the top left corner, above the details." width="520"> |
 
 Four notes on the React example in Google Chrome. The last one points at a second element. Type `@`, click the element, and the note reads `Move this next to @5_Button`. The export draws that element's box and highlights the token in the same color, so an agent knows which button you meant. Each card names its component or element and the `file:line` it comes from, such as `src/components/ListRow.tsx:4`.
@@ -31,11 +31,11 @@ Requires Svelte 5.29 or later.
 ```svelte
 <!-- src/routes/+layout.svelte -->
 <script lang="ts">
-	import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte';
-	import { store } from '../lib/store.svelte';
+  import { setupFeedbackEngine } from "@stefan.inc/feedback-engine/svelte";
+  import { store } from "../lib/store.svelte";
 
-	const feedback = setupFeedbackEngine({ app: 'Todo', version: '1.0' });
-	feedback.context('Store', () => store);
+  const feedback = setupFeedbackEngine({ app: "Todo", version: "1.0" });
+  feedback.context("Store", () => store);
 </script>
 ```
 
@@ -50,7 +50,9 @@ Requires Svelte 5.29 or later.
 
   ```ts
   if (import.meta.env.DEV) {
-  	void import('@stefan.inc/feedback-engine/svelte').then(({ setupFeedbackEngine }) => setupFeedbackEngine());
+    void import("@stefan.inc/feedback-engine/svelte").then(({ setupFeedbackEngine }) =>
+      setupFeedbackEngine(),
+    );
   }
   ```
 
@@ -58,10 +60,10 @@ Add the plugin to your Vite config. JavaScript has no `#fileID` and `#line`, so 
 
 ```ts
 // vite.config.ts
-import { feedbackEngine } from '@stefan.inc/feedback-engine/vite';
+import { feedbackEngine } from "@stefan.inc/feedback-engine/vite";
 
 export default defineConfig({
-	plugins: [sveltekit({ preprocess: [feedbackEngine()] })],
+  plugins: [sveltekit({ preprocess: [feedbackEngine()] })],
 });
 ```
 
@@ -73,10 +75,10 @@ Attach a tag to each component's root element:
 
 ```svelte
 <script lang="ts">
-	import { feedback } from '@stefan.inc/feedback-engine/svelte';
+  import { feedback } from "@stefan.inc/feedback-engine/svelte";
 
-	let { item }: { item: TodoItem } = $props();
-	let isExpanded = $state(false);
+  let { item }: { item: TodoItem } = $props();
+  let isExpanded = $state(false);
 </script>
 
 <li {@attach feedback()}>…</li>
@@ -94,21 +96,21 @@ Add the plugin to your Vite config, before the React plugin:
 
 ```ts
 // vite.config.ts
-import { feedbackEngineReact } from '@stefan.inc/feedback-engine/vite';
-import react from '@vitejs/plugin-react';
+import { feedbackEngineReact } from "@stefan.inc/feedback-engine/vite";
+import react from "@vitejs/plugin-react";
 
 export default defineConfig({
-	plugins: [feedbackEngineReact(), react()],
+  plugins: [feedbackEngineReact(), react()],
 });
 ```
 
 ```tsx
 // src/main.tsx
-import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
-import { store } from './store';
+import { setupFeedbackEngine } from "@stefan.inc/feedback-engine/react";
+import { store } from "./store";
 
-const feedback = setupFeedbackEngine({ app: 'Todo', version: '1.0' });
-feedback.context('Store', () => store);
+const feedback = setupFeedbackEngine({ app: "Todo", version: "1.0" });
+feedback.context("Store", () => store);
 ```
 
 `setupFeedbackEngine()` takes the options and returns the engine described under [Svelte](#turn-it-on). Call it before or after React renders. To keep Feedback out of production, call it behind `import.meta.env.DEV`. In a React 18 app with seven components, the production bundle then grew by 1.3 kB, for the component names, and had none of the editor.
@@ -125,7 +127,7 @@ React keeps its component tree at runtime, so a capture reads it. Every componen
 
 ```tsx
 export function TodoRow({ item, onToggle }: { item: TodoItem; onToggle: () => void }) {
-	return <li>…</li>;
+  return <li>…</li>;
 }
 ```
 
@@ -141,17 +143,17 @@ A capture shows `TodoRow` with `item: {id: "…", title: "Oat milk", …}` at `s
 `feedback(name, data)` returns a ref. Use it for a region that is drawn inline, without a component of its own:
 
 ```tsx
-import { feedback } from '@stefan.inc/feedback-engine/react';
+import { feedback } from "@stefan.inc/feedback-engine/react";
 
-<figure ref={feedback('Chart', () => plot)}>…</figure>;
+<figure ref={feedback("Chart", () => plot)}>…</figure>;
 ```
 
 React keeps hook state without names, so a capture cannot read it. To report state, tag the component's root element under the component's own name. The tag's data then replaces the props:
 
 ```tsx
 export function TodoDetailDialog({ item }: { item: TodoItem }) {
-	const [draft, setDraft] = useState({ ...item });
-	return <dialog ref={feedback('TodoDetailDialog', () => ({ item: draft }))}>…</dialog>;
+  const [draft, setDraft] = useState({ ...item });
+  return <dialog ref={feedback("TodoDetailDialog", () => ({ item: draft }))}>…</dialog>;
 }
 ```
 
@@ -163,10 +165,10 @@ Requires Next.js 16 and React 19. Turbopack, the default, and webpack (`--webpac
 
 ```ts
 // next.config.ts
-import { withFeedbackEngine } from '@stefan.inc/feedback-engine/next';
+import { withFeedbackEngine } from "@stefan.inc/feedback-engine/next";
 
 export default withFeedbackEngine({
-	// your config
+  // your config
 });
 ```
 
@@ -176,22 +178,22 @@ Turn Feedback on from a client component in your root layout:
 
 ```tsx
 // app/Feedback.tsx
-'use client';
+"use client";
 
-import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/react';
-import { useEffect } from 'react';
+import { setupFeedbackEngine } from "@stefan.inc/feedback-engine/react";
+import { useEffect } from "react";
 
 export function Feedback() {
-	useEffect(() => setupFeedbackEngine({ app: 'My App', button: true }).destroy, []);
-	return null;
+  useEffect(() => setupFeedbackEngine({ app: "My App", button: true }).destroy, []);
+  return null;
 }
 ```
 
 ```tsx
 // app/layout.tsx
 <body>
-	{children}
-	<Feedback />
+  {children}
+  <Feedback />
 </body>
 ```
 
@@ -204,11 +206,11 @@ export function Feedback() {
 
 ```ts
 setupFeedbackEngine({
-	metadata: () => ({ 'Signed in as': store.user?.email ?? 'nobody' }),
-	files: [
-		{ name: 'store.json', data: () => store.snapshot() },
-		{ name: 'history.json', data: () => fetchHistory() },
-	],
+  metadata: () => ({ "Signed in as": store.user?.email ?? "nobody" }),
+  files: [
+    { name: "store.json", data: () => store.snapshot() },
+    { name: "history.json", data: () => fetchHistory() },
+  ],
 });
 ```
 
@@ -250,8 +252,8 @@ Pass the whitelisted `projects` to `setupFeedbackEngine()`:
 
 ```ts
 setupFeedbackEngine({
-	app: 'My App',
-	procrastimate: { projects: ['Website'] },
+  app: "My App",
+  procrastimate: { projects: ["Website"] },
 });
 ```
 
@@ -291,10 +293,12 @@ Choosing **ProcrastiMate** opens a popup on `https://procrastimate.stf.lol/feedb
 A webhook is a Share entry of your own. Choosing it posts the image export and the JSON export to your server in one request, with nothing to fill in, and a toast links to whatever the server made. Someone using the page can also add one from **New Webhook**, last in the Share menu, and the browser keeps it for the site ([docs/webhooks.md](https://github.com/smirea/feedback-engine/blob/master/docs/webhooks.md#add-one-in-the-editor)). List any number of them when you set Feedback up:
 
 ```ts
-import { githubIcon, setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte'; // or '/react'
+import { githubIcon, setupFeedbackEngine } from "@stefan.inc/feedback-engine/svelte"; // or '/react'
 
 setupFeedbackEngine({
-	webhooks: [{ name: 'GitHub Issue', url: 'https://hooks.example.com/feedback', image: githubIcon }],
+  webhooks: [
+    { name: "GitHub Issue", url: "https://hooks.example.com/feedback", image: githubIcon },
+  ],
 });
 ```
 
@@ -303,7 +307,7 @@ Each webhook also takes `headers` and `query`, as fixed values or as a function 
 The first two of ProcrastiMate and the webhooks also get a button beside Share. To choose them yourself, list their names in `pinned`, and the rest stay in the Share menu:
 
 ```ts
-setupFeedbackEngine({ webhooks, pinned: ['ProcrastiMate'] });
+setupFeedbackEngine({ webhooks, pinned: ["ProcrastiMate"] });
 ```
 
 ## Releases

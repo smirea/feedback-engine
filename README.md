@@ -4,8 +4,8 @@
 
 Shake the device, Alt+Meta+click anything in the browser, or hold three fingers on a phone's browser, tap any component on the frozen screenshot, and write what should change. Feedback exports one file that names every component you flagged, where it lives in the source, and the data it was showing, so an agent can act on the feedback without guessing.
 
-| Tap a component in the editor | The `feedback.png` it exports |
-| :---: | :---: |
+|                                                                                                                                          Tap a component in the editor                                                                                                                                           |                                                                                                                                                                                                                                                                                                                 The `feedback.png` it exports                                                                                                                                                                                                                                                                                                                  |
+| :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | <img src="docs/editor.png" alt="The Feedback editor on iOS, in dark mode: a frozen screenshot with four notes numbered 1 to 4 and an @5 tag on the New List button. The Groceries row, a ListRow, is selected, with its note, Show a progress bar here, and a closed 4 items list under the field." width="250"> | <img src="docs/export.png" alt="The exported feedback.png: the screenshot with four numbered boxes and the New List button tagged @5. One column on the left holds the app's details as Name: value lines, a References line naming @5 as Button New List, and a card per note, each joined to its box by a curve with a dot at each end that crosses no other box. Each card has its note, the component or element, and its file:line. The note on Settings names the New List button as @5_Button, highlighted in the color of that button's box. A faint GitHub mark and the repository's URL sit in the top left corner, above the details." width="520"> |
 
 Four notes on one screen. The fourth points at a second element. Type `@`, tap the element, and the note reads `Move this next to @5_Button`. The export draws that element's box and highlights the token in the same color, so an agent knows which button you meant.
@@ -137,8 +137,8 @@ While the editor is open, VoiceOver and UI automation see only the editor. Its t
 bun add @stefan.inc/feedback-engine
 ```
 
-| The editor in the browser | The `feedback.png` it exports |
-| :---: | :---: |
+|                                                                                                                                                                                             The editor in the browser                                                                                                                                                                                             |                                                                                                                                                                                                                                                                                               The `feedback.png` it exports                                                                                                                                                                                                                                                                                               |
+| :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: | :-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------: |
 | <img src="docs/web-editor.png" alt="The Feedback editor in Google Chrome over the React example: the page's screenshot on the left with four notes numbered 1 to 4 and an @5 tag on the New List button, and the panel on the right with the Groceries row, a ListRow, selected and its note, Show a progress bar here, and under the field all four notes, each with its number, target, and text." width="320"> | <img src="docs/web-export.png" alt="The feedback.png exported from the browser: the page with four numbered boxes and the New List button tagged @5. One column on the left holds the app's details as Name: value lines, a References line naming @5 with its file:line, and a card per note, each joined to its box by a curve with a dot at each end that crosses no other box. Each card has its note, the component or element, and its file:line. The note on Settings reads Move this next to @5_Button. A faint GitHub mark and the repository's URL sit in the top left corner, above the details." width="520"> |
 
 Four notes on the React example in Google Chrome, the last one with a reference to the New List button. Each card names its component or element and the `file:line` it comes from, such as `src/components/ListRow.tsx:4`.
@@ -156,10 +156,12 @@ Feedback.webhooks = [
 ```
 
 ```ts
-import { githubIcon, setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte'; // or '/react'
+import { githubIcon, setupFeedbackEngine } from "@stefan.inc/feedback-engine/svelte"; // or '/react'
 
 setupFeedbackEngine({
-	webhooks: [{ name: 'GitHub Issue', url: 'https://hooks.example.com/feedback', image: githubIcon }],
+  webhooks: [
+    { name: "GitHub Issue", url: "https://hooks.example.com/feedback", image: githubIcon },
+  ],
 });
 ```
 
@@ -172,7 +174,7 @@ Feedback.pinned = ["ProcrastiMate"]
 ```
 
 ```ts
-setupFeedbackEngine({ webhooks, pinned: ['ProcrastiMate'] });
+setupFeedbackEngine({ webhooks, pinned: ["ProcrastiMate"] });
 ```
 
 ## ProcrastiMate
@@ -235,7 +237,7 @@ Every push to `master` that passes CI releases the web package. A change to `pac
 
 ```md
 ---
-'@stefan.inc/feedback-engine': minor
+"@stefan.inc/feedback-engine": minor
 ---
 
 Webhooks post the image and the report to an app's own server from the Share menu.

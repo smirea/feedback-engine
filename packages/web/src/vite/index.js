@@ -1,9 +1,9 @@
-import { basename, relative, sep } from 'node:path';
-import { parse } from 'svelte/compiler';
+import { basename, relative, sep } from "node:path";
+import { parse } from "svelte/compiler";
 
-export { addReact, feedbackEngineReact, sourceAttribute } from './react.js';
+export { addReact, feedbackEngineReact, sourceAttribute } from "./react.js";
 
-const entry = '@stefan.inc/feedback-engine/svelte';
+const entry = "@stefan.inc/feedback-engine/svelte";
 
 /**
  * The name a tag gets without one: the file's, as `.feedback(self)` uses the type's on iOS. A SvelteKit route file is
@@ -12,17 +12,17 @@ const entry = '@stefan.inc/feedback-engine/svelte';
  * @param {string} file
  */
 export function componentName(file) {
-	const pascal = (/** @type {string} */ text) =>
-		text
-			.split(/[^\p{L}\p{N}]+/u)
-			.filter(Boolean)
-			.map(word => word[0].toUpperCase() + word.slice(1))
-			.join('');
-	const stem = basename(file).replace(/\.svelte$/, '');
-	if (!stem.startsWith('+')) return pascal(stem) || 'Component';
-	const folders = file.split('/').slice(0, -1);
-	const routes = folders.lastIndexOf('routes');
-	return pascal([...folders.slice(routes + 1), stem].join(' '));
+  const pascal = (/** @type {string} */ text) =>
+    text
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter(Boolean)
+      .map((word) => word[0].toUpperCase() + word.slice(1))
+      .join("");
+  const stem = basename(file).replace(/\.svelte$/, "");
+  if (!stem.startsWith("+")) return pascal(stem) || "Component";
+  const folders = file.split("/").slice(0, -1);
+  const routes = folders.lastIndexOf("routes");
+  return pascal([...folders.slice(routes + 1), stem].join(" "));
 }
 
 /**
@@ -33,25 +33,26 @@ export function componentName(file) {
  * @returns {string[]}
  */
 function dataNames(instance) {
-	/** @type {string[]} */
-	const names = [];
-	for (const statement of instance?.content.body ?? []) {
-		if (statement.type !== 'VariableDeclaration') continue;
-		for (const { id, init } of statement.declarations) {
-			if (init?.type !== 'CallExpression') continue;
-			const callee = init.callee.type === 'MemberExpression' ? init.callee.object : init.callee;
-			if (callee.type !== 'Identifier') continue;
-			if (callee.name === '$state' && id.type === 'Identifier') names.push(id.name);
-			if (callee.name !== '$props') continue;
-			if (id.type === 'Identifier') names.push(`...${id.name}`);
-			for (const property of id.type === 'ObjectPattern' ? id.properties : []) {
-				if (property.type !== 'Property') continue;
-				const value = property.value.type === 'AssignmentPattern' ? property.value.left : property.value;
-				if (value.type === 'Identifier') names.push(value.name);
-			}
-		}
-	}
-	return names;
+  /** @type {string[]} */
+  const names = [];
+  for (const statement of instance?.content.body ?? []) {
+    if (statement.type !== "VariableDeclaration") continue;
+    for (const { id, init } of statement.declarations) {
+      if (init?.type !== "CallExpression") continue;
+      const callee = init.callee.type === "MemberExpression" ? init.callee.object : init.callee;
+      if (callee.type !== "Identifier") continue;
+      if (callee.name === "$state" && id.type === "Identifier") names.push(id.name);
+      if (callee.name !== "$props") continue;
+      if (id.type === "Identifier") names.push(`...${id.name}`);
+      for (const property of id.type === "ObjectPattern" ? id.properties : []) {
+        if (property.type !== "Property") continue;
+        const value =
+          property.value.type === "AssignmentPattern" ? property.value.left : property.value;
+        if (value.type === "Identifier") names.push(value.name);
+      }
+    }
+  }
+  return names;
 }
 
 /**
@@ -64,64 +65,71 @@ function dataNames(instance) {
  * @returns {string | undefined} The new source, or `undefined` when nothing changed.
  */
 export function addLocations(content, file) {
-	if (!content.includes(entry)) return;
-	const ast = parse(content, { modern: true, filename: file });
-	/** @type {Set<string>} */
-	const locals = new Set();
-	for (const script of [ast.instance, ast.module]) {
-		for (const node of script?.content.body ?? []) {
-			if (node.type !== 'ImportDeclaration' || node.source.value !== entry) continue;
-			for (const specifier of node.specifiers) {
-				if (
-					specifier.type === 'ImportSpecifier' &&
-					specifier.imported.type === 'Identifier' &&
-					specifier.imported.name === 'feedback'
-				) {
-					locals.add(specifier.local.name);
-				}
-			}
-		}
-	}
-	if (!locals.size) return;
+  if (!content.includes(entry)) return;
+  const ast = parse(content, { modern: true, filename: file });
+  /** @type {Set<string>} */
+  const locals = new Set();
+  for (const script of [ast.instance, ast.module]) {
+    for (const node of script?.content.body ?? []) {
+      if (node.type !== "ImportDeclaration" || node.source.value !== entry) continue;
+      for (const specifier of node.specifiers) {
+        if (
+          specifier.type === "ImportSpecifier" &&
+          specifier.imported.type === "Identifier" &&
+          specifier.imported.name === "feedback"
+        ) {
+          locals.add(specifier.local.name);
+        }
+      }
+    }
+  }
+  if (!locals.size) return;
 
-	/** @type {{ at: number, text: string }[]} */
-	const edits = [];
-	const name = JSON.stringify(componentName(file));
-	const names = dataNames(ast.instance);
-	const data = names.length ? `, () => ({ ${names.join(', ')} })` : '';
-	const visit = (/** @type {any} */ node) => {
-		if (!node || typeof node !== 'object') return;
-		if (Array.isArray(node)) return node.forEach(visit);
-		if (node.type === 'AttachTag') {
-			const call = node.expression;
-			if (call.type === 'CallExpression' && call.callee.type === 'Identifier' && locals.has(call.callee.name)) {
-				const line = content.slice(0, call.start).split('\n').length;
-				const bare = call.arguments.length === 0 ? data : '';
-				edits.push({ at: call.callee.end, text: `.at(${JSON.stringify(`${file}:${line}`)}, ${name}${bare})` });
-			}
-			return;
-		}
-		for (const key of [
-			'fragment',
-			'nodes',
-			'attributes',
-			'consequent',
-			'alternate',
-			'body',
-			'fallback',
-			'pending',
-			'then',
-			'catch',
-		]) {
-			visit(node[key]);
-		}
-	};
-	visit(ast.fragment);
-	if (!edits.length) return;
-	let code = content;
-	for (const edit of edits.toSorted((a, b) => b.at - a.at))
-		code = code.slice(0, edit.at) + edit.text + code.slice(edit.at);
-	return code;
+  /** @type {{ at: number, text: string }[]} */
+  const edits = [];
+  const name = JSON.stringify(componentName(file));
+  const names = dataNames(ast.instance);
+  const data = names.length ? `, () => ({ ${names.join(", ")} })` : "";
+  const visit = (/** @type {any} */ node) => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (node.type === "AttachTag") {
+      const call = node.expression;
+      if (
+        call.type === "CallExpression" &&
+        call.callee.type === "Identifier" &&
+        locals.has(call.callee.name)
+      ) {
+        const line = content.slice(0, call.start).split("\n").length;
+        const bare = call.arguments.length === 0 ? data : "";
+        edits.push({
+          at: call.callee.end,
+          text: `.at(${JSON.stringify(`${file}:${line}`)}, ${name}${bare})`,
+        });
+      }
+      return;
+    }
+    for (const key of [
+      "fragment",
+      "nodes",
+      "attributes",
+      "consequent",
+      "alternate",
+      "body",
+      "fallback",
+      "pending",
+      "then",
+      "catch",
+    ]) {
+      visit(node[key]);
+    }
+  };
+  visit(ast.fragment);
+  if (!edits.length) return;
+  let code = content;
+  for (const edit of edits.toSorted((a, b) => b.at - a.at))
+    code = code.slice(0, edit.at) + edit.text + code.slice(edit.at);
+  return code;
 }
 
 /**
@@ -131,14 +139,14 @@ export function addLocations(content, file) {
  * @param {{ root?: string }} [options] `root` is the folder paths are written from. Defaults to the working directory.
  */
 export function feedbackEngine(options = {}) {
-	const root = options.root ?? process.cwd();
-	return {
-		name: 'feedback-engine',
-		/** @param {{ content: string, filename?: string }} input */
-		markup({ content, filename }) {
-			if (!filename || filename.includes('node_modules')) return;
-			const code = addLocations(content, relative(root, filename).split(sep).join('/'));
-			return code === undefined ? undefined : { code };
-		},
-	};
+  const root = options.root ?? process.cwd();
+  return {
+    name: "feedback-engine",
+    /** @param {{ content: string, filename?: string }} input */
+    markup({ content, filename }) {
+      if (!filename || filename.includes("node_modules")) return;
+      const code = addLocations(content, relative(root, filename).split(sep).join("/"));
+      return code === undefined ? undefined : { code };
+    },
+  };
 }

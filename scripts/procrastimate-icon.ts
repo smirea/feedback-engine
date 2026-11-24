@@ -5,15 +5,15 @@
  * `packages/ios/Sources/Feedback/ProcrastimateIcon.swift`. Reads `app-web/scripts/app-icon.svg` from the ProcrastiMate
  * checkout given as the first argument, `~/code/procrastimate` by default. Needs `pngquant`.
  */
-import { $ } from 'bun';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-import { chromium } from 'playwright';
+import { $ } from "bun";
+import { homedir } from "node:os";
+import { join } from "node:path";
+import { chromium } from "playwright";
 
 const size = 66;
-const checkout = process.argv[2] ?? join(homedir(), 'code/procrastimate');
-const svg = await Bun.file(join(checkout, 'app-web/scripts/app-icon.svg')).text();
-if (!svg.includes('id="tile"')) throw new Error('app-icon.svg has no #tile to drop');
+const checkout = process.argv[2] ?? join(homedir(), "code/procrastimate");
+const svg = await Bun.file(join(checkout, "app-web/scripts/app-icon.svg")).text();
+if (!svg.includes('id="tile"')) throw new Error("app-icon.svg has no #tile to drop");
 
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: size, height: size } });
@@ -26,17 +26,17 @@ const raw = await page.screenshot({ omitBackground: true });
 await browser.close();
 
 const png = await $`pngquant --quality 80-95 --strip - < ${raw}`.arrayBuffer();
-const base64 = Buffer.from(png).toString('base64');
-const root = join(import.meta.dir, '..');
+const base64 = Buffer.from(png).toString("base64");
+const root = join(import.meta.dir, "..");
 const source = "Rendered by `scripts/procrastimate-icon.ts` from ProcrastiMate's `app-icon.svg`.";
 
 await Bun.write(
-	join(root, 'packages/web/src/dom/procrastimate-icon.ts'),
-	`/** ProcrastiMate's app icon without its tile, ${size} pixels square for ${size / 3} CSS pixels. ${source} */\nexport const procrastimateIcon = 'data:image/png;base64,${base64}';\n`,
+  join(root, "packages/web/src/dom/procrastimate-icon.ts"),
+  `/** ProcrastiMate's app icon without its tile, ${size} pixels square for ${size / 3} CSS pixels. ${source} */\nexport const procrastimateIcon = 'data:image/png;base64,${base64}';\n`,
 );
 await Bun.write(
-	join(root, 'packages/ios/Sources/Feedback/ProcrastimateIcon.swift'),
-	`#if canImport(UIKit)
+  join(root, "packages/ios/Sources/Feedback/ProcrastimateIcon.swift"),
+  `#if canImport(UIKit)
 import UIKit
 
 /// ProcrastiMate's app icon without its tile, ${size / 3} points at 3×. ${source}

@@ -1,38 +1,38 @@
-import { mount, unmount } from 'svelte';
-import { checkFiles } from '../dom/files.ts';
-import { watchHold } from '../dom/hold.ts';
-import { hostAttribute } from '../dom/tags.ts';
-import type { FeedbackReport } from '../core/index.ts';
-import { defaultShortcut, Engine, matchesShortcut, type FeedbackOptions } from './engine.ts';
-import Host from './Host.svelte';
+import { mount, unmount } from "svelte";
+import { checkFiles } from "../dom/files.ts";
+import { watchHold } from "../dom/hold.ts";
+import { hostAttribute } from "../dom/tags.ts";
+import type { FeedbackReport } from "../core/index.ts";
+import { defaultShortcut, Engine, matchesShortcut, type FeedbackOptions } from "./engine.ts";
+import Host from "./Host.svelte";
 
 export type FeedbackEngine = {
-	/** Registers app state to attach to every capture. `value` runs when a capture is taken. Registering a name again replaces the earlier one. */
-	context(name: string, value: () => unknown): void;
-	/** Captures the page and opens the editor. Does nothing while the editor is open. */
-	present(): Promise<void>;
-	/** Shows the Add Feedback pill, as a keyboard shortcut does. Pressing it captures the page. Left alone, it leaves after 5 seconds. */
-	showPill(): void;
-	/**
-	 * Shows the pill counting down from `seconds`, 5 unless given, then captures the page and opens the editor. For a
-	 * trigger inside one of the app's menus, such as on a phone: the user has the countdown to leave the menu and reach
-	 * the screen they mean. Pressing the pill captures at once.
-	 */
-	countdown(seconds?: number): void;
-	/**
-	 * Reads the page as it is now and returns its JSON export, with no items, without drawing it or opening the editor.
-	 * For agents and scripts that check a screen: `await page.evaluate(() => __feedbackEngine.capture())`.
-	 */
-	capture(): Promise<FeedbackReport>;
-	/** The files of the last export, for automation that cannot use the clipboard or a download. */
-	readonly lastExport: { name: string; blob: Blob }[];
-	/** Removes the shortcut and Feedback's UI from the page. */
-	destroy(): void;
+  /** Registers app state to attach to every capture. `value` runs when a capture is taken. Registering a name again replaces the earlier one. */
+  context(name: string, value: () => unknown): void;
+  /** Captures the page and opens the editor. Does nothing while the editor is open. */
+  present(): Promise<void>;
+  /** Shows the Add Feedback pill, as a keyboard shortcut does. Pressing it captures the page. Left alone, it leaves after 5 seconds. */
+  showPill(): void;
+  /**
+   * Shows the pill counting down from `seconds`, 5 unless given, then captures the page and opens the editor. For a
+   * trigger inside one of the app's menus, such as on a phone: the user has the countdown to leave the menu and reach
+   * the screen they mean. Pressing the pill captures at once.
+   */
+  countdown(seconds?: number): void;
+  /**
+   * Reads the page as it is now and returns its JSON export, with no items, without drawing it or opening the editor.
+   * For agents and scripts that check a screen: `await page.evaluate(() => __feedbackEngine.capture())`.
+   */
+  capture(): Promise<FeedbackReport>;
+  /** The files of the last export, for automation that cannot use the clipboard or a download. */
+  readonly lastExport: { name: string; blob: Blob }[];
+  /** Removes the shortcut and Feedback's UI from the page. */
+  destroy(): void;
 };
 
 declare global {
-	/** The engine of this page, for automation: `__feedbackEngine.present()`, `__feedbackEngine.capture()`, and `__feedbackEngine.lastExport`. */
-	var __feedbackEngine: FeedbackEngine | undefined;
+  /** The engine of this page, for automation: `__feedbackEngine.present()`, `__feedbackEngine.capture()`, and `__feedbackEngine.lastExport`. */
+  var __feedbackEngine: FeedbackEngine | undefined;
 }
 
 let current: { engine: FeedbackEngine; destroy: () => void } | undefined;
@@ -43,88 +43,91 @@ let current: { engine: FeedbackEngine; destroy: () => void } | undefined;
  * nothing, so a layout can call it without a guard.
  */
 export function setupFeedbackEngine(options: FeedbackOptions = {}): FeedbackEngine {
-	if (typeof document === 'undefined') {
-		return {
-			context() {},
-			present: async () => {},
-			showPill() {},
-			countdown() {},
-			capture: () => Promise.reject(new Error('Feedback captures only in a browser.')),
-			lastExport: [],
-			destroy() {},
-		};
-	}
-	current?.destroy();
+  if (typeof document === "undefined") {
+    return {
+      context() {},
+      present: async () => {},
+      showPill() {},
+      countdown() {},
+      capture: () => Promise.reject(new Error("Feedback captures only in a browser.")),
+      lastExport: [],
+      destroy() {},
+    };
+  }
+  current?.destroy();
 
-	if (options.procrastimate && !options.procrastimate.projects?.length)
-		throw new Error('setupFeedbackEngine({ procrastimate }) needs the projects Feedback may post to, by name or id.');
-	checkFiles(options.files ?? []);
-	const engine = new Engine(options);
-	const host = document.createElement('div');
-	host.setAttribute(hostAttribute, '');
-	// The shadow root keeps the app's styles out of the editor and the editor's styles out of the app.
-	const root = host.attachShadow({ mode: 'open' });
-	document.documentElement.append(host);
-	const component = mount(Host, { target: root, props: { engine } });
+  if (options.procrastimate && !options.procrastimate.projects?.length)
+    throw new Error(
+      "setupFeedbackEngine({ procrastimate }) needs the projects Feedback may post to, by name or id.",
+    );
+  checkFiles(options.files ?? []);
+  const engine = new Engine(options);
+  const host = document.createElement("div");
+  host.setAttribute(hostAttribute, "");
+  // The shadow root keeps the app's styles out of the editor and the editor's styles out of the app.
+  const root = host.attachShadow({ mode: "open" });
+  document.documentElement.append(host);
+  const component = mount(Host, { target: root, props: { engine } });
 
-	const shortcut = options.shortcut ?? defaultShortcut;
-	const keydown = (event: KeyboardEvent) => {
-		if (shortcut && matchesShortcut(shortcut, event)) {
-			event.preventDefault();
-			engine.showPill();
-		}
-	};
-	const pointerEvents = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'] as const;
-	const pointer = (event: MouseEvent) => {
-		if (!shortcut || !matchesShortcut(shortcut, event) || event.composedPath().includes(host)) return;
-		// The click is for Feedback, so the app must not act on it, move focus, or start a text selection.
-		event.preventDefault();
-		event.stopImmediatePropagation();
-		// A disabled control sends pointer events and no click, and a person still points at it.
-		if (event.type === 'pointerup') void engine.present({ x: event.clientX, y: event.clientY });
-	};
-	const hidden = () => {
-		if (document.visibilityState === 'hidden') engine.hidePill();
-	};
-	addEventListener('keydown', keydown);
-	// In the capture phase, so the chord reaches Feedback before the element under the pointer.
-	for (const type of pointerEvents) addEventListener(type, pointer, true);
-	document.addEventListener('visibilitychange', hidden);
-	const unwatchHold =
-		options.threeFingerHold === false
-			? () => {}
-			: watchHold({
-					onshow: () => engine.showHold(true),
-					oncancel: () => engine.showHold(false),
-					ondone: () => void engine.present(),
-					ignores: event => engine.screen !== undefined || event.composedPath().includes(host),
-				});
+  const shortcut = options.shortcut ?? defaultShortcut;
+  const keydown = (event: KeyboardEvent) => {
+    if (shortcut && matchesShortcut(shortcut, event)) {
+      event.preventDefault();
+      engine.showPill();
+    }
+  };
+  const pointerEvents = ["pointerdown", "mousedown", "pointerup", "mouseup", "click"] as const;
+  const pointer = (event: MouseEvent) => {
+    if (!shortcut || !matchesShortcut(shortcut, event) || event.composedPath().includes(host))
+      return;
+    // The click is for Feedback, so the app must not act on it, move focus, or start a text selection.
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    // A disabled control sends pointer events and no click, and a person still points at it.
+    if (event.type === "pointerup") void engine.present({ x: event.clientX, y: event.clientY });
+  };
+  const hidden = () => {
+    if (document.visibilityState === "hidden") engine.hidePill();
+  };
+  addEventListener("keydown", keydown);
+  // In the capture phase, so the chord reaches Feedback before the element under the pointer.
+  for (const type of pointerEvents) addEventListener(type, pointer, true);
+  document.addEventListener("visibilitychange", hidden);
+  const unwatchHold =
+    options.threeFingerHold === false
+      ? () => {}
+      : watchHold({
+          onshow: () => engine.showHold(true),
+          oncancel: () => engine.showHold(false),
+          ondone: () => void engine.present(),
+          ignores: (event) => engine.screen !== undefined || event.composedPath().includes(host),
+        });
 
-	const api: FeedbackEngine = {
-		context(name, value) {
-			const index = engine.providers.findIndex(provider => provider.name === name);
-			if (index !== -1) engine.providers.splice(index, 1);
-			engine.providers.push({ name, value });
-		},
-		present: () => engine.present(),
-		showPill: () => engine.showPill(),
-		countdown: (seconds = 5) => engine.countdown(seconds),
-		capture: async () => engine.report(),
-		get lastExport() {
-			return engine.lastExport;
-		},
-		destroy() {
-			removeEventListener('keydown', keydown);
-			for (const type of pointerEvents) removeEventListener(type, pointer, true);
-			document.removeEventListener('visibilitychange', hidden);
-			unwatchHold();
-			void unmount(component);
-			host.remove();
-			if (current?.engine === api) current = undefined;
-			globalThis.__feedbackEngine = undefined;
-		},
-	};
-	current = { engine: api, destroy: api.destroy };
-	globalThis.__feedbackEngine = api;
-	return api;
+  const api: FeedbackEngine = {
+    context(name, value) {
+      const index = engine.providers.findIndex((provider) => provider.name === name);
+      if (index !== -1) engine.providers.splice(index, 1);
+      engine.providers.push({ name, value });
+    },
+    present: () => engine.present(),
+    showPill: () => engine.showPill(),
+    countdown: (seconds = 5) => engine.countdown(seconds),
+    capture: async () => engine.report(),
+    get lastExport() {
+      return engine.lastExport;
+    },
+    destroy() {
+      removeEventListener("keydown", keydown);
+      for (const type of pointerEvents) removeEventListener(type, pointer, true);
+      document.removeEventListener("visibilitychange", hidden);
+      unwatchHold();
+      void unmount(component);
+      host.remove();
+      if (current?.engine === api) current = undefined;
+      globalThis.__feedbackEngine = undefined;
+    },
+  };
+  current = { engine: api, destroy: api.destroy };
+  globalThis.__feedbackEngine = api;
+  return api;
 }
