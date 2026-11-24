@@ -1,20 +1,20 @@
 #!/usr/bin/env node
 import {
-	existsSync,
-	lstatSync,
-	mkdirSync,
-	readdirSync,
-	readFileSync,
-	symlinkSync,
-	unlinkSync,
-	writeFileSync,
-} from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+  unlinkSync,
+  writeFileSync,
+} from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
 
-const name = '@stefan.inc/feedback-engine';
-const skill = 'feedback-accessibility';
-const start = '<!-- feedback-engine:start -->';
-const end = '<!-- feedback-engine:end -->';
+const name = "@stefan.inc/feedback-engine";
+const skill = "feedback-accessibility";
+const start = "<!-- feedback-engine:start -->";
+const end = "<!-- feedback-engine:end -->";
 
 const usage = `Usage: feedback-engine init
 
@@ -25,22 +25,24 @@ agents about the skill, the editor, and __feedbackEngine.capture(). Run it again
 upgrade: the skill follows the installed version through the link, and the section is replaced.`;
 
 function fail(message) {
-	console.error(`feedback-engine: ${message}`);
-	process.exit(1);
+  console.error(`feedback-engine: ${message}`);
+  process.exit(1);
 }
 
 /** The workspace folders a root `package.json` lists, for the `dir/*` and plain-folder patterns npm, Bun, and Yarn take. */
 function workspaces(root) {
-	const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-	const patterns = Array.isArray(manifest.workspaces) ? manifest.workspaces : (manifest.workspaces?.packages ?? []);
-	return patterns.flatMap(pattern => {
-		if (!pattern.endsWith('/*')) return [join(root, pattern)];
-		const parent = join(root, pattern.slice(0, -2));
-		if (!existsSync(parent)) return [];
-		return readdirSync(parent, { withFileTypes: true })
-			.filter(entry => entry.isDirectory())
-			.map(entry => join(parent, entry.name));
-	});
+  const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  const patterns = Array.isArray(manifest.workspaces)
+    ? manifest.workspaces
+    : (manifest.workspaces?.packages ?? []);
+  return patterns.flatMap((pattern) => {
+    if (!pattern.endsWith("/*")) return [join(root, pattern)];
+    const parent = join(root, pattern.slice(0, -2));
+    if (!existsSync(parent)) return [];
+    return readdirSync(parent, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => join(parent, entry.name));
+  });
 }
 
 /**
@@ -49,37 +51,40 @@ function workspaces(root) {
  * that app is the workspace package that has it.
  */
 function installed(root) {
-	const at = folder => join(folder, 'node_modules', name);
-	const has = folder => existsSync(join(at(folder), 'package.json'));
-	for (let folder = root; ; folder = dirname(folder)) {
-		if (has(folder)) return { source: at(folder), app: root };
-		if (dirname(folder) === folder) break;
-	}
-	const app = workspaces(root).find(has);
-	if (app) return { source: at(app), app };
-	fail(`${name} is not installed here. Add it first: bun add ${name}`);
+  const at = (folder) => join(folder, "node_modules", name);
+  const has = (folder) => existsSync(join(at(folder), "package.json"));
+  for (let folder = root; ; folder = dirname(folder)) {
+    if (has(folder)) return { source: at(folder), app: root };
+    if (dirname(folder) === folder) break;
+  }
+  const app = workspaces(root).find(has);
+  if (app) return { source: at(app), app };
+  fail(`${name} is not installed here. Add it first: bun add ${name}`);
 }
 
 function link(root, source) {
-	const target = join(root, '.agents', 'skills', skill);
-	mkdirSync(dirname(target), { recursive: true });
-	const existing = lstatSync(target, { throwIfNoEntry: false });
-	if (existing && !existing.isSymbolicLink()) {
-		fail(`${relative(root, target)} already exists and is not a link. Remove it, and init links the installed skill.`);
-	}
-	if (existing) unlinkSync(target);
-	// A relative link works in every clone of the app. Windows links folders only as junctions, which need an absolute path.
-	if (process.platform === 'win32') symlinkSync(source, target, 'junction');
-	else symlinkSync(relative(dirname(target), source), target, 'dir');
-	return target;
+  const target = join(root, ".agents", "skills", skill);
+  mkdirSync(dirname(target), { recursive: true });
+  const existing = lstatSync(target, { throwIfNoEntry: false });
+  if (existing && !existing.isSymbolicLink()) {
+    fail(
+      `${relative(root, target)} already exists and is not a link. Remove it, and init links the installed skill.`,
+    );
+  }
+  if (existing) unlinkSync(target);
+  // A relative link works in every clone of the app. Windows links folders only as junctions, which need an absolute path.
+  if (process.platform === "win32") symlinkSync(source, target, "junction");
+  else symlinkSync(relative(dirname(target), source), target, "dir");
+  return target;
 }
 
 function section(root, app) {
-	const manifest = JSON.parse(readFileSync(join(app, 'package.json'), 'utf8'));
-	const dependencies = { ...manifest.dependencies, ...manifest.devDependencies };
-	const framework = dependencies.svelte && !dependencies.react ? 'Svelte' : 'React';
-	const run = existsSync(join(root, 'bun.lock')) || existsSync(join(root, 'bun.lockb')) ? 'bun' : 'node';
-	return `${start}
+  const manifest = JSON.parse(readFileSync(join(app, "package.json"), "utf8"));
+  const dependencies = { ...manifest.dependencies, ...manifest.devDependencies };
+  const framework = dependencies.svelte && !dependencies.react ? "Svelte" : "React";
+  const run =
+    existsSync(join(root, "bun.lock")) || existsSync(join(root, "bun.lockb")) ? "bun" : "node";
+  return `${start}
 ## Feedback
 
 This app uses [Feedback](https://github.com/smirea/feedback-engine/tree/master/packages/web) (\`${name}\`) to collect feedback on its screens. In the running app, Alt+Meta+click anything to open the editor on it. An export someone hands you, \`feedback.png\`, \`feedback.json\`, or a ZIP of both, names the component or element of each note and its \`file:line\`. [The report format](https://github.com/smirea/feedback-engine/blob/master/spec/report.md) describes the JSON.
@@ -91,38 +96,40 @@ ${end}`;
 
 /** Replaces the section between the markers, or appends it, and leaves the rest of the file as it was. */
 function write(file, text) {
-	const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
-	const from = current.indexOf(start);
-	const to = current.indexOf(end);
-	if ((from === -1) !== (to === -1) || to < from)
-		fail(`${file} has only one of the feedback-engine markers. Fix it by hand.`);
-	const next =
-		from === -1
-			? `${current}${current && !current.endsWith('\n') ? '\n' : ''}${current ? '\n' : ''}${text}\n`
-			: `${current.slice(0, from)}${text}${current.slice(to + end.length)}`;
-	if (next !== current) writeFileSync(file, next);
-	return next !== current;
+  const current = existsSync(file) ? readFileSync(file, "utf8") : "";
+  const from = current.indexOf(start);
+  const to = current.indexOf(end);
+  if ((from === -1) !== (to === -1) || to < from)
+    fail(`${file} has only one of the feedback-engine markers. Fix it by hand.`);
+  const next =
+    from === -1
+      ? `${current}${current && !current.endsWith("\n") ? "\n" : ""}${current ? "\n" : ""}${text}\n`
+      : `${current.slice(0, from)}${text}${current.slice(to + end.length)}`;
+  if (next !== current) writeFileSync(file, next);
+  return next !== current;
 }
 
 const [command, ...rest] = process.argv.slice(2);
-if (command === '--help' || command === '-h') {
-	console.log(usage);
-	process.exit(0);
+if (command === "--help" || command === "-h") {
+  console.log(usage);
+  process.exit(0);
 }
-if (command !== 'init' || rest.length > 0) fail(`unknown command.\n\n${usage}`);
+if (command !== "init" || rest.length > 0) fail(`unknown command.\n\n${usage}`);
 
-const root = resolve('.');
-if (!existsSync(join(root, 'package.json'))) fail('run init from the folder that holds the app’s package.json.');
+const root = resolve(".");
+if (!existsSync(join(root, "package.json")))
+  fail("run init from the folder that holds the app’s package.json.");
 const { source: installation, app } = installed(root);
-const source = join(installation, 'skills', skill);
-if (!existsSync(join(source, 'SKILL.md'))) fail(`${source} has no SKILL.md. Upgrade ${name}.`);
+const source = join(installation, "skills", skill);
+if (!existsSync(join(source, "SKILL.md"))) fail(`${source} has no SKILL.md. Upgrade ${name}.`);
 
 const linked = link(root, source);
 console.log(`Linked ${relative(root, linked)} to ${relative(root, source)}`);
 
 const text = section(root, app);
-const files = [join(root, 'AGENTS.md')];
+const files = [join(root, "AGENTS.md")];
 // Claude Code reads CLAUDE.md and not AGENTS.md, unless CLAUDE.md points to it.
-const claude = join(root, 'CLAUDE.md');
-if (existsSync(claude) && !readFileSync(claude, 'utf8').includes('AGENTS.md')) files.push(claude);
-for (const file of files) console.log(`${write(file, text) ? 'Updated' : 'Unchanged'} ${relative(root, file)}`);
+const claude = join(root, "CLAUDE.md");
+if (existsSync(claude) && !readFileSync(claude, "utf8").includes("AGENTS.md")) files.push(claude);
+for (const file of files)
+  console.log(`${write(file, text) ? "Updated" : "Unchanged"} ${relative(root, file)}`);

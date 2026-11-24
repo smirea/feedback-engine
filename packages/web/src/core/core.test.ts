@@ -1,381 +1,540 @@
-import { expect, test } from 'bun:test';
-import fixture from '../../../../spec/fixtures/capture.json';
+import { expect, test } from "bun:test";
+import fixture from "../../../../spec/fixtures/capture.json";
 import {
-	Annotations,
-	buildTree,
-	captureRange,
-	cut,
-	describe,
-	hitTest,
-	place,
-	report,
-	reportJSON,
-	Session,
-	similar,
-	tag,
-	taskTitle,
-	title,
-	type Capture,
-	type Node,
-	type RawScene,
-} from './index.ts';
+  Annotations,
+  buildTree,
+  captureRange,
+  cut,
+  describe,
+  hitTest,
+  place,
+  report,
+  reportJSON,
+  Session,
+  similar,
+  tag,
+  taskTitle,
+  title,
+  type Capture,
+  type Node,
+  type RawScene,
+} from "./index.ts";
 
 const frame = (x: number, y: number, width: number, height: number) => ({ x, y, width, height });
 const size = { width: 400, height: 800 };
-const screenLayer = { name: 'Screen', frame: frame(0, 0, 400, 800) };
+const screenLayer = { name: "Screen", frame: frame(0, 0, 400, 800) };
 
 function captureOf(scene: RawScene): Capture {
-	return {
-		date: new Date('2026-05-01T12:00:00.250Z'),
-		size: scene.size,
-		visible: frame(0, 0, 400, 800),
-		nodes: buildTree(scene),
-		environment: [{ name: 'App', value: 'Demo' }],
-		context: [{ name: 'Store', value: 'Store(count: 2)' }],
-	};
+  return {
+    date: new Date("2026-05-01T12:00:00.250Z"),
+    size: scene.size,
+    visible: frame(0, 0, 400, 800),
+    nodes: buildTree(scene),
+    environment: [{ name: "App", value: "Demo" }],
+    context: [{ name: "Store", value: "Store(count: 2)" }],
+  };
 }
 
 const outline = (capture: Capture) =>
-	capture.nodes.map(
-		node => `${node.id} ${node.parent ?? '-'} L${node.layer} ${title(node)} @${node.frame.x},${node.frame.y}`,
-	);
+  capture.nodes.map(
+    (node) =>
+      `${node.id} ${node.parent ?? "-"} L${node.layer} ${title(node)} @${node.frame.x},${node.frame.y}`,
+  );
 
 const rowScene = (): RawScene => ({
-	size,
-	layers: [screenLayer],
-	nodes: [
-		{
-			parent: null,
-			layer: 0,
-			kind: 'component',
-			name: 'Row',
-			frame: frame(0, 200, 400, 60),
-			source: 'src/Row.svelte:200',
-		},
-		{ parent: 0, layer: 0, kind: 'element', name: 'Text', label: 'Milk', frame: frame(16, 210, 200, 40) },
-		{ parent: 0, layer: 0, kind: 'element', name: 'Button', label: 'Delete', frame: frame(340, 210, 40, 40) },
-	],
+  size,
+  layers: [screenLayer],
+  nodes: [
+    {
+      parent: null,
+      layer: 0,
+      kind: "component",
+      name: "Row",
+      frame: frame(0, 200, 400, 60),
+      source: "src/Row.svelte:200",
+    },
+    {
+      parent: 0,
+      layer: 0,
+      kind: "element",
+      name: "Text",
+      label: "Milk",
+      frame: frame(16, 210, 200, 40),
+    },
+    {
+      parent: 0,
+      layer: 0,
+      kind: "element",
+      name: "Button",
+      label: "Delete",
+      frame: frame(340, 210, 40, 40),
+    },
+  ],
 });
 
-test('nodes are numbered depth-first in reading order whatever order the page listed them in', () => {
-	const scene: RawScene = {
-		size,
-		layers: [screenLayer],
-		nodes: [
-			{ parent: null, layer: 0, kind: 'component', name: 'Footer', frame: frame(0, 700, 400, 44), source: 'a:1' },
-			{ parent: null, layer: 0, kind: 'component', name: 'List', frame: frame(0, 100, 400, 500), source: 'a:2' },
-			{ parent: 1, layer: 0, kind: 'element', name: 'Button', label: 'Info', frame: frame(360, 110, 24, 24) },
-			{ parent: 1, layer: 0, kind: 'element', name: 'Button', label: 'Done', frame: frame(10, 110, 24, 24) },
-			{ parent: 0, layer: 0, kind: 'element', name: 'Text', label: '3 items', frame: frame(16, 710, 100, 24) },
-		],
-	};
-	expect(outline(captureOf(scene))).toEqual([
-		'0 - L0 Screen @0,0',
-		'1 0 L0 List @0,100',
-		'2 1 L0 Button "Done" @10,110',
-		'3 1 L0 Button "Info" @360,110',
-		'4 0 L0 Footer @0,700',
-		'5 4 L0 Text "3 items" @16,710',
-	]);
+test("nodes are numbered depth-first in reading order whatever order the page listed them in", () => {
+  const scene: RawScene = {
+    size,
+    layers: [screenLayer],
+    nodes: [
+      {
+        parent: null,
+        layer: 0,
+        kind: "component",
+        name: "Footer",
+        frame: frame(0, 700, 400, 44),
+        source: "a:1",
+      },
+      {
+        parent: null,
+        layer: 0,
+        kind: "component",
+        name: "List",
+        frame: frame(0, 100, 400, 500),
+        source: "a:2",
+      },
+      {
+        parent: 1,
+        layer: 0,
+        kind: "element",
+        name: "Button",
+        label: "Info",
+        frame: frame(360, 110, 24, 24),
+      },
+      {
+        parent: 1,
+        layer: 0,
+        kind: "element",
+        name: "Button",
+        label: "Done",
+        frame: frame(10, 110, 24, 24),
+      },
+      {
+        parent: 0,
+        layer: 0,
+        kind: "element",
+        name: "Text",
+        label: "3 items",
+        frame: frame(16, 710, 100, 24),
+      },
+    ],
+  };
+  expect(outline(captureOf(scene))).toEqual([
+    "0 - L0 Screen @0,0",
+    "1 0 L0 List @0,100",
+    '2 1 L0 Button "Done" @10,110',
+    '3 1 L0 Button "Info" @360,110',
+    "4 0 L0 Footer @0,700",
+    '5 4 L0 Text "3 items" @16,710',
+  ]);
 });
 
-test('a dialog leaves out only what it completely covers, and taps on it stay inside it', () => {
-	const scene: RawScene = {
-		size,
-		layers: [screenLayer, { name: 'Dialog', frame: frame(0, 400, 400, 400) }],
-		nodes: [
-			{ parent: null, layer: 0, kind: 'component', name: 'ListScreen', frame: frame(0, 0, 400, 800), source: 'a:1' },
-			{ parent: 0, layer: 0, kind: 'element', name: 'Button', label: 'Top', frame: frame(10, 100, 100, 40) },
-			{ parent: 0, layer: 0, kind: 'element', name: 'Button', label: 'Half', frame: frame(10, 380, 100, 40) },
-			{ parent: 0, layer: 0, kind: 'element', name: 'Button', label: 'Hidden', frame: frame(10, 500, 100, 40) },
-			{ parent: null, layer: 1, kind: 'component', name: 'EditDialog', frame: frame(0, 400, 400, 400), source: 'a:9' },
-			{ parent: 4, layer: 1, kind: 'element', name: 'Button', label: 'Save', frame: frame(300, 410, 80, 36) },
-		],
-	};
-	const result = captureOf(scene);
-	expect(outline(result)).toEqual([
-		'0 - L0 Screen @0,0',
-		'1 0 L0 ListScreen @0,0',
-		'2 1 L0 Button "Top" @10,100',
-		'3 1 L0 Button "Half" @10,380',
-		'4 0 L1 Dialog @0,400',
-		'5 4 L1 EditDialog @0,400',
-		'6 5 L1 Button "Save" @300,410',
-	]);
-	expect(title(result.nodes[hitTest(result, { x: 50, y: 410 })]!)).toBe('EditDialog');
-	expect(title(result.nodes[hitTest(result, { x: 50, y: 390 })]!)).toBe('Button "Half"');
+test("a dialog leaves out only what it completely covers, and taps on it stay inside it", () => {
+  const scene: RawScene = {
+    size,
+    layers: [screenLayer, { name: "Dialog", frame: frame(0, 400, 400, 400) }],
+    nodes: [
+      {
+        parent: null,
+        layer: 0,
+        kind: "component",
+        name: "ListScreen",
+        frame: frame(0, 0, 400, 800),
+        source: "a:1",
+      },
+      {
+        parent: 0,
+        layer: 0,
+        kind: "element",
+        name: "Button",
+        label: "Top",
+        frame: frame(10, 100, 100, 40),
+      },
+      {
+        parent: 0,
+        layer: 0,
+        kind: "element",
+        name: "Button",
+        label: "Half",
+        frame: frame(10, 380, 100, 40),
+      },
+      {
+        parent: 0,
+        layer: 0,
+        kind: "element",
+        name: "Button",
+        label: "Hidden",
+        frame: frame(10, 500, 100, 40),
+      },
+      {
+        parent: null,
+        layer: 1,
+        kind: "component",
+        name: "EditDialog",
+        frame: frame(0, 400, 400, 400),
+        source: "a:9",
+      },
+      {
+        parent: 4,
+        layer: 1,
+        kind: "element",
+        name: "Button",
+        label: "Save",
+        frame: frame(300, 410, 80, 36),
+      },
+    ],
+  };
+  const result = captureOf(scene);
+  expect(outline(result)).toEqual([
+    "0 - L0 Screen @0,0",
+    "1 0 L0 ListScreen @0,0",
+    '2 1 L0 Button "Top" @10,100',
+    '3 1 L0 Button "Half" @10,380',
+    "4 0 L1 Dialog @0,400",
+    "5 4 L1 EditDialog @0,400",
+    '6 5 L1 Button "Save" @300,410',
+  ]);
+  expect(title(result.nodes[hitTest(result, { x: 50, y: 410 })]!)).toBe("EditDialog");
+  expect(title(result.nodes[hitTest(result, { x: 50, y: 390 })]!)).toBe('Button "Half"');
 });
 
-test('children of a node that is left out move to the nearest node that stays, and frames are clipped', () => {
-	const scene: RawScene = {
-		size,
-		layers: [screenLayer],
-		nodes: [
-			{ parent: null, layer: 0, kind: 'component', name: 'Page', frame: frame(0, 0, 400, 2000), source: 'a:1' },
-			{ parent: 0, layer: 0, kind: 'component', name: 'Collapsed', frame: frame(0, 100, 0, 0), source: 'a:2' },
-			{ parent: 1, layer: 0, kind: 'element', name: 'Text', label: 'Kept', frame: frame(-20, 100, 100, 20) },
-			{ parent: 0, layer: 0, kind: 'element', name: 'Text', label: 'Below', frame: frame(0, 900, 100, 20) },
-			{ parent: 0, layer: 0, kind: 'element', name: 'Text', label: 'Broken', frame: frame(0, Number.NaN, 100, 20) },
-		],
-	};
-	const result = captureOf(scene);
-	expect(outline(result)).toEqual(['0 - L0 Screen @0,0', '1 0 L0 Page @0,0', '2 1 L0 Text "Kept" @0,100']);
-	expect(result.nodes[1]!.frame).toEqual(frame(0, 0, 400, 800));
-	expect(result.nodes[2]!.frame).toEqual(frame(0, 100, 80, 20));
+test("children of a node that is left out move to the nearest node that stays, and frames are clipped", () => {
+  const scene: RawScene = {
+    size,
+    layers: [screenLayer],
+    nodes: [
+      {
+        parent: null,
+        layer: 0,
+        kind: "component",
+        name: "Page",
+        frame: frame(0, 0, 400, 2000),
+        source: "a:1",
+      },
+      {
+        parent: 0,
+        layer: 0,
+        kind: "component",
+        name: "Collapsed",
+        frame: frame(0, 100, 0, 0),
+        source: "a:2",
+      },
+      {
+        parent: 1,
+        layer: 0,
+        kind: "element",
+        name: "Text",
+        label: "Kept",
+        frame: frame(-20, 100, 100, 20),
+      },
+      {
+        parent: 0,
+        layer: 0,
+        kind: "element",
+        name: "Text",
+        label: "Below",
+        frame: frame(0, 900, 100, 20),
+      },
+      {
+        parent: 0,
+        layer: 0,
+        kind: "element",
+        name: "Text",
+        label: "Broken",
+        frame: frame(0, Number.NaN, 100, 20),
+      },
+    ],
+  };
+  const result = captureOf(scene);
+  expect(outline(result)).toEqual([
+    "0 - L0 Screen @0,0",
+    "1 0 L0 Page @0,0",
+    '2 1 L0 Text "Kept" @0,100',
+  ]);
+  expect(result.nodes[1]!.frame).toEqual(frame(0, 0, 400, 800));
+  expect(result.nodes[2]!.frame).toEqual(frame(0, 100, 80, 20));
 });
 
-test('the JSON export holds the items and the whole tree with sorted keys', () => {
-	const scene: RawScene = {
-		size,
-		layers: [screenLayer],
-		nodes: [
-			{
-				parent: null,
-				layer: 0,
-				kind: 'component',
-				name: 'ListScreen',
-				frame: frame(0, 100, 400, 600),
-				source: 'src/ListScreen.svelte:100',
-				data: 'filter: open',
-			},
-			{
-				parent: 0,
-				layer: 0,
-				kind: 'element',
-				name: 'Button',
-				label: 'Mark done',
-				frame: frame(20, 210.25, 24, 24),
-				source: 'src/ListScreen.svelte:104',
-			},
-		],
-	};
-	const result = captureOf(scene);
-	const annotations = new Annotations();
-	annotations.submit('Make it bigger', hitTest(result, { x: 30, y: 220 }));
-	const json = reportJSON(result, annotations);
-	expect(JSON.parse(json)).toEqual({
-		app: 'Demo',
-		captured: '2026-05-01T12:00:00Z',
-		size: { width: 400, height: 800 },
-		visible: { x: 0, y: 0, width: 400, height: 800 },
-		environment: [{ name: 'App', value: 'Demo' }],
-		items: [
-			{
-				number: 1,
-				text: 'Make it bigger',
-				target: 2,
-				title: 'Button "Mark done"',
-				path: [0, 1, 2],
-				code: 'src/ListScreen.svelte:104',
-			},
-		],
-		references: [],
-		context: [{ name: 'Store', value: 'Store(count: 2)' }],
-		nodes: [
-			{ id: 0, layer: 0, kind: 'screen', name: 'Screen', frame: { x: 0, y: 0, width: 400, height: 800 } },
-			{
-				id: 1,
-				parent: 0,
-				layer: 0,
-				kind: 'component',
-				name: 'ListScreen',
-				frame: { x: 0, y: 100, width: 400, height: 600 },
-				source: 'src/ListScreen.svelte:100',
-				data: 'filter: open',
-			},
-			{
-				id: 2,
-				parent: 1,
-				layer: 0,
-				kind: 'element',
-				name: 'Button',
-				label: 'Mark done',
-				frame: { x: 20, y: 210.3, width: 24, height: 24 },
-				source: 'src/ListScreen.svelte:104',
-			},
-		],
-	});
-	expect(json.slice(0, 40)).toBe('{\n  "app": "Demo",\n  "captured": "2026-0');
-	expect(Object.keys(JSON.parse(json))).toEqual([
-		'app',
-		'captured',
-		'context',
-		'environment',
-		'items',
-		'nodes',
-		'references',
-		'size',
-		'visible',
-	]);
+test("the JSON export holds the items and the whole tree with sorted keys", () => {
+  const scene: RawScene = {
+    size,
+    layers: [screenLayer],
+    nodes: [
+      {
+        parent: null,
+        layer: 0,
+        kind: "component",
+        name: "ListScreen",
+        frame: frame(0, 100, 400, 600),
+        source: "src/ListScreen.svelte:100",
+        data: "filter: open",
+      },
+      {
+        parent: 0,
+        layer: 0,
+        kind: "element",
+        name: "Button",
+        label: "Mark done",
+        frame: frame(20, 210.25, 24, 24),
+        source: "src/ListScreen.svelte:104",
+      },
+    ],
+  };
+  const result = captureOf(scene);
+  const annotations = new Annotations();
+  annotations.submit("Make it bigger", hitTest(result, { x: 30, y: 220 }));
+  const json = reportJSON(result, annotations);
+  expect(JSON.parse(json)).toEqual({
+    app: "Demo",
+    captured: "2026-05-01T12:00:00Z",
+    size: { width: 400, height: 800 },
+    visible: { x: 0, y: 0, width: 400, height: 800 },
+    environment: [{ name: "App", value: "Demo" }],
+    items: [
+      {
+        number: 1,
+        text: "Make it bigger",
+        target: 2,
+        title: 'Button "Mark done"',
+        path: [0, 1, 2],
+        code: "src/ListScreen.svelte:104",
+      },
+    ],
+    references: [],
+    context: [{ name: "Store", value: "Store(count: 2)" }],
+    nodes: [
+      {
+        id: 0,
+        layer: 0,
+        kind: "screen",
+        name: "Screen",
+        frame: { x: 0, y: 0, width: 400, height: 800 },
+      },
+      {
+        id: 1,
+        parent: 0,
+        layer: 0,
+        kind: "component",
+        name: "ListScreen",
+        frame: { x: 0, y: 100, width: 400, height: 600 },
+        source: "src/ListScreen.svelte:100",
+        data: "filter: open",
+      },
+      {
+        id: 2,
+        parent: 1,
+        layer: 0,
+        kind: "element",
+        name: "Button",
+        label: "Mark done",
+        frame: { x: 20, y: 210.3, width: 24, height: 24 },
+        source: "src/ListScreen.svelte:104",
+      },
+    ],
+  });
+  expect(json.slice(0, 40)).toBe('{\n  "app": "Demo",\n  "captured": "2026-0');
+  expect(Object.keys(JSON.parse(json))).toEqual([
+    "app",
+    "captured",
+    "context",
+    "environment",
+    "items",
+    "nodes",
+    "references",
+    "size",
+    "visible",
+  ]);
 });
 
-test('unshared items are the ones no completed share included', () => {
-	const session = new Session(captureOf(rowScene()));
-	for (const [x, text] of [
-		[50, 'Bigger title'],
-		[350, 'Wrong color'],
-	] as const) {
-		session.pick({ x, y: 220 });
-		session.text = text;
-		session.submit();
-	}
-	expect(session.unshared.map(item => item.text)).toEqual(['Bigger title', 'Wrong color']);
-	session.markShared(session.items);
-	session.remove(session.items[1]!.id);
-	session.pick({ x: 350, y: 220 });
-	session.text = 'Typo';
-	session.submit();
-	session.pick({ x: 50, y: 220 });
-	session.text = 'Huge title';
-	session.submit();
-	expect(session.unshared.map(item => item.text)).toEqual(['Typo']);
-	expect(session.items.map(item => item.text)).toEqual(['Huge title', 'Typo']);
+test("unshared items are the ones no completed share included", () => {
+  const session = new Session(captureOf(rowScene()));
+  for (const [x, text] of [
+    [50, "Bigger title"],
+    [350, "Wrong color"],
+  ] as const) {
+    session.pick({ x, y: 220 });
+    session.text = text;
+    session.submit();
+  }
+  expect(session.unshared.map((item) => item.text)).toEqual(["Bigger title", "Wrong color"]);
+  session.markShared(session.items);
+  session.remove(session.items[1]!.id);
+  session.pick({ x: 350, y: 220 });
+  session.text = "Typo";
+  session.submit();
+  session.pick({ x: 50, y: 220 });
+  session.text = "Huge title";
+  session.submit();
+  expect(session.unshared.map((item) => item.text)).toEqual(["Typo"]);
+  expect(session.items.map((item) => item.text)).toEqual(["Huge title", "Typo"]);
 });
 
-test('a new item holds its number before the nodes it references, and an edit references after the last number', () => {
-	const session = new Session(captureOf(rowScene()));
-	session.pick({ x: 50, y: 220 });
-	session.text = 'Align with @';
-	session.pick({ x: 350, y: 220 });
-	session.insertReference();
-	session.submit();
-	session.pick({ x: 350, y: 220 });
-	session.text = 'Smaller';
-	session.submit();
-	const [milk, remove] = session.items.map(item => item.target);
-	expect([session.colorIndex(milk!), session.colorIndex(remove!)]).toEqual([0, 1]);
-	expect(
-		session.annotations
-			.segments(session.items[0]!.text)
-			.map(segment => [segment.text, segment.reference ? tag(segment.reference) : '']),
-	).toEqual([
-		['Align with ', ''],
-		['@2_Button', '@2'],
-	]);
-	expect(JSON.parse(session.json).references).toEqual([
-		{ number: 2, token: '@2_Button', target: 3, title: 'Button "Delete"', path: [0, 1, 3], code: 'src/Row.svelte:200' },
-	]);
-	expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([1, 2]);
+test("a new item holds its number before the nodes it references, and an edit references after the last number", () => {
+  const session = new Session(captureOf(rowScene()));
+  session.pick({ x: 50, y: 220 });
+  session.text = "Align with @";
+  session.pick({ x: 350, y: 220 });
+  session.insertReference();
+  session.submit();
+  session.pick({ x: 350, y: 220 });
+  session.text = "Smaller";
+  session.submit();
+  const [milk, remove] = session.items.map((item) => item.target);
+  expect([session.colorIndex(milk!), session.colorIndex(remove!)]).toEqual([0, 1]);
+  expect(
+    session.annotations
+      .segments(session.items[0]!.text)
+      .map((segment) => [segment.text, segment.reference ? tag(segment.reference) : ""]),
+  ).toEqual([
+    ["Align with ", ""],
+    ["@2_Button", "@2"],
+  ]);
+  expect(JSON.parse(session.json).references).toEqual([
+    {
+      number: 2,
+      token: "@2_Button",
+      target: 3,
+      title: 'Button "Delete"',
+      path: [0, 1, 3],
+      code: "src/Row.svelte:200",
+    },
+  ]);
+  expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([
+    1, 2,
+  ]);
 
-	session.pick({ x: 50, y: 220 });
-	session.text += ' and @';
-	session.pick({ x: 100, y: 255 });
-	session.insertReference();
-	session.submit();
-	expect(session.items[0]!.text).toBe('Align with @2_Button and @3_Row');
+  session.pick({ x: 50, y: 220 });
+  session.text += " and @";
+  session.pick({ x: 100, y: 255 });
+  session.insertReference();
+  session.submit();
+  expect(session.items[0]!.text).toBe("Align with @2_Button and @3_Row");
 
-	session.remove(session.items[1]!.id);
-	session.pick({ x: 50, y: 300 });
-	session.text = 'Too empty';
-	session.submit();
-	expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([1, 4]);
+  session.remove(session.items[1]!.id);
+  session.pick({ x: 50, y: 300 });
+  session.text = "Too empty";
+  session.submit();
+  expect(JSON.parse(session.json).items.map((item: { number: number }) => item.number)).toEqual([
+    1, 4,
+  ]);
 });
 
 class Entry {
-	kg = 72.57477920000001;
-	note: string | null = null;
-	onTap = () => {};
+  kg = 72.57477920000001;
+  note: string | null = null;
+  onTap = () => {};
 }
 
 class Counter {
-	#count = 2;
-	get count() {
-		return this.#count;
-	}
-	increment() {
-		this.#count += 1;
-	}
+  #count = 2;
+  get count() {
+    return this.#count;
+  }
+  increment() {
+    this.#count += 1;
+  }
 }
 
-test('a plain object at the top level reads as one line per property', () => {
-	expect(describe({ title: 'Milk', isDone: true, due: undefined, onTap: () => {} })).toBe(
-		'title: Milk\nisDone: true\ndue: undefined',
-	);
-	expect(describe('Milk')).toBe('Milk');
-	expect(describe({})).toBeUndefined();
-	expect(describe(() => {})).toBeUndefined();
+test("a plain object at the top level reads as one line per property", () => {
+  expect(describe({ title: "Milk", isDone: true, due: undefined, onTap: () => {} })).toBe(
+    "title: Milk\nisDone: true\ndue: undefined",
+  );
+  expect(describe("Milk")).toBe("Milk");
+  expect(describe({})).toBeUndefined();
+  expect(describe(() => {})).toBeUndefined();
 });
 
-test('nested values read like code and leave out functions', () => {
-	expect(
-		describe({
-			entry: new Entry(),
-			tags: ['a', 'b'],
-			size: { width: 0.12345, height: 60 },
-			seen: new Map([['milk', 1]]),
-			when: new Date('2026-05-01T12:00:00Z'),
-			store: new Counter(),
-			tiny: 1.23e-16,
-			weight: { toFeedback: () => 181.6 },
-		}),
-	).toBe(
-		[
-			'entry: Entry(kg: 72.575, note: null)',
-			'tags: ["a", "b"]',
-			'size: {width: 0.123, height: 60}',
-			'seen: ["milk": 1]',
-			'when: 2026-05-01T12:00:00.000Z',
-			'store: Counter(count: 2)',
-			'tiny: 1.23e-16',
-			'weight: 181.6',
-		].join('\n'),
-	);
+test("nested values read like code and leave out functions", () => {
+  expect(
+    describe({
+      entry: new Entry(),
+      tags: ["a", "b"],
+      size: { width: 0.12345, height: 60 },
+      seen: new Map([["milk", 1]]),
+      when: new Date("2026-05-01T12:00:00Z"),
+      store: new Counter(),
+      tiny: 1.23e-16,
+      weight: { toFeedback: () => 181.6 },
+    }),
+  ).toBe(
+    [
+      "entry: Entry(kg: 72.575, note: null)",
+      'tags: ["a", "b"]',
+      "size: {width: 0.123, height: 60}",
+      'seen: ["milk": 1]',
+      "when: 2026-05-01T12:00:00.000Z",
+      "store: Counter(count: 2)",
+      "tiny: 1.23e-16",
+      "weight: 181.6",
+    ].join("\n"),
+  );
 });
 
-test('nesting stops after 3 levels, lists after 10 elements, and the whole description at 1,500 characters', () => {
-	const deep = { a: { b: { c: { d: { e: 1 } } }, list: [[['x']]] } };
-	expect(describe(deep)).toBe('a: {b: {c: {d: {…}}}, list: [[[…]]]}');
-	expect(describe(deep, 8000)).toBe('a: {b: {c: {d: {e: 1}}}, list: [[["x"]]]}');
-	expect(describe({ n: Array.from({ length: 12 }, (_, index) => index) })).toBe(
-		'n: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, … 2 more]',
-	);
-	const long = describe({ text: 'x'.repeat(2000) })!;
-	expect(long.length).toBe(1500 + '… (truncated)'.length);
-	expect(long.endsWith('x… (truncated)')).toBe(true);
+test("nesting stops after 3 levels, lists after 10 elements, and the whole description at 1,500 characters", () => {
+  const deep = { a: { b: { c: { d: { e: 1 } } }, list: [[["x"]]] } };
+  expect(describe(deep)).toBe("a: {b: {c: {d: {…}}}, list: [[[…]]]}");
+  expect(describe(deep, 8000)).toBe('a: {b: {c: {d: {e: 1}}}, list: [[["x"]]]}');
+  expect(describe({ n: Array.from({ length: 12 }, (_, index) => index) })).toBe(
+    "n: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, … 2 more]",
+  );
+  const long = describe({ text: "x".repeat(2000) })!;
+  expect(long.length).toBe(1500 + "… (truncated)".length);
+  expect(long.endsWith("x… (truncated)")).toBe(true);
 });
 
-test('the shared fixture gives the same answers as on iOS', () => {
-	const nodes = fixture.nodes as Node[];
-	const capture: Capture = { ...fixture, nodes, date: new Date(fixture.captured) };
-	const annotations = new Annotations();
-	for (const step of fixture.annotate) {
-		if (step.submit !== undefined) annotations.submit(step.submit, step.on!);
-		else if (step.reserve) annotations.reserve();
-		else annotations.reference(nodes[step.reference!]!);
-	}
-	const { expected } = fixture;
+test("the shared fixture gives the same answers as on iOS", () => {
+  const nodes = fixture.nodes as Node[];
+  const capture: Capture = { ...fixture, nodes, date: new Date(fixture.captured) };
+  const annotations = new Annotations();
+  for (const step of fixture.annotate) {
+    if (step.submit !== undefined) annotations.submit(step.submit, step.on!);
+    else if (step.reserve) annotations.reserve();
+    else annotations.reference(nodes[step.reference!]!);
+  }
+  const { expected } = fixture;
 
-	expect(fixture.hitTests.map(([x, y]) => hitTest(capture, { x: x!, y: y! }))).toEqual(expected.hitTests);
-	expect(fixture.similar.map(id => similar(capture, id))).toEqual(expected.similar);
-	expect(nodes.map(node => annotations.colorIndex(node.id))).toEqual(expected.colorIndexes);
-	expect(annotations.segments(fixture.segments).map(segment => [segment.text, segment.reference?.number ?? 0])).toEqual(
-		expected.segments,
-	);
-	expect(JSON.parse(JSON.stringify(report(capture, annotations)))).toEqual(expected.report);
-	expect(
-		fixture.cards.map(cards =>
-			place(cards.targets, cards.heights, cards.screen, cards.environmentHeight, cards.viewport, cards.references),
-		),
-	).toEqual(expected.cards);
-	const name = taskTitle(capture, annotations.items);
-	expect({
-		placeholder: name.placeholder,
-		prompt: name.prompt,
-	}).toEqual(expected.taskTitle);
+  expect(fixture.hitTests.map(([x, y]) => hitTest(capture, { x: x!, y: y! }))).toEqual(
+    expected.hitTests,
+  );
+  expect(fixture.similar.map((id) => similar(capture, id))).toEqual(expected.similar);
+  expect(nodes.map((node) => annotations.colorIndex(node.id))).toEqual(expected.colorIndexes);
+  expect(
+    annotations
+      .segments(fixture.segments)
+      .map((segment) => [segment.text, segment.reference?.number ?? 0]),
+  ).toEqual(expected.segments);
+  expect(JSON.parse(JSON.stringify(report(capture, annotations)))).toEqual(expected.report);
+  expect(
+    fixture.cards.map((cards) =>
+      place(
+        cards.targets,
+        cards.heights,
+        cards.screen,
+        cards.environmentHeight,
+        cards.viewport,
+        cards.references,
+      ),
+    ),
+  ).toEqual(expected.cards);
+  const name = taskTitle(capture, annotations.items);
+  expect({
+    placeholder: name.placeholder,
+    prompt: name.prompt,
+  }).toEqual(expected.taskTitle);
 });
 
-test('a capped capture ends between two rows, as on iOS', () => {
-	const rows = [frame(0, 100, 400, 80), frame(0, 180, 400, 80), frame(0, 260, 400, 80)];
-	const texts = [frame(16, 270, 100, 20), frame(16, 300, 100, 20)];
-	expect(cut(300, 120, [...rows, ...texts])).toBe(260);
-	expect(cut(340, 120, [...rows, ...texts])).toBe(340);
-	expect(cut(250, 190, rows)).toBeUndefined();
+test("a capped capture ends between two rows, as on iOS", () => {
+  const rows = [frame(0, 100, 400, 80), frame(0, 180, 400, 80), frame(0, 260, 400, 80)];
+  const texts = [frame(16, 270, 100, 20), frame(16, 300, 100, 20)];
+  expect(cut(300, 120, [...rows, ...texts])).toBe(260);
+  expect(cut(340, 120, [...rows, ...texts])).toBe(340);
+  expect(cut(250, 190, rows)).toBeUndefined();
 });
 
-test('a page past the limit is captured from its top, or around the screen when scrolled deep, and ends between rows', () => {
-	const rows = Array.from({ length: 300 }, (_, index) => frame(0, index * 75, 400, 75));
-	expect(captureRange(3000, 800, 1500, 8000, rows)).toEqual({ top: 0, height: 3000 });
-	expect(captureRange(20_000, 800, 3000, 8000, rows)).toEqual({ top: 0, height: 7950 });
-	expect(captureRange(20_000, 800, 9000, 8000, rows)).toEqual({ top: 5400, height: 7950 });
-	expect(captureRange(20_000, 800, 19_200, 8000, rows)).toEqual({ top: 12_000, height: 8000 });
+test("a page past the limit is captured from its top, or around the screen when scrolled deep, and ends between rows", () => {
+  const rows = Array.from({ length: 300 }, (_, index) => frame(0, index * 75, 400, 75));
+  expect(captureRange(3000, 800, 1500, 8000, rows)).toEqual({ top: 0, height: 3000 });
+  expect(captureRange(20_000, 800, 3000, 8000, rows)).toEqual({ top: 0, height: 7950 });
+  expect(captureRange(20_000, 800, 9000, 8000, rows)).toEqual({ top: 5400, height: 7950 });
+  expect(captureRange(20_000, 800, 19_200, 8000, rows)).toEqual({ top: 12_000, height: 8000 });
 });

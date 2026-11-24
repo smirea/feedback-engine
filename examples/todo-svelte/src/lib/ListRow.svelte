@@ -1,55 +1,59 @@
 <script lang="ts">
-	import { feedback } from '@stefan.inc/feedback-engine/svelte';
-	import { remaining, type TodoList } from './store.svelte';
+  import { feedback } from "@stefan.inc/feedback-engine/svelte";
+  import { remaining, type TodoList } from "./store.svelte";
 
-	let { list }: { list: TodoList } = $props();
+  let { list }: { list: TodoList } = $props();
 </script>
 
 <span
-	class="row"
-	{@attach feedback('ListRow', () => ({ name: list.name, remaining: remaining(list), total: list.items.length }))}
+  class="row"
+  {@attach feedback("ListRow", () => ({
+    name: list.name,
+    remaining: remaining(list),
+    total: list.items.length,
+  }))}
 >
-	<span class="dot" data-color={list.color} aria-hidden="true"></span>
-	<span class="name">{list.name}</span>
-	<span class="count">{remaining(list)}</span>
+  <span class="dot" data-color={list.color} aria-hidden="true"></span>
+  <span class="name">{list.name}</span>
+  <span class="count">{remaining(list)}</span>
 </span>
 
 <style>
-	.row {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 0.75rem 1rem;
-	}
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+  }
 
-	.dot {
-		width: 2rem;
-		height: 2rem;
-		border-radius: 50%;
-		background: var(--app-muted);
-	}
+  .dot {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    background: var(--app-muted);
+  }
 
-	.dot[data-color='blue'] {
-		background: #3b82f6;
-	}
+  .dot[data-color="blue"] {
+    background: #3b82f6;
+  }
 
-	.dot[data-color='green'] {
-		background: #22c55e;
-	}
+  .dot[data-color="green"] {
+    background: #22c55e;
+  }
 
-	.dot[data-color='orange'] {
-		background: #f97316;
-	}
+  .dot[data-color="orange"] {
+    background: #f97316;
+  }
 
-	.dot[data-color='purple'] {
-		background: #a855f7;
-	}
+  .dot[data-color="purple"] {
+    background: #a855f7;
+  }
 
-	.name {
-		flex: 1;
-	}
+  .name {
+    flex: 1;
+  }
 
-	.count {
-		color: var(--app-muted);
-	}
+  .count {
+    color: var(--app-muted);
+  }
 </style>

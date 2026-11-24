@@ -1,13 +1,13 @@
-import type { SavedWebhook } from '../core/savedWebhooks.ts';
-import type { ProcrastimateConfig } from '../dom/procrastimate.ts';
-import { procrastimateIcon } from '../dom/procrastimate-icon.ts';
-import { githubIcon, type Delivery, type Webhook } from '../dom/webhook.ts';
+import type { SavedWebhook } from "../core/savedWebhooks.ts";
+import type { ProcrastimateConfig } from "../dom/procrastimate.ts";
+import { procrastimateIcon } from "../dom/procrastimate-icon.ts";
+import { githubIcon, type Delivery, type Webhook } from "../dom/webhook.ts";
 
 /** A server the feedback can be posted to, as the Share menu lists it before the exports. */
 export type Destination = { name: string; image?: string } & (
-	| { kind: 'procrastimate' }
-	| { kind: 'webhook'; delivery: Delivery }
-	| { kind: 'saved'; saved: SavedWebhook }
+  | { kind: "procrastimate" }
+  | { kind: "webhook"; delivery: Delivery }
+  | { kind: "saved"; saved: SavedWebhook }
 );
 
 /**
@@ -15,25 +15,25 @@ export type Destination = { name: string; image?: string } & (
  * saved in the editor in the order they were added.
  */
 export function destinations(options: {
-	procrastimate?: ProcrastimateConfig;
-	webhooks?: Webhook[];
-	saved?: SavedWebhook[];
+  procrastimate?: ProcrastimateConfig;
+  webhooks?: Webhook[];
+  saved?: SavedWebhook[];
 }): Destination[] {
-	const webhooks = [...(options.webhooks ?? [])].sort(
-		(a, b) => Number(b.image === githubIcon) - Number(a.image === githubIcon),
-	);
-	return [
-		...(options.procrastimate
-			? [{ kind: 'procrastimate' as const, name: 'ProcrastiMate', image: procrastimateIcon }]
-			: []),
-		...webhooks.map(webhook => ({
-			kind: 'webhook' as const,
-			name: webhook.name,
-			image: webhook.image,
-			delivery: { webhook, contents: { kind: 'report' as const } },
-		})),
-		...(options.saved ?? []).map(saved => ({ kind: 'saved' as const, name: saved.name, saved })),
-	];
+  const webhooks = [...(options.webhooks ?? [])].sort(
+    (a, b) => Number(b.image === githubIcon) - Number(a.image === githubIcon),
+  );
+  return [
+    ...(options.procrastimate
+      ? [{ kind: "procrastimate" as const, name: "ProcrastiMate", image: procrastimateIcon }]
+      : []),
+    ...webhooks.map((webhook) => ({
+      kind: "webhook" as const,
+      name: webhook.name,
+      image: webhook.image,
+      delivery: { webhook, contents: { kind: "report" as const } },
+    })),
+    ...(options.saved ?? []).map((saved) => ({ kind: "saved" as const, name: saved.name, saved })),
+  ];
 }
 
 /**
@@ -41,7 +41,10 @@ export function destinations(options: {
  * order, or the first two without it. A name with no destination is skipped, since a webhook can join the list after
  * setup.
  */
-export function pinnedDestinations(all: Destination[], pinned: string[] | undefined): Destination[] {
-	if (!pinned) return all.slice(0, 2);
-	return pinned.flatMap(name => all.filter(destination => destination.name === name));
+export function pinnedDestinations(
+  all: Destination[],
+  pinned: string[] | undefined,
+): Destination[] {
+  if (!pinned) return all.slice(0, 2);
+  return pinned.flatMap((name) => all.filter((destination) => destination.name === name));
 }

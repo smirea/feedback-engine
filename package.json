@@ -1,43 +1,43 @@
 {
-	"name": "feedback-engine",
-	"private": true,
-	"license": "MIT",
-	"workspaces": [
-		"packages/web",
-		"examples/*"
-	],
-	"type": "module",
-	"scripts": {
-		"build": "bun --filter 'todo-*' build",
-		"dev": "bun --filter todo-svelte dev --host 127.0.0.1",
-		"dev:react": "bun --filter todo-react dev --host 127.0.0.1",
-		"env:generate": "env-manager gen --local",
-		"hooks": "lefthook install",
-		"lint": "oxlint --fix && oxfmt --write .",
-		"lint:ci": "oxlint && oxfmt --check . && ./scripts/check-features.ts && ./scripts/check-package.ts",
-		"preview": "bun --filter todo-svelte preview --host 127.0.0.1",
-		"preview:react": "bun --filter todo-react preview --host 127.0.0.1",
-		"test": "bun test --pass-with-no-tests",
-		"typecheck": "bun --filter 'todo-*' check && svelte-check-native --tsconfig ./packages/web/tsconfig.json && bun check",
-		"test:web": "bun test --timeout 120000 ./packages/web/e2e/scene.e2e.ts ./packages/web/e2e/consumer.e2e.ts",
-		"worktree:setup": "bun run hooks"
-	},
-	"devDependencies": {
-		"@changesets/cli": "3.0.3",
-		"@types/bun": "^1.4.4",
-		"@types/node": "^26.6.5",
-		"@types/pngjs": "^6.0.5",
-		"lefthook": "^2.2.2",
-		"oxfmt": "^0.79.0",
-		"oxlint": "^1.94.0",
-		"pixelmatch": "^8.0.0",
-		"playwright": "1.65.1",
-		"pngjs": "^7.0.0",
-		"svelte": "^5.57.3",
-		"svelte-check-native": "^1.12.1",
-		"typescript": "^7.0.2",
-		"vite": "^8.3.8",
-		"zod": "^4.6.6"
-	},
-	"packageManager": "bun@1.4.4"
+  "name": "feedback-engine",
+  "private": true,
+  "license": "MIT",
+  "workspaces": [
+    "packages/web",
+    "examples/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "bun --filter 'todo-*' build",
+    "dev": "bun --filter todo-svelte dev --host 127.0.0.1",
+    "dev:react": "bun --filter todo-react dev --host 127.0.0.1",
+    "env:generate": "env-manager gen --local",
+    "hooks": "lefthook install",
+    "lint": "oxlint --fix",
+    "lint:ci": "oxlint && ./scripts/check-features.ts && ./scripts/check-package.ts",
+    "preview": "bun --filter todo-svelte preview --host 127.0.0.1",
+    "preview:react": "bun --filter todo-react preview --host 127.0.0.1",
+    "postinstall": "[ ! -d .git ] || lefthook install",
+    "test": "bun test --pass-with-no-tests",
+    "typecheck": "bun --filter 'todo-*' check && svelte-check-native --tsconfig ./packages/web/tsconfig.json && bun check",
+    "test:web": "bun test --timeout 120000 ./packages/web/e2e/scene.e2e.ts ./packages/web/e2e/consumer.e2e.ts",
+    "worktree:setup": "bun run hooks"
+  },
+  "devDependencies": {
+    "@changesets/cli": "3.0.3",
+    "@types/bun": "^1.4.5",
+    "@types/node": "^26.6.6",
+    "@types/pngjs": "^6.0.5",
+    "lefthook": "^2.2.2",
+    "oxlint": "^1.95.0",
+    "pixelmatch": "^8.0.0",
+    "playwright": "1.65.1",
+    "pngjs": "^7.0.0",
+    "svelte": "^5.57.3",
+    "svelte-check-native": "^1.12.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "zod": "^4.6.6"
+  },
+  "packageManager": "bun@1.4.4"
 }

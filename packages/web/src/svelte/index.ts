@@ -1,23 +1,23 @@
-import type { Attachment } from 'svelte/attachments';
-import { tags } from '../dom/tags.ts';
+import type { Attachment } from "svelte/attachments";
+import { tags } from "../dom/tags.ts";
 
-export type { FeedbackReport, FeedbackRepresentable } from '../core/index.ts';
-export type { FeedbackFile } from '../dom/files.ts';
-export { githubIcon, type Webhook, type WebhookValues } from '../dom/webhook.ts';
-export type { FeedbackOptions } from '../editor/engine.ts';
-export { setupFeedbackEngine, type FeedbackEngine } from '../editor/setup.ts';
+export type { FeedbackReport, FeedbackRepresentable } from "../core/index.ts";
+export type { FeedbackFile } from "../dom/files.ts";
+export { githubIcon, type Webhook, type WebhookValues } from "../dom/webhook.ts";
+export type { FeedbackOptions } from "../editor/engine.ts";
+export { setupFeedbackEngine, type FeedbackEngine } from "../editor/setup.ts";
 
 type Named = (name?: string, data?: () => unknown) => Attachment<Element>;
 
 function tagged(defaults: { name?: string; source?: string; data?: () => unknown }): Named {
-	return (name, data) => element => {
-		tags.set(element, {
-			name: name ?? defaults.name ?? 'Component',
-			data: data ?? defaults.data,
-			source: defaults.source,
-		});
-		return () => tags.delete(element);
-	};
+  return (name, data) => (element) => {
+    tags.set(element, {
+      name: name ?? defaults.name ?? "Component",
+      data: data ?? defaults.data,
+      source: defaults.source,
+    });
+    return () => tags.delete(element);
+  };
 }
 
 /**
@@ -26,8 +26,8 @@ function tagged(defaults: { name?: string; source?: string; data?: () => unknown
  * arguments also reports the component's props and state.
  */
 export const feedback: Named & {
-	/** What the Vite plugin rewrites `feedback(` into. Not for app code. */
-	at(source: string, name: string, data?: () => unknown): Named;
+  /** What the Vite plugin rewrites `feedback(` into. Not for app code. */
+  at(source: string, name: string, data?: () => unknown): Named;
 } = Object.assign(tagged({}), {
-	at: (source: string, name: string, data?: () => unknown) => tagged({ source, name, data }),
+  at: (source: string, name: string, data?: () => unknown) => tagged({ source, name, data }),
 });

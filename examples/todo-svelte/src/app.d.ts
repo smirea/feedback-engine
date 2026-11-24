@@ -1,3 +1,3 @@
 declare global {
-	namespace App {}
+  namespace App {}
 }

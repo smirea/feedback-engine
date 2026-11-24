@@ -1,68 +1,68 @@
 <svelte:options css="injected" />
 
 <script lang="ts">
-	import type { Problem } from '../core/index.ts';
+  import type { Problem } from "../core/index.ts";
 
-	let { problem, open = false }: { problem: Problem; open?: boolean } = $props();
+  let { problem, open = false }: { problem: Problem; open?: boolean } = $props();
 </script>
 
 <div class="problem" role="alert">
-	<p class="message">{problem.message}</p>
-	<!-- Above the details, which can fill a sheet when open: the copy must not need a scroll. -->
-	<button
-		type="button"
-		onclick={async event => {
-			const button = event.currentTarget;
-			await navigator.clipboard.writeText(problem.text);
-			button.textContent = 'Copied';
-			setTimeout(() => (button.textContent = 'Copy Error'), 2000);
-		}}>Copy Error</button
-	>
-	{#if problem.facts.length}
-		<details {open}>
-			<summary>Details</summary>
-			<pre>{problem.details}</pre>
-		</details>
-	{/if}
+  <p class="message">{problem.message}</p>
+  <!-- Above the details, which can fill a sheet when open: the copy must not need a scroll. -->
+  <button
+    type="button"
+    onclick={async (event) => {
+      const button = event.currentTarget;
+      await navigator.clipboard.writeText(problem.text);
+      button.textContent = "Copied";
+      setTimeout(() => (button.textContent = "Copy Error"), 2000);
+    }}>Copy Error</button
+  >
+  {#if problem.facts.length}
+    <details {open}>
+      <summary>Details</summary>
+      <pre>{problem.details}</pre>
+    </details>
+  {/if}
 </div>
 
 <style>
-	.problem {
-		display: grid;
-		justify-items: start;
-		gap: 6px;
-		border-radius: 10px;
-		padding: 10px 12px;
-		background: #2c2c2e;
-	}
+  .problem {
+    display: grid;
+    justify-items: start;
+    gap: 6px;
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: #2c2c2e;
+  }
 
-	.message {
-		margin: 0;
-		color: #ff453a;
-	}
+  .message {
+    margin: 0;
+    color: #ff453a;
+  }
 
-	details {
-		width: 100%;
-	}
+  details {
+    width: 100%;
+  }
 
-	summary {
-		color: #aeaeb2;
-		cursor: pointer;
-	}
+  summary {
+    color: #aeaeb2;
+    cursor: pointer;
+  }
 
-	pre {
-		margin: 6px 0 0;
-		font-size: 12px;
-		white-space: pre-wrap;
-		overflow-wrap: anywhere;
-		user-select: text;
-	}
+  pre {
+    margin: 6px 0 0;
+    font-size: 12px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    user-select: text;
+  }
 
-	button {
-		border: 0;
-		background: none;
-		color: #0a84ff;
-		font: inherit;
-		cursor: pointer;
-	}
+  button {
+    border: 0;
+    background: none;
+    color: #0a84ff;
+    font: inherit;
+    cursor: pointer;
+  }
 </style>

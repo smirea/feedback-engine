@@ -1,7 +1,7 @@
-import { setupFeedbackEngine } from '@stefan.inc/feedback-engine/svelte';
-import { mount } from 'svelte';
-import App from './App.svelte';
-import './capture.js';
+import { setupFeedbackEngine } from "@stefan.inc/feedback-engine/svelte";
+import { mount } from "svelte";
+import App from "./App.svelte";
+import "./capture.js";
 
-setupFeedbackEngine({ app: 'Consumer', shortcut: 'Alt+Shift+F' });
-mount(App, { target: document.getElementById('app') });
+setupFeedbackEngine({ app: "Consumer", shortcut: "Alt+Shift+F" });
+mount(App, { target: document.getElementById("app") });

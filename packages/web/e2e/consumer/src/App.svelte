@@ -1,10 +1,10 @@
 <script>
-	import { feedback } from '@stefan.inc/feedback-engine/svelte';
+  import { feedback } from "@stefan.inc/feedback-engine/svelte";
 
-	let count = $state(3);
+  let count = $state(3);
 </script>
 
 <main {@attach feedback()}>
-	<h1>Consumer</h1>
-	<button onclick={() => (count += 1)}>Count {count}</button>
+  <h1>Consumer</h1>
+  <button onclick={() => (count += 1)}>Count {count}</button>
 </main>
