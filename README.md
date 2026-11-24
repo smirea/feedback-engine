@@ -216,7 +216,7 @@ swift test    # the core's rules: tree building, hit-testing, stitching, the JSO
 ```
 
 ```sh
-bun run lint        # oxlint and oxfmt
+bun run lint        # oxlint
 bun run lint:ci     # the same without fixes, then the checks on spec/features.md and the packed package's files
 bun run typecheck   # each example app, svelte-check for the web package, then the repository's TypeScript
 bun test            # the web core's rules, the Vite plugin, webhooks, and the shared fixture

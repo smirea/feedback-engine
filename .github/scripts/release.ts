@@ -18,7 +18,6 @@ if (pending.length) {
 	await $`bunx changeset version`;
 	// `changeset version` leaves the workspace's old version in bun.lock.
 	await $`bun install`;
-	await $`bunx oxfmt ${manifest}`;
 }
 
 const { name, version } = await Bun.file(manifest).json();
